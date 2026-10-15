@@ -237,3 +237,36 @@ export async function officialDomains(): Promise<OfficialDomain[]> {
 
 export const ageDays = (registeredAt: Date | null, now = new Date()) =>
   registeredAt ? Math.floor((now.getTime() - registeredAt.getTime()) / 86_400_000) : null;
+
+export type DomainReport = {
+  host: string;
+  domain: string;
+  facts: DomainFacts;
+  ageDays: number | null;
+  freeMail: boolean;
+  disposable: boolean;
+  atsSender: boolean;
+  lookalike: Lookalike | null;
+  officialFor: string[];
+};
+
+/** Every fact about a sender host. Returns null when it has no registrable domain. */
+export async function describeDomain(input: string, now = new Date(), opts?: FetchOptions): Promise<DomainReport | null> {
+  const host = normalizeHost(input);
+  const domain = host ? registrableDomain(host) : null;
+  if (!host || !domain) return null;
+  const [facts, officials] = await Promise.all([lookupDomain(domain, now, opts), officialDomains()]);
+  const officialFor = [...new Set(officials.filter((o) => o.domain === domain || o.domain === host).map((o) => o.slug))];
+  const atsSender = isAtsSender(host);
+  return {
+    host,
+    domain,
+    facts,
+    ageDays: ageDays(facts.registeredAt, now),
+    freeMail: isFreeMail(domain) || isFreeMail(host),
+    disposable: isDisposable(domain) || isDisposable(host),
+    atsSender,
+    lookalike: officialFor.length || atsSender ? null : findLookalike(domain, officials),
+    officialFor,
+  };
+}

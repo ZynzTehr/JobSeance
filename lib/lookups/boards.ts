@@ -182,3 +182,22 @@ export async function fetchBoardJob(ref: BoardRef, jobId: string, opts?: FetchOp
     throw error;
   }
 }
+
+/**
+ * Whether the board itself exists. Greenhouse answers a wrong token and a removed
+ * job with the same 404, so a missing job only counts once the board is confirmed.
+ * Throws on network errors and timeouts.
+ */
+export async function boardExists(ref: BoardRef, opts?: FetchOptions): Promise<boolean> {
+  const b = encodeURIComponent(ref.board);
+  try {
+    if (fixturesEnabled()) await readFixture(ref);
+    else if (ref.ats === "GREENHOUSE") await getJson(`https://boards-api.greenhouse.io/v1/boards/${b}`, opts);
+    else if (ref.ats === "LEVER") await getJson(`${boardUrl(ref)}&limit=1`, opts);
+    else await getJson(boardUrl(ref), opts);
+    return true;
+  } catch (error) {
+    if (error instanceof UpstreamError && error.kind === "not_found") return false;
+    throw error;
+  }
+}
