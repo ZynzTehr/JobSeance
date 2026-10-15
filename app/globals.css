@@ -1,26 +1,63 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * JobSeance design tokens. Direction: professional, modern, immersive.
+ * A dark room lit by one lantern. Risk-band colors are reserved for scores
+ * and never reused as decoration, so color always carries meaning.
+ */
+@theme {
+  --color-ink: #121a2f;
+  --color-ink-raised: #1a2440;
+  --color-ink-line: #2a3557;
+  --color-vellum: #ece8df;
+  --color-mist: #8e97af;
+  --color-lantern: #a9bcff;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-band-low: #6fbf9a;
+  --color-band-caution: #e8b04b;
+  --color-band-high: #e5675c;
+  --color-band-none: #7c8496;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-plex), ui-sans-serif, system-ui, sans-serif;
+
+  --animate-materialize: materialize 1.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+
+  @keyframes materialize {
+    from {
+      opacity: 0;
+      filter: blur(14px);
+      letter-spacing: 0.04em;
+    }
+    to {
+      opacity: 1;
+      filter: blur(0);
+      letter-spacing: -0.02em;
+    }
   }
 }
 
+html {
+  color-scheme: dark;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-ink);
+  color: var(--color-vellum);
+  font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-lantern);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
