@@ -166,7 +166,9 @@ export default function AnimatedAuthForm({ onAuthenticate }: Props) {
                 autoComplete="username"
                 placeholder=" "
                 required
-                pattern=".*\S.*"
+                maxLength={20}
+                pattern="[A-Za-z0-9_]{3,20}"
+                title="3–20 letters, numbers or underscores"
               />
               <span>Username</span>
               <Icon name="user" />
