@@ -1,0 +1,1149 @@
+{
+  "info": {
+    "name": "JobSeance API",
+    "description": "Phase 5 CRUD collection. Logs in once per seeded user (demo, demo2), signs up nobody, and cleans up after itself, so it can run twice in a row.\n\nRun: npx newman@6.2.2 run postman/jobseance.postman_collection.json --env-var baseUrl=<URL> --env-var vercelBypass=<secret> [--env-var demoPassword=<seeded password>]",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const bypass = pm.variables.get(\"vercelBypass\");",
+          "if (bypass) pm.request.headers.upsert({ key: \"x-vercel-protection-bypass\", value: bypass });"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "vercelBypass",
+      "value": ""
+    },
+    {
+      "key": "demoPassword",
+      "value": "seance-demo-password-dev"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "token2",
+      "value": ""
+    },
+    {
+      "key": "runId",
+      "value": ""
+    },
+    {
+      "key": "demoReportId",
+      "value": ""
+    },
+    {
+      "key": "newReportId",
+      "value": ""
+    },
+    {
+      "key": "checkId",
+      "value": ""
+    },
+    {
+      "key": "scamReportId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "0 · Setup",
+      "item": [
+        {
+          "name": "Health",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/health"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"db ok\", () => pm.expect(pm.response.json().db).to.eql(\"ok\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Log in as demo",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"demo\",\n  \"password\": \"{{demoPassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"runId\", Date.now().toString(36));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"token\", pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Log in as demo2",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"demo2\",\n  \"password\": \"{{demoPassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"token2\", pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Me (Bearer)",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/me"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"is demo\", () => pm.expect(pm.response.json().user.username).to.eql(\"demo\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1 · Companies (public)",
+      "item": [
+        {
+          "name": "List companies ?q=quiet",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/companies?q=quiet"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"finds Quietwater\", () => pm.expect(pm.response.json().companies.map(c => c.slug)).to.include(\"quietwater\"));",
+                  "pm.test(\"no ghost or scam band next to a company\", () => {",
+                  "  const text = pm.response.text();",
+                  "  pm.expect(text).to.not.match(/ghostBand|scamBand|ghostScore|scamScore/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Company detail",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/companies/quietwater"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"has community summary\", () => pm.expect(pm.response.json().community).to.have.property(\"reports\"));",
+                  "pm.test(\"no ghost or scam band next to a company\", () => {",
+                  "  const text = pm.response.text();",
+                  "  pm.expect(text).to.not.match(/ghostBand|scamBand|ghostScore|scamScore/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unknown company",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/companies/no-such-company"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add company as non-admin",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token2}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/companies",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Co\",\n  \"officialDomains\": [\n    \"postman.example\"\n  ],\n  \"ats\": \"NONE\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add company, missing board token",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/companies",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Co\",\n  \"officialDomains\": [\n    \"postman.example\"\n  ],\n  \"ats\": \"GREENHOUSE\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"names the field\", () => pm.expect(pm.response.json().error.fields).to.have.property(\"atsBoard\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2 · Outcome reports",
+      "item": [
+        {
+          "name": "Community aggregate",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/reports?company=quietwater"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"aggregate only\", () => {",
+                  "  pm.expect(body.shown).to.eql(true);",
+                  "  pm.expect(pm.response.text()).to.not.match(/roleTitle|userId|appliedAt|note/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "My reports without a token",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/reports/mine"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "My reports",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/reports/mine"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "const mine = pm.response.json().reports.find(r => r.company.slug === \"quietwater\");",
+                  "pm.test(\"has the seeded Quietwater report\", () => pm.expect(mine).to.be.an(\"object\"));",
+                  "pm.collectionVariables.set(\"demoReportId\", mine.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update status: Applied → No response",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/reports/{{demoReportId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"outcome\": \"NO_RESPONSE\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"updated\", () => pm.expect(pm.response.json().report.outcome).to.eql(\"NO_RESPONSE\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Other user edits it (403)",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token2}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/reports/{{demoReportId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"outcome\": \"HIRED\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"error code forbidden\", () => pm.expect(pm.response.json().error.code).to.eql(\"forbidden\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Put status back to Applied",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/reports/{{demoReportId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"outcome\": \"APPLIED\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"restored\", () => pm.expect(pm.response.json().report.outcome).to.eql(\"APPLIED\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Log an outcome",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/reports",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"company\": \"bramblecloud\",\n  \"roleTitle\": \"Postman Analyst {{runId}}\",\n  \"appliedAt\": \"2026-09-01\",\n  \"outcome\": \"NO_RESPONSE\",\n  \"firstHand\": true\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"newReportId\", pm.response.json().report.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Same role again (409)",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/reports",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"company\": \"bramblecloud\",\n  \"roleTitle\": \"  postman   analyst {{runId}} \",\n  \"appliedAt\": \"2026-09-01\",\n  \"firstHand\": true\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"error code conflict\", () => pm.expect(pm.response.json().error.code).to.eql(\"conflict\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Non-JSON body (415)",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/reports",
+            "body": {
+              "mode": "raw",
+              "raw": "company=bramblecloud"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 415\", () => pm.response.to.have.status(415));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Missing first-hand confirmation (400)",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/reports",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"company\": \"bramblecloud\",\n  \"roleTitle\": \"Another\",\n  \"appliedAt\": \"2026-09-01\",\n  \"firstHand\": false\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"names the field\", () => pm.expect(pm.response.json().error.fields).to.have.property(\"firstHand\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Other user deletes it (403)",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token2}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/reports/{{newReportId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete my report",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/reports/{{newReportId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Deleted report is gone (404)",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/reports/{{newReportId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3 · Checks",
+      "item": [
+        {
+          "name": "Scan a recruiter message",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/checks",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"message\",\n  \"text\": \"Congratulations! You are hired. Buy equipment with the check we send and reply on Telegram.\",\n  \"senderEmail\": \"hr@postman-{{runId}}.example\",\n  \"channel\": \"EMAIL\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"checkId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Save it",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/checks/{{checkId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"saved\": true\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"saved\", () => pm.expect(pm.response.json().check.saved).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Other user saves it (403)",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token2}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/checks/{{checkId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"saved\": false\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "My saved checks",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/checks"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"includes it\", () => pm.expect(pm.response.json().checks.map(c => c.id)).to.include(pm.collectionVariables.get(\"checkId\")));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete it",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/checks/{{checkId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4 · Scam reports",
+      "item": [
+        {
+          "name": "Report a scam message",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token2}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/scam-reports",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"senderEmail\": \"recruiter@postman-{{runId}}.example\",\n  \"channel\": \"EMAIL\",\n  \"text\": \"You're hired! Send $200 in gift cards for onboarding. Call 555 123 4567.\",\n  \"shareExcerpt\": true\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "const r = pm.response.json().scamReport;",
+                  "pm.test(\"stores derived fields and a redacted excerpt only\", () => {",
+                  "  pm.expect(r).to.not.have.property(\"text\");",
+                  "  pm.expect(r.redactedExcerpt).to.include(\"[phone]\");",
+                  "});",
+                  "pm.collectionVariables.set(\"scamReportId\", r.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Same sender again (409)",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token2}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/scam-reports",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"senderEmail\": \"other@postman-{{runId}}.example\",\n  \"channel\": \"TEXT\",\n  \"text\": \"Again\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reporter count for the domain",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/scam-reports?domain=postman-{{runId}}.example"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"one reporter\", () => pm.expect(pm.response.json().reporters).to.eql(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Other user edits it (403)",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/scam-reports/{{scamReportId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"channel\": \"TEXT\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Edit my scam report",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token2}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/scam-reports/{{scamReportId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"channel\": \"TEXT\",\n  \"removeExcerpt\": true\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"excerpt removed\", () => pm.expect(pm.response.json().scamReport.redactedExcerpt).to.eql(null));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete my scam report",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token2}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/scam-reports/{{scamReportId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

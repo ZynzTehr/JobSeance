@@ -1,11 +1,54 @@
 import type { NextRequest } from "next/server";
+import { handle, reader } from "@/lib/api";
 import { jsonError, requireUser } from "@/lib/auth/require-user";
 import { checkRequest, clientIp, rateLimit, tooManyRequests } from "@/lib/http";
 import { CheckError, checkSchema, runCheck } from "@/lib/checks/run";
+import { getDb } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 const MAX_BODY_BYTES = 100_000;
+
+/** GET /api/v1/checks: my saved checks, newest first. */
+export const GET = handle(async (request: NextRequest) => {
+  const user = await reader(request);
+  const checks = await getDb().check.findMany({
+    where: { userId: user.id, saved: true },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+    select: {
+      id: true,
+      inputKind: true,
+      ghostScore: true,
+      ghostBand: true,
+      scamScore: true,
+      scamBand: true,
+      senderDomain: true,
+      signals: true,
+      configVersion: true,
+      saved: true,
+      createdAt: true,
+      companyId: true,
+      postingId: true,
+    },
+  });
+  // Check stores plain ids (no relations), so label them in two queries.
+  const db = getDb();
+  const ids = (key: "companyId" | "postingId") => [...new Set(checks.map((c) => c[key]).filter((v): v is string => !!v))];
+  const [companies, postings] = await Promise.all([
+    db.company.findMany({ where: { id: { in: ids("companyId") } }, select: { id: true, slug: true, name: true } }),
+    db.posting.findMany({ where: { id: { in: ids("postingId") } }, select: { id: true, title: true, url: true } }),
+  ]);
+  const company = new Map(companies.map(({ id, ...c }) => [id, c]));
+  const posting = new Map(postings.map(({ id, ...p }) => [id, p]));
+  return Response.json({
+    checks: checks.map(({ companyId, postingId, ...c }) => ({
+      ...c,
+      company: (companyId && company.get(companyId)) || null,
+      posting: (postingId && posting.get(postingId)) || null,
+    })),
+  });
+});
 
 /** POST /api/v1/checks: the scanner. Public, 60/min per IP (shared with domain lookups). */
 export async function POST(request: NextRequest) {
