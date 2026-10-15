@@ -54,7 +54,7 @@ Built with Next.js 16.4 (App Router), Prisma 7.10, Neon Postgres, Passport.js an
 | --- | --- | --- | --- |
 | Local | http://localhost:3000 | `dev` | Email + password, Google, GitHub |
 | Preview (one per pull request) | Vercel preview URL | `dev` | Email + password only |
-| Production | https://jobseance.vercel.app | `main` | Email + password, Google, GitHub |
+| Production | https://job-seance.vercel.app | `main` | Username + password, Google, GitHub |
 
 Set each variable per environment in Vercel. On previews, leave `APP_URL` unset; the app falls back to `https://$VERCEL_URL`.
 

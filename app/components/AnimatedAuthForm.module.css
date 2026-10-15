@@ -10,7 +10,7 @@
   padding: 32px 20px;
   background: var(--ink);
   color: var(--vellum);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body);
 }
 
 .stage *,
@@ -167,7 +167,53 @@
 }
 
 .switch button:hover { text-decoration: underline; }
-.stage button:focus-visible { outline: 2px solid var(--lantern); outline-offset: 4px; }
+.stage button:focus-visible,
+.stage a:focus-visible { outline: 2px solid var(--lantern); outline-offset: 4px; }
+
+/* Social sign-in: room for one more row only when a provider is configured. */
+.withOAuth { height: 540px; }
+.withOAuth .switch { margin-top: 16px; }
+
+.oauth { margin: 16px 0 0; }
+
+.oauthDivider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+  color: var(--mist);
+  font-size: 12px;
+}
+
+.oauthDivider::before,
+.oauthDivider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #a9bcff40;
+}
+
+.oauthRow { display: flex; gap: 10px; }
+
+.oauthButton {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  border: 1px solid #a9bcff55;
+  border-radius: 999px;
+  background: #ffffff0d;
+  color: var(--vellum);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 200ms, border-color 200ms;
+}
+
+.oauthButton:hover { border-color: #c4d1ff; background: #ffffff1a; }
+.oauthButton svg { width: 16px; height: 16px; flex: none; }
 
 .welcome {
   position: absolute;
@@ -196,6 +242,7 @@
 .form fieldset > :nth-child(5) { transition-delay: 350ms; }
 .form fieldset > :nth-child(6) { transition-delay: 400ms; }
 .form fieldset > :nth-child(7) { transition-delay: 450ms; }
+.form fieldset > :nth-child(8) { transition-delay: 500ms; }
 .welcome p { transition-delay: 300ms; }
 
 .signupForm,
@@ -239,6 +286,7 @@
 .signup .signupForm fieldset > :nth-child(5) { transition-delay: 400ms; }
 .signup .signupForm fieldset > :nth-child(6) { transition-delay: 450ms; }
 .signup .signupForm fieldset > :nth-child(7) { transition-delay: 500ms; }
+.signup .signupForm fieldset > :nth-child(8) { transition-delay: 550ms; }
 .signup .signupWelcome p { transition-delay: 350ms; }
 
 .status {
@@ -263,6 +311,7 @@
 @media (max-width: 640px) {
   .stage { padding: 28px 16px; }
   .card { max-width: 420px; height: 590px; }
+  .withOAuth { height: 660px; }
   .form { top: 150px; width: 100%; height: calc(100% - 150px); padding: 30px 32px; }
   .welcome { top: 0; width: 100%; height: 150px; padding: 24px 32px; text-align: center; }
   .welcome h2 { font-size: 25px; margin-bottom: 8px; }
