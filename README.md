@@ -64,6 +64,14 @@ Set each variable per environment in Vercel. On previews, leave `APP_URL` unset;
 - Prisma reads `prisma7.config.ts`. Do not add a second `prisma.config.ts`.
 - Cache Components are off.
 
+## Styling
+
+- **Tailwind is for layout only:** display, flex and grid, gap, padding and margin, width and height, position, overflow, and breakpoints.
+- **Custom CSS is for everything visual:** color, typography, borders, backgrounds, shadows, effects and motion. Design tokens and base styles are in `app/globals.css`. Each component's visual styles are in a CSS Module next to it, for example `app/page.module.css`.
+- Keep layout properties out of custom CSS. It is unlayered, so it would override Tailwind's utilities.
+- Put `@keyframes` in the CSS Module that uses them. CSS Modules rename animations, so a module cannot reach a global `@keyframes`.
+- `next.config.ts` runs the Tailwind loader on every `.css` file except `*.module.css`. Without that exclusion, CSS Modules lose their class names.
+
 ## Contributing
 
 Work happens on one branch and one pull request per build phase (`phase-0-setup` to `phase-8-polish`). Each pull request lists what was built, how to test it, and the gate checklist for that phase.
