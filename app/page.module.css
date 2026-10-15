@@ -1,0 +1,69 @@
+/* Visual styles for the starter page. Layout lives in Tailwind classes in page.tsx. */
+
+@keyframes materialize {
+  from {
+    opacity: 0;
+    filter: blur(14px);
+    letter-spacing: 0.04em;
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    letter-spacing: -0.02em;
+  }
+}
+
+.glow {
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--lantern) 15%, transparent);
+  filter: blur(120px);
+}
+
+.wordmark {
+  font-family: var(--font-heading);
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.headline {
+  font-family: var(--font-heading);
+  font-size: 3.75rem;
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  font-variation-settings: "opsz" 96, "wdth" 80;
+  animation: materialize 1.6s var(--ease-out) both;
+}
+
+@media (min-width: 40rem) {
+  .headline {
+    font-size: 6rem;
+  }
+}
+
+.lede {
+  font-size: 1.125rem;
+  line-height: 1.65;
+  color: color-mix(in srgb, var(--vellum) 85%, transparent);
+}
+
+.checks {
+  border-top: 1px solid var(--ink-line);
+}
+
+.term {
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.description {
+  line-height: 1.65;
+  color: var(--mist);
+}
+
+.footer {
+  font-size: 0.875rem;
+  color: var(--mist);
+}
