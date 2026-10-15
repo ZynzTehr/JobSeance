@@ -1,13 +1,225 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// Source of truth: SPEC.md "Data model". Keep the two in sync.
 
 generator client {
   provider = "prisma-client"
   output   = "../app/generated/prisma"
 }
-
 datasource db {
   provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+enum Provider {
+  GOOGLE
+  GITHUB
+}
+enum Ats {
+  GREENHOUSE
+  LEVER
+  ASHBY
+  NONE
+}
+enum PostingState {
+  LIVE
+  NOT_FOUND
+  UNKNOWN
+}
+enum InputKind {
+  URL
+  COMPANY_ROLE
+  MESSAGE
+}
+enum Band {
+  LOW
+  CAUTION
+  HIGH
+  NOT_ENOUGH_DATA
+}
+enum Outcome {
+  APPLIED
+  INTERVIEWING
+  NO_RESPONSE
+  REJECTED
+  ROLE_CLOSED
+  OFFER
+  HIRED
+  WITHDREW
+}
+enum Stage {
+  APPLIED
+  INTERVIEWED
+}
+enum Channel {
+  EMAIL
+  TEXT
+  WHATSAPP
+  TELEGRAM
+  LINKEDIN
+  OTHER
+}
+enum Visibility {
+  VISIBLE
+  HIDDEN_PENDING_REVIEW
+  REMOVED
+}
+enum RdapStatus {
+  OK
+  NOT_REGISTERED
+  UNSUPPORTED_TLD
+  ERROR
+}
+enum FlagTarget {
+  OUTCOME_REPORT
+  SCAM_REPORT
+  CHECK
+  COMPANY
+}
+enum FlagStatus {
+  OPEN
+  UNDER_REVIEW
+  UPHELD
+  REJECTED
+}
+
+model User {
+  id              String    @id @default(cuid())
+  username        String?   @unique   // trimmed + lowercased, 3–20 of [a-z0-9_]; set on every password account, null = social-only
+  email           String    @unique   // trimmed + lowercased; Google and GitHub always supply one
+  emailVerifiedAt DateTime?           // set only when Google verifies it (no email sending tonight)
+  passwordHash    String?             // null = social-only account
+  name            String?
+  role            Role      @default(USER)
+  tokenVersion    Int       @default(0) // in the JWT as "tv"; bump to revoke all tokens
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  accounts      Account[]
+  checks        Check[]
+  outcomes      OutcomeReport[]
+  scamReports   ScamReport[]
+}
+
+model Account {                    // one row per linked social login
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider          Provider
+  providerAccountId String             // Google: OIDC sub; GitHub: numeric id. Never email.
+  email             String?            // informational only, never used for lookup
+  emailVerified     Boolean?
+  createdAt         DateTime @default(now())
+  lastLoginAt       DateTime?
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Company {
+  id              String   @id @default(cuid())
+  name            String
+  slug            String   @unique
+  officialDomains String[]           // e.g. ["discord.com"]
+  ats             Ats      @default(NONE)
+  atsBoard        String?            // board token / site slug
+  isFictional     Boolean  @default(false)
+  postings        Posting[]
+  outcomes        OutcomeReport[]
+}
+
+model Posting {                    // trimmed copy of a job-board posting
+  id          String       @id @default(cuid())
+  companyId   String
+  company     Company      @relation(fields: [companyId], references: [id])
+  ats         Ats
+  board       String
+  externalId  String
+  title       String
+  location    String?
+  url         String
+  description   String?          // plain text, max 20,000 chars; phrase rules run on it
+  internalJobId String?          // Greenhouse only; null on a GH post feeds G-EVERGREEN
+  postedAt    DateTime?          // GH first_published, Lever createdAt, Ashby publishedAt
+  firstSeenAt DateTime     @default(now())
+  lastSeenAt  DateTime     @default(now())
+  state       PostingState @default(UNKNOWN)
+  fetchedAt   DateTime     @default(now())
+  outcomes    OutcomeReport[]
+  @@unique([ats, board, externalId])
+}
+
+model Check {
+  id            String    @id @default(cuid())
+  userId        String?
+  user          User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  inputKind     InputKind
+  postingId     String?
+  companyId     String?
+  senderDomain  String?
+  ghostScore    Int?
+  ghostBand     Band
+  scamScore     Int?
+  scamBand      Band
+  signals       Json               // [{id, points, status, fact, source, cite?, checkedAt}]
+  configVersion String
+  saved         Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+}
+
+model OutcomeReport {
+  id              String     @id @default(cuid())
+  userId          String
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId       String
+  company         Company    @relation(fields: [companyId], references: [id])
+  postingId       String?
+  posting         Posting?   @relation(fields: [postingId], references: [id])
+  roleTitle       String             // trimmed, spaces collapsed, lowercased before the unique check
+  appliedAt       DateTime
+  lastInterviewAt DateTime?
+  lastContactAt   DateTime?
+  stageReached    Stage      @default(APPLIED)
+  outcome         Outcome    @default(APPLIED)
+  note            String?            // <= 1,000 chars, no names of people
+  visibility      Visibility @default(VISIBLE)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  @@unique([userId, companyId, roleTitle])
+}
+
+model ScamReport {
+  id              String     @id @default(cuid())
+  userId          String
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyClaimed  String?
+  senderDomain    String
+  channel         Channel
+  ruleIds         String[]
+  scamScore       Int
+  redactedExcerpt String?            // only if the user opts in; redacted server-side
+  visibility      Visibility @default(VISIBLE)
+  createdAt       DateTime   @default(now())
+}
+
+model DomainLookup {               // RDAP + DNS cache, 7-day TTL
+  domain       String     @id
+  registeredAt DateTime?
+  status       RdapStatus
+  hasMx        Boolean?
+  nullMx       Boolean?
+  checkedAt    DateTime   @default(now())
+}
+
+model Flag {                       // "Report a problem"
+  id             String     @id @default(cuid())
+  targetType     FlagTarget
+  targetId       String
+  reason         String             // personal_info | fake | harassment | false_fact | score_wrong | other
+  details        String
+  reporterUserId String?
+  reporterEmail  String?
+  status         FlagStatus @default(OPEN)
+  resolutionNote String?
+  createdAt      DateTime   @default(now())
+  resolvedAt     DateTime?
 }
