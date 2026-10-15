@@ -1,0 +1,280 @@
+.stage {
+  --accent: var(--lantern);
+  --surface: var(--ink-raised);
+  box-sizing: border-box;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  background: var(--ink);
+  color: var(--vellum);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.stage *,
+.stage *::before,
+.stage *::after {
+  box-sizing: border-box;
+}
+
+.card {
+  position: relative;
+  isolation: isolate;
+  width: min(780px, 100%);
+  height: 470px;
+  overflow: hidden;
+  border: 2px solid var(--accent);
+  background: var(--surface);
+  box-shadow: 0 0 25px #a9bcff70, inset 0 0 10px #a9bcff18;
+}
+
+.diagonal {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(110deg, var(--ink-line), #4a5fa8);
+  clip-path: polygon(34% 0, 100% 0, 100% 100%, 84% 100%);
+  transition: clip-path 900ms cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.signup .diagonal {
+  clip-path: polygon(0 0, 66% 0, 16% 100%, 0 100%);
+}
+
+.form {
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  padding: 28px 40px;
+  transition: visibility 0s 650ms;
+}
+
+.loginForm { left: 0; }
+.signupForm { right: 0; }
+
+.form fieldset {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.form h1 {
+  margin: 0 0 28px;
+  text-align: center;
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.field {
+  position: relative;
+  display: block;
+  height: 48px;
+  margin: 0 0 23px;
+}
+
+.field input {
+  width: 100%;
+  height: 100%;
+  padding: 16px 30px 5px 0;
+  border: 0;
+  border-bottom: 2px solid var(--mist);
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  color: var(--vellum);
+  font: inherit;
+  font-size: 15px;
+  transition: border-color 200ms;
+}
+
+.field span {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font-size: 15px;
+  transition: top 200ms, color 200ms, font-size 200ms;
+}
+
+.field svg {
+  position: absolute;
+  top: 16px;
+  right: 1px;
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+  transition: color 200ms;
+}
+
+.field input:focus,
+.field input:not(:placeholder-shown) {
+  border-color: var(--accent);
+}
+
+.field input:focus ~ span,
+.field input:not(:placeholder-shown) ~ span {
+  top: 3px;
+  color: var(--lantern);
+  font-size: 12px;
+}
+
+.field input:focus ~ svg { color: var(--accent); }
+.field input:autofill { -webkit-text-fill-color: var(--vellum); box-shadow: inset 0 0 0 100px var(--surface); }
+
+.submit {
+  display: block;
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid #c4d1ff;
+  border-radius: 999px;
+  background: linear-gradient(#6f86d9, #34437a 62%, var(--ink-raised));
+  box-shadow: inset 0 1px 1px #ffffff35;
+  color: var(--vellum);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submit:hover { background: linear-gradient(#8ea2ee, #44569a 62%, #222d50); }
+.submit:disabled { cursor: wait; opacity: 0.7; }
+
+.switch {
+  margin: 22px 0 0;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.switch button {
+  display: block;
+  margin: 0 auto;
+  padding: 2px 6px;
+  border: 0;
+  background: transparent;
+  color: var(--lantern);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.switch button:hover { text-decoration: underline; }
+.stage button:focus-visible { outline: 2px solid var(--lantern); outline-offset: 4px; }
+
+.welcome {
+  position: absolute;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 37%;
+  height: 100%;
+  padding: 30px 36px;
+  transition: visibility 0s 650ms;
+}
+
+.loginWelcome { right: 0; text-align: right; }
+.signupWelcome { left: 0; text-align: left; }
+.welcome h2 { margin: 0 0 12px; font-size: 31px; line-height: 1.1; }
+.welcome p { margin: 0; font-size: 14px; line-height: 1.5; }
+
+.animate {
+  transition: transform 650ms ease, opacity 450ms ease, filter 650ms ease;
+  transition-delay: 200ms;
+}
+
+.form fieldset > :nth-child(3) { transition-delay: 250ms; }
+.form fieldset > :nth-child(4) { transition-delay: 300ms; }
+.form fieldset > :nth-child(5) { transition-delay: 350ms; }
+.form fieldset > :nth-child(6) { transition-delay: 400ms; }
+.form fieldset > :nth-child(7) { transition-delay: 450ms; }
+.welcome p { transition-delay: 300ms; }
+
+.signupForm,
+.signupWelcome { visibility: hidden; pointer-events: none; }
+
+.signupForm .animate,
+.signupWelcome .animate {
+  opacity: 0;
+  filter: blur(10px);
+  transform: translateX(120%);
+  transition-delay: 0ms;
+}
+
+.signup .loginForm,
+.signup .loginWelcome { visibility: hidden; pointer-events: none; }
+
+.signup .loginForm .animate,
+.signup .loginWelcome .animate {
+  opacity: 0;
+  filter: blur(10px);
+  transform: translateX(-120%);
+  transition-delay: 0ms;
+}
+
+.signup .signupForm,
+.signup .signupWelcome { visibility: visible; pointer-events: auto; transition-delay: 0ms; }
+
+.card:not(.signup) .loginForm,
+.card:not(.signup) .loginWelcome { transition-delay: 0ms; }
+
+.signup .signupForm .animate,
+.signup .signupWelcome .animate {
+  opacity: 1;
+  filter: blur(0);
+  transform: translateX(0);
+  transition-delay: 250ms;
+}
+
+.signup .signupForm fieldset > :nth-child(3) { transition-delay: 300ms; }
+.signup .signupForm fieldset > :nth-child(4) { transition-delay: 350ms; }
+.signup .signupForm fieldset > :nth-child(5) { transition-delay: 400ms; }
+.signup .signupForm fieldset > :nth-child(6) { transition-delay: 450ms; }
+.signup .signupForm fieldset > :nth-child(7) { transition-delay: 500ms; }
+.signup .signupWelcome p { transition-delay: 350ms; }
+
+.status {
+  width: min(780px, 100%);
+  min-height: 42px;
+  margin: 20px 0 0;
+  color: var(--lantern);
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .stage { padding: 28px 16px; }
+  .card { max-width: 420px; height: 590px; }
+  .form { top: 150px; width: 100%; height: calc(100% - 150px); padding: 30px 32px; }
+  .welcome { top: 0; width: 100%; height: 150px; padding: 24px 32px; text-align: center; }
+  .welcome h2 { font-size: 25px; margin-bottom: 8px; }
+  .welcome h2 br { display: none; }
+  .welcome p { max-width: 300px; margin: 0 auto; font-size: 12px; }
+  .diagonal { clip-path: polygon(0 0, 100% 0, 100% 23%, 0 28%); }
+  .signup .diagonal { clip-path: polygon(0 0, 100% 0, 100% 28%, 0 23%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage *, .stage *::before, .stage *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
