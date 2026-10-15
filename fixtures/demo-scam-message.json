@@ -1,0 +1,7 @@
+{
+  "kind": "message",
+  "senderEmail": "talent@bramblecloud-careers.example",
+  "companyClaimed": "Bramblecloud Software",
+  "channel": "EMAIL",
+  "text": "Hello from the Bramblecloud Software hiring team. Your interview will be held by chat on WhatsApp. We will mail you a check to buy equipment from our vendor. Deposit the check by mobile deposit and send the remaining balance to the vendor. Please respond within 24 hours."
+}

@@ -1,6 +1,6 @@
 import { getDb } from "@/lib/db";
-import { fetchBoardJob, fetchBoardJobs, fixturesEnabled, type BoardJob, type BoardRef } from "@/lib/lookups/boards";
-import { UpstreamError } from "@/lib/lookups/fetch";
+import { boardExists, fetchBoardJob, fetchBoardJobs, fixturesEnabled, type BoardJob, type BoardRef } from "@/lib/lookups/boards";
+import type { FetchOptions } from "@/lib/lookups/fetch";
 import type { Company, Posting, PostingState } from "@/app/generated/prisma/client";
 
 // Board postings cached in the Posting table. A board is fresh for 1 hour after
@@ -119,38 +119,66 @@ async function syncBoard(company: Company, ref: BoardRef, jobs: BoardJob[], exis
   ]);
 }
 
+/** The posting facts scoring needs, from a cached row or a fresh fetch. */
+export type PostingFacts = {
+  id: string | null; // Posting row id when cached in the DB
+  externalId: string;
+  title: string;
+  location: string | null;
+  url: string;
+  postedAt: Date | null;
+  internalJobId: string | null;
+  description: string | null;
+};
+
 export type PostingLookup =
-  | { found: true; posting: Posting; source: "live" | "cache" }
-  | { found: false; source: "live" }
-  | { found: null; error: UpstreamError | unknown }; // couldn't verify
+  | { found: true; posting: PostingFacts; source: "live" | "cache" }
+  | { found: false; previous: PostingFacts | null } // board confirmed, job gone
+  | { found: null; error: unknown }; // couldn't verify (timeout, unknown board, ...)
+
+const facts = (p: Posting | BoardJob, id: string | null): PostingFacts => ({
+  id,
+  externalId: p.externalId,
+  title: p.title,
+  location: p.location,
+  url: p.url,
+  postedAt: p.postedAt,
+  internalJobId: p.internalJobId,
+  description: p.description,
+});
 
 /**
- * One posting with its description, used by checks (Phase 4). Serves a fresh
- * cached row that already has a description; otherwise fetches the single job.
+ * One posting with its description, for checks. With a Company it reads and
+ * writes the Posting cache; without one (a board we don't list) it only fetches.
  */
-export async function lookupPosting(company: Company, jobId: string, now = new Date()): Promise<PostingLookup> {
-  const ref = boardRef(company);
-  if (!ref) return { found: null, error: new Error("company has no public board") };
-  const db = getDb();
+export async function lookupPosting(
+  ref: BoardRef,
+  jobId: string,
+  company: Company | null,
+  { now = new Date(), fetch: fetchOpts }: { now?: Date; fetch?: FetchOptions } = {},
+): Promise<PostingLookup> {
+  const db = company ? getDb() : null;
   const externalId = jobId.toLowerCase();
   const key = { ats_board_externalId: { ats: ref.ats, board: ref.board, externalId } };
 
-  const cached = await db.posting.findUnique({ where: key });
+  const cached = db ? await db.posting.findUnique({ where: key }) : null;
   if (cached && cached.description !== null && now.getTime() - cached.fetchedAt.getTime() < POSTINGS_TTL_MS) {
-    return { found: true, posting: cached, source: "cache" };
+    return { found: true, posting: facts(cached, cached.id), source: "cache" };
   }
 
   let job: BoardJob | null;
   try {
-    job = await fetchBoardJob(ref, externalId);
+    job = await fetchBoardJob(ref, externalId, fetchOpts);
+    if (!job && !(await boardExists(ref, fetchOpts))) return { found: null, error: new Error("unknown board") };
   } catch (error) {
     return { found: null, error };
   }
 
   if (!job) {
-    if (cached) await db.posting.update({ where: key, data: { state: "NOT_FOUND", fetchedAt: now } });
-    return { found: false, source: "live" };
+    if (db && cached) await db.posting.update({ where: key, data: { state: "NOT_FOUND", fetchedAt: now } });
+    return { found: false, previous: cached ? facts(cached, cached.id) : null };
   }
+  if (!db || !company) return { found: true, posting: facts(job, null), source: "live" };
 
   const fields = {
     title: job.title,
@@ -163,12 +191,12 @@ export async function lookupPosting(company: Company, jobId: string, now = new D
     lastSeenAt: now,
     fetchedAt: now,
   };
-  const posting = await db.posting.upsert({
+  const row = await db.posting.upsert({
     where: key,
     update: fields,
     create: { ...fields, companyId: company.id, ats: ref.ats, board: ref.board, externalId, firstSeenAt: now },
   });
-  return { found: true, posting, source: "live" };
+  return { found: true, posting: facts(row, row.id), source: "live" };
 }
 
 function latest(rows: Posting[]): Date | null {
