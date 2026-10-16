@@ -1,0 +1,45 @@
+/* Methodology tables. */
+
+.signalName {
+  color: var(--vellum);
+  font-weight: 600;
+}
+
+.id {
+  color: var(--mist);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+}
+
+.points {
+  color: var(--vellum);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.when {
+  color: color-mix(in srgb, var(--vellum) 80%, transparent);
+  line-height: 1.55;
+}
+
+.limits {
+  list-style: none;
+  padding: 0;
+}
+
+.limits li {
+  position: relative;
+  padding-left: 1.25rem;
+}
+
+.limits li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--lantern);
+}

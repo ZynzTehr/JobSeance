@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, IBM_Plex_Sans } from "next/font/google";
 import "./globals.css";
+import SiteHeader, { SiteFooter } from "./components/SiteHeader";
 
 const bricolage = Bricolage_Grotesque({
   variable: "--font-bricolage",
@@ -22,7 +23,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${bricolage.variable} ${plex.variable} h-full`}>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <SiteHeader />
+        {children}
+        <SiteFooter />
+      </body>
     </html>
   );
 }

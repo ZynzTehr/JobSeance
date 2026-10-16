@@ -1,0 +1,282 @@
+/* Scanner and result card visuals. Layout lives in Tailwind classes. */
+
+.scanner {
+  position: relative;
+}
+
+.tabs {
+  border: 1px solid var(--ink-line);
+  border-radius: 14px;
+  background: #0f1730;
+}
+
+.tab {
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--mist);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 200ms var(--ease-out), color 200ms;
+}
+
+.tab:hover {
+  color: var(--vellum);
+}
+
+.tab[aria-selected="true"] {
+  background: linear-gradient(180deg, #2a3866, #1f2a4a);
+  color: var(--vellum);
+  box-shadow: 0 0 0 1px #a9bcff33 inset, 0 8px 20px -10px #000;
+}
+
+/* Investigation progress */
+.steps {
+  border-top: 1px dashed var(--ink-line);
+  font-size: 14px;
+}
+
+.step {
+  color: #5f6987;
+  transition: color 300ms;
+}
+
+.step[data-state="active"] {
+  color: var(--vellum);
+}
+
+.step[data-state="done"] {
+  color: var(--mist);
+}
+
+.stepDot {
+  border-radius: 999px;
+  background: #3a4568;
+}
+
+.step[data-state="active"] .stepDot {
+  background: var(--lantern);
+  box-shadow: 0 0 0 0 #a9bcff88;
+  animation: pulse 1.1s ease-out infinite;
+}
+
+/* Done steps show a check mark, not just a different color. */
+.step[data-state="done"] .stepDot {
+  background: transparent;
+  color: var(--mist);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.resultAnchor {
+  scroll-margin-top: 84px;
+}
+
+.resultTitle:focus {
+  outline: none;
+}
+
+.communityLink {
+  font-size: 14px;
+}
+
+/* Result */
+.result {
+  position: relative;
+  overflow: hidden;
+}
+
+.result::before {
+  content: "";
+  position: absolute;
+  inset: -40% -20% auto auto;
+  width: 28rem;
+  height: 28rem;
+  border-radius: 999px;
+  background: #a9bcff12;
+  filter: blur(80px);
+  pointer-events: none;
+}
+
+.resultTitle {
+  font-family: var(--font-heading);
+  font-size: clamp(24px, 4vw, 34px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.band {
+  --tone: var(--band-none);
+  border: 1px solid var(--ink-line);
+  border-radius: 16px;
+  background:
+    radial-gradient(22rem 10rem at 0% 0%, color-mix(in srgb, var(--tone) 14%, transparent), transparent 70%),
+    #121b35;
+}
+
+.band[data-band="LOW"] {
+  --tone: var(--band-low);
+}
+
+.band[data-band="CAUTION"] {
+  --tone: var(--band-caution);
+}
+
+.band[data-band="HIGH"] {
+  --tone: var(--band-high);
+}
+
+.score {
+  font-family: var(--font-heading);
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  font-variation-settings: "opsz" 96, "wdth" 80;
+}
+
+.meter {
+  border-radius: 999px;
+  background: #ffffff12;
+}
+
+.meterFill {
+  border-radius: 999px;
+  background: var(--tone);
+  transform-origin: left;
+  animation: fill 900ms var(--ease-out) 200ms both;
+}
+
+.whatToDo {
+  border: 1px solid color-mix(in srgb, var(--band-high) 55%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--band-high) 9%, #121b35);
+}
+
+.signals {
+  list-style: none;
+  padding: 0;
+}
+
+.signal + .signal {
+  border-top: 1px solid var(--ink-line);
+}
+
+.signalIcon {
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.signal[data-state="warning"] .signalIcon {
+  background: #e8b04b22;
+  color: #f1c983;
+  box-shadow: 0 0 0 1px #e8b04b66 inset;
+}
+
+.signal[data-state="clear"] .signalIcon {
+  background: #a9bcff14;
+  color: var(--lantern);
+  box-shadow: 0 0 0 1px #a9bcff40 inset;
+}
+
+.signal[data-state="lowers"] .signalIcon {
+  background: #6fbf9a1f;
+  color: #a6dcc2;
+  box-shadow: 0 0 0 1px #6fbf9a66 inset;
+}
+
+.signal[data-state="unverified"] .signalIcon {
+  background: transparent;
+  color: var(--mist);
+  border: 1px dashed #4a5578;
+}
+
+.signalName {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.points {
+  border-radius: 999px;
+  background: #ffffff0d;
+  color: var(--mist);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.signal[data-state="warning"] .points {
+  color: var(--vellum);
+}
+
+.fact {
+  color: color-mix(in srgb, var(--vellum) 90%, transparent);
+  font-size: 15px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.community {
+  border: 1px solid var(--ink-line);
+  border-left: 3px solid var(--lantern);
+  border-radius: 14px;
+  background: #121b35;
+}
+
+.checklist {
+  counter-reset: step;
+  list-style: none;
+  padding: 0;
+}
+
+.checklist li {
+  counter-increment: step;
+  position: relative;
+  padding-left: 2.25rem;
+}
+
+.checklist li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 0.05em;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid var(--ink-line);
+  border-radius: 999px;
+  color: var(--lantern);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4rem;
+  text-align: center;
+}
+
+.disclaimer {
+  border: 1px solid var(--ink-line);
+  border-radius: 12px;
+  background: #0f1730;
+  color: var(--mist);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+@keyframes pulse {
+  to {
+    box-shadow: 0 0 0 8px #a9bcff00;
+  }
+}
+
+@keyframes fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}

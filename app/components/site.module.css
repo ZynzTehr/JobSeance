@@ -1,0 +1,107 @@
+/* Header and footer visuals. Layout lives in Tailwind classes. */
+
+.header {
+  border-bottom: 1px solid color-mix(in srgb, var(--ink-line) 70%, transparent);
+  background: color-mix(in srgb, var(--ink) 78%, transparent);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+
+.wordmark {
+  color: var(--vellum);
+  font-family: var(--font-heading);
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.mark {
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 35%, #ffffff, var(--lantern) 45%, #4b5fa8);
+  box-shadow: 0 0 14px 2px #a9bcff80;
+  animation: flicker 5s ease-in-out infinite;
+}
+
+.navLink {
+  border-radius: 999px;
+  color: var(--mist);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 160ms, background 160ms;
+}
+
+.navLink:hover {
+  color: var(--vellum);
+}
+
+.navLink[aria-current="page"] {
+  background: #a9bcff14;
+  color: var(--vellum);
+}
+
+.account {
+  border: 1px solid var(--ink-line);
+  border-radius: 999px;
+  color: var(--vellum);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 160ms;
+}
+
+.account:hover,
+.account[aria-current="page"] {
+  border-color: var(--lantern);
+}
+
+.menuButton {
+  border: 1px solid var(--ink-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--vellum);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Solid: the header's backdrop-filter stops a nested blur, so any transparency lets the hero headline bleed through. */
+.mobileNav {
+  border-bottom: 1px solid var(--ink-line);
+  background: var(--ink);
+  box-shadow: 0 24px 48px -12px rgb(0 0 0 / 0.55);
+}
+
+.footer {
+  border-top: 1px solid var(--ink-line);
+  color: var(--mist);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.footer a {
+  color: var(--mist);
+  text-decoration: none;
+}
+
+.footer a:hover {
+  color: var(--vellum);
+}
+
+@keyframes flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  45% {
+    opacity: 0.82;
+  }
+  50% {
+    opacity: 1;
+  }
+  55% {
+    opacity: 0.9;
+  }
+}

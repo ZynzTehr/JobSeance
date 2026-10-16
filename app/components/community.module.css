@@ -1,0 +1,50 @@
+/* Community summary visuals. Bars use the lantern accent, never band colors. */
+
+.notRated {
+  color: var(--vellum);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.stat {
+  color: var(--vellum);
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.big {
+  font-family: var(--font-heading);
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.track {
+  border-radius: 999px;
+  background: #ffffff10;
+}
+
+.bar {
+  border-radius: 999px;
+  background: linear-gradient(90deg, #6f86d9, var(--lantern));
+  transform-origin: left;
+  animation: grow 800ms var(--ease-out) both;
+}
+
+.count {
+  color: var(--mist);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+@keyframes grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
