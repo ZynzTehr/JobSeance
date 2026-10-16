@@ -265,6 +265,11 @@ export default function ResultCard({ result, message, signedIn }: { result: Chec
             How the scores work
           </Link>
         </p>
+        <p className={`${ui.small} mt-2`}>
+          <Link className={ui.link} href={`/report-a-problem?type=CHECK&id=${encodeURIComponent(result.id)}`}>
+            Report a problem with this result
+          </Link>
+        </p>
       </footer>
     </article>
   );

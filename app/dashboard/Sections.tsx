@@ -145,6 +145,12 @@ export function ScamReports({ reports }: { reports: ScamReportRow[] }) {
                 {r.visibility !== "VISIBLE" && " · hidden while under review"}
               </p>
               {r.redactedExcerpt && <p className={`${ui.small} mt-1`}>Excerpt (redacted): &ldquo;{r.redactedExcerpt}&rdquo;</p>}
+              <Link
+                className={`${ui.link} ${ui.small} mt-1.5 inline-block`}
+                href={`/report-a-problem?type=SCAM_REPORT&id=${encodeURIComponent(r.id)}&label=${encodeURIComponent(`your report on ${r.senderDomain}`)}`}
+              >
+                Report a problem
+              </Link>
             </div>
             <div className="flex gap-2">
               {r.redactedExcerpt && (

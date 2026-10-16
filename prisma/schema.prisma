@@ -76,6 +76,7 @@ enum FlagTarget {
   SCAM_REPORT
   CHECK
   COMPANY
+  SITE           // general contact and privacy requests; targetId is "site"
 }
 enum FlagStatus {
   OPEN

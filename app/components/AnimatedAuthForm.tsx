@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import styles from "./AnimatedAuthForm.module.css";
 
 export type AuthValues =
@@ -16,6 +16,8 @@ type Props = {
   initialStatus?: string;
   /** Social sign-in buttons; each one shows only when its provider is configured. */
   oauth?: { google: boolean; github: boolean };
+  /** Shown just below the card, e.g. the age and Terms notice. */
+  footer?: ReactNode;
 };
 
 type Mode = AuthValues["mode"];
@@ -97,6 +99,7 @@ export default function AnimatedAuthForm({
   initialMode = "login",
   initialStatus = "",
   oauth = { google: false, github: false },
+  footer,
 }: Props) {
   const [mode, setMode] = useState<Mode>(initialMode);
   const [pending, setPending] = useState(false);
@@ -265,6 +268,7 @@ export default function AnimatedAuthForm({
         </div>
       </section>
       <p className={styles.status} role="status" aria-live="polite">{status}</p>
+      {footer}
     </main>
   );
 }

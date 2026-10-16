@@ -12,8 +12,8 @@ const pastDate = isoDate.refine((d) => d.getTime() <= Date.now() + DAY, "That da
 export const OUTCOMES = ["APPLIED", "INTERVIEWING", "NO_RESPONSE", "REJECTED", "ROLE_CLOSED", "OFFER", "HIRED", "WITHDREW"] as const;
 export const STAGES = ["APPLIED", "INTERVIEWED"] as const;
 export const CHANNELS = ["EMAIL", "TEXT", "WHATSAPP", "TELEGRAM", "LINKEDIN", "OTHER"] as const;
-export const FLAG_REASONS = ["personal_info", "fake", "harassment", "false_fact", "score_wrong", "other"] as const;
-export const FLAG_TARGETS = ["OUTCOME_REPORT", "SCAM_REPORT", "CHECK", "COMPANY"] as const;
+export const FLAG_REASONS = ["personal_info", "fake", "harassment", "false_fact", "score_wrong", "privacy_request", "other"] as const;
+export const FLAG_TARGETS = ["OUTCOME_REPORT", "SCAM_REPORT", "CHECK", "COMPANY", "SITE"] as const;
 
 /** Notes are free text: refuse obvious contact details (no names or contacts of individuals). */
 const CONTACT = /[\w.+-]+@[\w-]+\.[\w.]+|(?:\+?\d[\s().-]?){9,}/;

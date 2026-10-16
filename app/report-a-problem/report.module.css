@@ -1,0 +1,75 @@
+/* Report a problem: visuals only; layout comes from Tailwind utilities in the markup. */
+
+.points {
+  list-style: none;
+  padding: 0;
+}
+
+.points li {
+  position: relative;
+  padding-left: 1.25rem;
+}
+
+.points li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--lantern);
+}
+
+.fieldset {
+  border: none;
+}
+
+/* A target choice: the whole card is the radio's label. */
+.option {
+  border: 1px solid var(--ink-line);
+  border-radius: 14px;
+  background: #121b35;
+  cursor: pointer;
+  transition: border-color 200ms, background 200ms;
+}
+
+.option:hover {
+  border-color: color-mix(in srgb, var(--lantern) 35%, var(--ink-line));
+}
+
+.option:has(input:checked) {
+  border-color: var(--lantern);
+  background: color-mix(in srgb, var(--lantern) 8%, #121b35);
+}
+
+.optionTitle {
+  color: var(--vellum);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* The target named by a prefilled link. */
+.target {
+  border: 1px solid var(--ink-line);
+  border-radius: 12px;
+  background: #0f1730;
+}
+
+.id {
+  overflow-wrap: anywhere;
+}
+
+.counter {
+  font-variant-numeric: tabular-nums;
+}
+
+.done {
+  border: 1px solid color-mix(in srgb, var(--lantern) 45%, var(--ink-line));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--lantern) 6%, #0f1730);
+}
+
+.done code {
+  overflow-wrap: anywhere;
+}

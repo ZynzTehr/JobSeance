@@ -88,6 +88,7 @@ export function clientIp(headers: HeaderSource): string {
 
 // Best effort on Vercel (instances share no memory); accepted for the demo.
 const buckets = new Map<string, { count: number; resetAt: number }>();
+let lastSweep = 0;
 
 export function rateLimit(
   key: string,
@@ -95,8 +96,11 @@ export function rateLimit(
   windowSec: number,
   now: number = Date.now(),
 ): { ok: true } | { ok: false; retryAfter: number } {
-  if (buckets.size > 10_000) {
+  // Sweep expired counters at least once a minute, so an IP address is never kept
+  // much past its window (the privacy notice promises at most an hour).
+  if (now - lastSweep >= 60_000 || buckets.size > 10_000) {
     for (const [k, b] of buckets) if (b.resetAt <= now) buckets.delete(k);
+    lastSweep = now;
   }
   const bucket = buckets.get(key);
   if (!bucket || bucket.resetAt <= now) {

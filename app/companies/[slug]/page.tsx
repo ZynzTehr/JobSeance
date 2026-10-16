@@ -93,6 +93,14 @@ export default async function CompanyPage({ params }: PageProps<"/companies/[slu
             Individual reports are never public.
           </p>
           <CommunitySummary community={community} />
+          <p className={`${ui.small} mt-6`}>
+            <Link
+              className={ui.link}
+              href={`/report-a-problem?type=COMPANY&id=${encodeURIComponent(company.slug)}&label=${encodeURIComponent(company.name)}`}
+            >
+              Report a problem with this summary
+            </Link>
+          </p>
         </section>
 
         {live.length > 0 && (

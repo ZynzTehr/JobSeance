@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import { api, ApiCallError, OUTCOME_LABEL, shortDate, STAGE_LABEL, type OutcomeValue } from "@/lib/ui";
@@ -189,6 +190,12 @@ export default function Applications({ reports, companies, prefill }: Props) {
                   {r.visibility !== "VISIBLE" && <> · Hidden while a report about it is reviewed</>}
                 </p>
                 {r.note && <p className={`${ui.small} mt-1`}>&ldquo;{r.note}&rdquo;</p>}
+                <Link
+                  className={`${ui.link} ${ui.small} mt-1.5 inline-block`}
+                  href={`/report-a-problem?type=OUTCOME_REPORT&id=${encodeURIComponent(r.id)}&label=${encodeURIComponent(`${r.roleTitle} at ${r.company.name}`)}`}
+                >
+                  Report a problem
+                </Link>
               </div>
               <div className="flex items-center gap-2">
                 <StatusSelect report={r} onCommit={(outcome) => updateOutcome(r.id, outcome)} />
