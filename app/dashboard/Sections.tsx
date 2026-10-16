@@ -187,6 +187,8 @@ export function ScamReports({ reports }: { reports: ScamReportRow[] }) {
 export function DeleteAccount() {
   const router = useRouter();
   const [confirm, setConfirm] = useState("");
+  // Any case, ignoring stray spaces: "delete" and "Delete " count too.
+  const confirmed = confirm.trim().toUpperCase() === "DELETE";
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -224,7 +226,7 @@ export function DeleteAccount() {
           id="delete-account"
           type="button"
           className={`${ui.danger} px-5 py-2.5`}
-          disabled={confirm !== "DELETE" || busy}
+          disabled={!confirmed || busy}
           aria-busy={busy}
           onClick={remove}
         >
