@@ -1,18 +1,22 @@
-/* Auto-growing textarea: starts at one line (rows=1), grows with its content,
-   then scrolls once it reaches the cap. The doubled class outranks
-   `textarea.input` in ui.module.css (which allows manual resizing). */
+/* Auto-growing textarea: starts at one line (rows=1), grows with its content
+   (AutoGrowTextarea.tsx sets the height), animating each change, then scrolls
+   once it reaches the cap. The doubled class outranks `textarea.input` in
+   ui.module.css (which allows manual resizing). */
 textarea.autogrow.autogrow {
   resize: none;
-  overflow-y: auto;
+  overflow-y: hidden;
   max-height: min(60vh, 32rem);
+  /* Keeps the shared input's focus transitions (ui.module.css .input) and adds height. */
+  transition: height 180ms var(--ease-out), border-color 160ms, box-shadow 160ms;
 }
 
-/* Browsers with field-sizing size the box to its text natively. While the
-   placeholder is showing it keeps its one-line rows=1 size, so a long hint
-   never opens the box wider than one line. Elsewhere AutoGrowTextarea.tsx
-   measures scrollHeight instead. */
-@supports (field-sizing: content) {
-  textarea.autogrow.autogrow:not(:placeholder-shown) {
-    field-sizing: content;
+/* At the cap the text scrolls inside the box. */
+textarea.autogrow.autogrow[data-capped="true"] {
+  overflow-y: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  textarea.autogrow.autogrow {
+    transition: border-color 160ms, box-shadow 160ms;
   }
 }
