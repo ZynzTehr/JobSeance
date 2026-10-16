@@ -19,10 +19,11 @@ const DEV_DEMO_PASSWORD = "seance-demo-password-dev";
 const demoEmail = (process.env.DEMO_USER_EMAIL || "demo@jobseance.example").trim().toLowerCase();
 const demoPassword = (process.env.DEMO_USER_PASSWORD || DEV_DEMO_PASSWORD).normalize("NFC");
 
-// Same rules as sign-up (spec: 15-64 characters, at most 72 bytes, never trimmed).
+// Length limits as at sign-up (8-64 characters, at most 72 bytes, never trimmed). The character-mix
+// rule isn't enforced here, so existing demo passwords keep working; login never re-checks the policy.
 const passwordLength = [...demoPassword].length;
-if (passwordLength < 15 || passwordLength > 64 || Buffer.byteLength(demoPassword) > 72) {
-  throw new Error("DEMO_USER_PASSWORD must be 15-64 characters and at most 72 bytes.");
+if (passwordLength < 8 || passwordLength > 64 || Buffer.byteLength(demoPassword) > 72) {
+  throw new Error("DEMO_USER_PASSWORD must be 8-64 characters and at most 72 bytes.");
 }
 
 const realCompanies: { name: string; slug: string; domains: string[]; ats: Ats; board: string }[] = [

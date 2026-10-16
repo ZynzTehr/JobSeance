@@ -2,7 +2,7 @@
 // Weights are expert-set from public benchmarks, not validated. Every check
 // stores CONFIG_VERSION so old results can be explained after a change.
 
-export const CONFIG_VERSION = "2026-10-15.1";
+export const CONFIG_VERSION = "2026-10-16.1";
 
 export const BANDS = { cautionFrom: 25, highFrom: 50 } as const;
 
@@ -28,11 +28,16 @@ const p = (label: string, re?: RegExp): Phrase => ({
   re: re ?? new RegExp(`\\b${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/ /g, "\\s+")}\\b`, "i"),
 });
 
+// "Talent pool" counts only as pipeline wording ("join our talent pool"), not in
+// diversity boilerplate like "the broadest talent pool possible".
+const POOL_VERBS = "join(?:ing)?|added\\s+to|add\\s+you\\s+to|enter(?:ed)?|in(?:to)?|for|part\\s+of|build(?:ing)?|grow(?:ing)?";
 export const EVERGREEN_PHRASES: Phrase[] = [
-  p("talent pool"),
-  p("talent community"),
+  p("talent pool", new RegExp(`\\b(?:${POOL_VERBS})\\s+(?:our|the|a|this)\\s+talent\\s+pool\\b`, "i")),
+  p("talent community", new RegExp(`\\b(?:${POOL_VERBS})\\s+(?:our|the|a|this)\\s+talent\\s+community\\b`, "i")),
   p("always accepting"),
-  p("future opportunities"),
+  // Applying for later roles ("interested in future opportunities"), not "shape future
+  // opportunities" or an internship's "consideration for future opportunities".
+  p("future opportunities", /\b(?:interested\s+in|apply(?:ing)?\s+for|applications?\s+for|considered\s+for|about)\s+(?:potential\s+|other\s+)?future\s+opportunities\b/i),
   p("general application"),
 ];
 
@@ -115,8 +120,22 @@ export const SCAM_CITES: Record<ScamRuleId, string | undefined> = {
   "S-TOO-GOOD": FTC_JOB_SCAMS,
 };
 
-const PAYMENT_TARGETS = "gift\\s+cards?|bitcoin|btc|usdt|crypto(?:currency)?|zelle|cash\\s*app|wire\\s+transfer|western\\s+union";
+const PAYMENT_TARGETS = "gift\\s+cards?|bitcoin|btc|usdt|crypto(?:currency)?|zelle|cash\\s*app|wire\\s+transfer|western\\s+union|moneygram";
 const PAY_VERBS = "pay|paid|payment|send|sent|buy|purchase|transfer|deposit";
+
+/**
+ * An employer's own anti-fraud notice ("our recruiters will never ask for your
+ * Social Security number") must not count as the scam it warns about. A scam
+ * phrase is skipped when the same sentence, just before it, is still inside a
+ * "never/not/won't/don't … ask/request/require/need" clause. A turn back to
+ * instructions ends that clause, so "We don't require an interview, just send
+ * your SSN" and "Don't worry, all we need is your SSN" still fire.
+ */
+const NOTICE_NEG = "(?:never|not|won['’]?t|don['’]?t|doesn['’]?t|cannot|can['’]?t)";
+const NOTICE_ASK = "(?:ask|request|require|need|solicit)(?:s|ed)?";
+// A turn back to instructions ends the notice: "…, just send", "all we need is", "please add me".
+const NOTICE_BREAK = "[;:]|\\b(?:just|but|only|simply|instead|however|kindly|please|all|is|are|will|we|so|then)\\b|,\\s*(?:you|we|i|they|he|she|this|the|our|my)\\b";
+export const ANTI_FRAUD_NOTICE = new RegExp(`\\b${NOTICE_NEG}\\s+(?:\\w+\\s+){0,2}?${NOTICE_ASK}\\b(?:(?!${NOTICE_BREAK})[\\s\\S]){0,120}$`, "i");
 
 /**
  * Phrase rules. A signal's fact quotes only the matching entry's label, never
@@ -135,10 +154,20 @@ export const SCAM_PHRASES: Partial<Record<ScamRuleId, Phrase[]>> = {
     p("deposit the check", /\bdeposit\s+(the|this|your|a)\s+(cheque|check)\b/i),
     p("mobile deposit"),
     p("send the remaining"),
-    p("overpayment"),
+    // Only the refund ask, not "apply holds to prevent overpayment" in a finance role.
+    p(
+      "overpayment",
+      /\boverpa(?:id|yment)\b[^.]{0,60}\b(?:refund|return|send\s+(?:it\s+)?back|wire|difference)\b|\b(?:refund|return|send\s+back)\b[^.]{0,40}\boverpa(?:id|yment)\b|\boverpa(?:id|yment)\b[\s\S]{0,100}?\b(?:return|send|forward|wire|transfer|reimburse|pay\s+back)\b[^.]{0,30}\b(?:excess|extra|difference|remaining|remainder)\b/i,
+    ),
   ],
   "S-TASK-SCAM": [
-    p("optimization tasks", /\b(app|data|order|product|review)\s+optimi[sz]ation\b|\boptimi[sz]ation\s+tasks?\b/i),
+    // Only with pay nearby: "app optimization tasks ... earn commission", not "automatic data optimization".
+    p(
+      "optimization tasks",
+      // Only app/order/product optimization may look past the sentence end; "data optimization"
+      // is common in real postings and fires only next to merchants/orders/sets.
+      /\b(?:(?:app|data|order|product|review)\s+optimi[sz]ation|optimi[sz]ation\s+tasks?)\b(?=[^.]{0,80}\b(?:earn\w*|paid|pay|commissions?|income|salary|per\s+(?:day|task|order|set))\b)|\b(?:earn\w*|paid|commissions?|income)\b[^.]{0,80}\b(?:app|order|product|data)\s+optimi[sz]ation\b|\b(?:app|order|product)\s+optimi[sz]ation\b(?=[\s\S]{0,150}\b(?:earn\w*|commissions?|income|salary|per\s+(?:day|task|order|set))\b)|\bdata\s+optimi[sz]ation\b[^.]{0,60}\b(?:merchants?|orders?|sets?)\b/i,
+    ),
     p("product boosting"),
     p("rate or like products for pay", /\b(rate|like|review)\s+(products|apps|videos)\b[^.]{0,60}\b(earn|paid|pay|commission)\b/i),
     p("level up your account", /\blevel\s+up\s+(your\s+)?(account|vip|tier)\b/i),
@@ -146,7 +175,11 @@ export const SCAM_PHRASES: Partial<Record<ScamRuleId, Phrase[]>> = {
   ],
   "S-PII-EARLY": [
     p("social security number", /\b(social\s+security\s+(number|no\.?)|ssn)\b/i),
-    p("driver's license", /\bdriver['’]?s\s+licen[cs]e\b/i),
+    // Being asked to send it, not "must have a driver's licence" as a job requirement.
+    p(
+      "driver's license",
+      /\b(?:send|provide|upload|share|email|text|submit)\s+(?:us\s+|me\s+)?(?:an?\s+)?(?:(?:photo|picture|copy|scan|image)\s+of\s+)?(?:your\s+)?driver['’]?s\s+licen[cs]e\b|\bdriver['’]?s\s+licen[cs]e\s+\(?(?:photos?|pictures?|pics?|cop(?:y|ies)|scans?|number|front)\b|\b(?:photos?|pictures?|pics?|cop(?:y|ies)|scans?|images?|sides|front(?:\s+and\s+back)?|back)\s+of\s+(?:the\s+front\s+and\s+back\s+of\s+)?your\s+(?:[\w-]+\s+){0,2}?driver['’]?s\s+licen[cs]e\b/i,
+    ),
     p("bank account number", /\bbank\s+(account\s+)?(number|details|info(rmation)?)\b/i),
     p("routing number"),
     p("card number", /\b(credit|debit)\s+card\s+(number|details)\b/i),
@@ -159,13 +192,29 @@ export const SCAM_PHRASES: Partial<Record<ScamRuleId, Phrase[]>> = {
     p("interview on behalf of"),
   ],
   "S-PAYMENT-METHOD": [
-    p("gift cards", /\bgift\s+cards?\b/i),
+    // As a way to pay, not "tipping, gift cards" as a product feature.
+    p(
+      "gift cards",
+      /\b(?:buy|purchase|send|get|use|pick\s+up|pay\s+(?:for\s+)?(?:with|in|using)|paid\s+(?:for\s+)?(?:with|in|using)|funds?\s+(?:for|on|to))\s+(?:[\w$.,]+\s+){0,4}?gift\s+cards?\b|\bgift\s+cards?\b[^.]{0,60}\b(?:codes?|pins?|back\s+of)\b|\bgift\s+card\s+(?:codes?|numbers?|pins?)\b/i,
+    ),
     p("USDT", /\busdt\b/i),
     p("crypto wallet", /\bcrypto(currency)?\s+wallet\b/i),
     p("Zelle", /\bzelle\b/i),
     p("Cash App", /\bcash\s*app\b/i),
     p("wire transfer", /\bwire\s+transfer\b/i),
-    p("pay in Bitcoin or crypto", new RegExp(`\\b(${PAY_VERBS})\\b\\W+(?:\\w+\\W+){0,4}?(${PAYMENT_TARGETS})\\b`, "i")),
+    // Paying or being paid in it ("we pay you in USDT", "send $500 in Bitcoin"), not "move crypto on Coinbase".
+    p(
+      "pay in Bitcoin or crypto",
+      new RegExp(
+        [
+          `\\b(?:pay|paid|payment|compensat\\w*|salary|wages?|earnings)\\s+(?:(?:will|is|are|be|been|made|sent|issued|weekly|daily|monthly|bi-?weekly|you|us)\\s+){0,3}(?:in|via|through|with|using)\\s+(?:\\w+\\s+){0,2}?(?:${PAYMENT_TARGETS})\\b`,
+          `\\b(?:${PAY_VERBS})\\s+(?:the\\s+|your\\s+|some\\s+|\\$?\\d[\\d,.]*\\s+(?:in|of|worth\\s+of)\\s+)?(?:${PAYMENT_TARGETS})\\b`,
+          `\\b(?:${PAY_VERBS})\\s+(?:it|them|this|the\\s+(?:rest|balance|remainder|remaining(?:\\s+\\w+)?|funds|money|cash))\\s+(?:in|via|through|using|by|with|to\\s+(?:a|the|my|our))\\s+(?:\\w+\\s+){0,1}?(?:${PAYMENT_TARGETS})\\b`,
+          `\\b(?:deposit|insert|feed|take|bring|load|put)\\b[^.]{0,40}\\b(?:bitcoin|btc|crypto(?:currency)?)\\s+(?:atm|kiosk|machine)\\b`,
+        ].join("|"),
+        "i",
+      ),
+    ),
   ],
   "S-RUN-CODE": [
     p("clone a repo", /\bclone\s+(the|this|our|a|my)\s+(repo|repository)\b/i),
@@ -176,7 +225,12 @@ export const SCAM_PHRASES: Partial<Record<ScamRuleId, Phrase[]>> = {
   "S-CHAT-ONLY": [
     p("WhatsApp", /\bwhats\s?app\b/i),
     p("Telegram", /\btelegram\b/i),
-    p("Signal", /\b(on|via|through)\s+signal\b|\bsignal\s+(app|messenger)\b/i),
+    // The app, not the word: "on Signal" (capitalised), "message me on signal", "Signal app".
+    // Lowercase "act on signal metadata" or "signal strength" must not fire.
+    p(
+      "Signal",
+      /\b(?:on|via|through|over)\s+Signal\b(?!\s+(?:[Pp]rocessing|[Ss]trength|[Qq]uality|[Ii]ntegrity|[Dd]ata)\b)|\b(?:[Oo]n|[Vv]ia|[Tt]hrough|[Oo]ver|ON|VIA|THROUGH|OVER)\s+(?:signal|SIGNAL)(?=\s*(?:$|[.!?)]|:?\s*\+?\d|(?:at|AT)\s+\d|(?:app|messenger|now|today|asap|(?:for|FOR)\s+(?:the\s+|your\s+|an?\s+|THE\s+|YOUR\s+)?(?:interview|onboarding|details|further|next|INTERVIEW|ONBOARDING)|(?:to|TO)\s+(?:schedule|discuss|chat|talk|start|begin|continue|proceed|SCHEDULE|START)|APP)\b))|\b(?:[Mm]essage|[Tt]ext|[Cc]hat|[Cc]ontact|[Rr]each|[Aa]dd|[Cc]all|DM|[Pp]ing|MESSAGE|TEXT|CHAT|CONTACT|REACH|ADD|CALL)\s+(?:\w+\s+){0,3}?(?:on|via|over|ON|VIA|OVER)\s+(?:[Ss]ignal|SIGNAL)\b|\b(?:[Dd]ownload|[Ii]nstall)\s+(?:the\s+)?[Ss]ignal\b|\b[Ss]ignal\s+(?:[Aa]pp|[Mm]essenger)\b/,
+    ),
     p("text me at"),
     p("reply YES", /\breply\s+["']?yes\b/i),
     p("interview by chat", /\binterview\b[^.]{0,40}\bby\s+chat\b|\bchat\s+interview\b/i),

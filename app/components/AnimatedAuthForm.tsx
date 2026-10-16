@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useRef, useState, type CSSProperties, type SubmitEvent, type ReactNode } from "react";
+import { passwordRules } from "@/lib/auth/password-rules";
 import styles from "./AnimatedAuthForm.module.css";
 
 export type AuthValues =
@@ -21,6 +22,9 @@ type Props = {
 };
 
 type Mode = AuthValues["mode"];
+
+// Outgoing items use --out; incoming items use --in. Delays are in tenths of a second.
+const timing = (out: number, incoming: number) => ({ "--out": out, "--in": incoming }) as CSSProperties;
 
 function ProviderIcon({ provider }: { provider: "google" | "github" }) {
   if (provider === "google") {
@@ -43,11 +47,19 @@ function ProviderIcon({ provider }: { provider: "google" | "github" }) {
   );
 }
 
-function OAuthButtons({ oauth, active }: { oauth: NonNullable<Props["oauth"]>; active: boolean }) {
+function OAuthButtons({
+  oauth,
+  active,
+  style,
+}: {
+  oauth: NonNullable<Props["oauth"]>;
+  active: boolean;
+  style: CSSProperties;
+}) {
   const providers = (["google", "github"] as const).filter((p) => oauth[p]);
   if (providers.length === 0) return null;
   return (
-    <div className={`${styles.oauth} ${styles.animate}`}>
+    <div className={`${styles.oauth} ${styles.animate}`} style={style}>
       <span className={styles.oauthDivider}>or continue with</span>
       <div className={styles.oauthRow}>
         {providers.map((p) => (
@@ -105,20 +117,28 @@ export default function AnimatedAuthForm({
   const [pending, setPending] = useState(false);
   const [status, setStatus] = useState(initialStatus);
   const hasOAuth = oauth.google || oauth.github;
-  const loginUsername = useRef<HTMLInputElement>(null);
-  const signupUsername = useRef<HTMLInputElement>(null);
+  // With social sign-in each form has one more row, so the items after it shift one step later.
+  const extra = hasOAuth ? 1 : 0;
+  const loginForm = useRef<HTMLFormElement>(null);
+  const signupForm = useRef<HTMLFormElement>(null);
+  // Register side: the welcome text gives way to the password checklist while it's in use.
+  const [password, setPassword] = useState("");
+  const [passwordFocused, setPasswordFocused] = useState(false);
+  const showRules = mode === "signup" && (passwordFocused || password !== "");
+  const rules = passwordRules(password);
 
   function switchMode(nextMode: Mode) {
     setMode(nextMode);
     setStatus("");
-    // Wait for the new form's disabled state to update before focusing it.
+    // Keep keyboard users in the new form without focusing a field: a focused
+    // username would float its label and show a caret before anyone asked for it.
     requestAnimationFrame(() => {
-      const input = nextMode === "login" ? loginUsername : signupUsername;
-      input.current?.focus({ preventScroll: true });
+      const form = nextMode === "login" ? loginForm : signupForm;
+      form.current?.focus({ preventScroll: true });
     });
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>, formMode: Mode) {
+  async function handleSubmit(event: SubmitEvent<HTMLFormElement>, formMode: Mode) {
     event.preventDefault();
     if (pending) return;
 
@@ -153,121 +173,167 @@ export default function AnimatedAuthForm({
 
   return (
     <main className={styles.stage}>
-      <section
-        className={`${styles.card} ${mode === "signup" ? styles.signup : ""} ${hasOAuth ? styles.withOAuth : ""}`}
-        aria-label="Account access"
-      >
-        <div className={styles.diagonal} aria-hidden="true" />
+      <div className={`${styles.frame} ${hasOAuth ? styles.withOAuth : ""}`}>
+        <section className={`${styles.card} ${mode === "signup" ? styles.signup : ""}`} aria-label="Account access">
+          <div className={styles.orangePanel} aria-hidden="true" />
+          <div className={styles.darkPanel} aria-hidden="true" />
 
-        <form
-          className={`${styles.form} ${styles.loginForm}`}
-          aria-label="Login"
-          aria-hidden={mode !== "login"}
-          aria-busy={mode === "login" && pending}
-          onSubmit={(event) => handleSubmit(event, "login")}
-        >
-          <fieldset disabled={mode !== "login" || pending}>
-            <legend className={styles.srOnly}>Login credentials</legend>
-            <h1 className={styles.animate}>Login</h1>
-            <label className={`${styles.field} ${styles.animate}`}>
-              <input
-                ref={loginUsername}
-                name="username"
-                type="text"
-                autoComplete="username"
-                placeholder=" "
-                required
-                pattern=".*\S.*"
-              />
-              <span>Username</span>
-              <Icon name="user" />
-            </label>
-            <label className={`${styles.field} ${styles.animate}`}>
-              <input name="password" type="password" autoComplete="current-password" placeholder=" " required />
-              <span>Password</span>
-              <Icon name="lock" />
-            </label>
-            <button className={`${styles.submit} ${styles.animate}`} type="submit">
-              {pending && mode === "login" ? "Logging in…" : "Login"}
-            </button>
-            <OAuthButtons oauth={oauth} active={mode === "login"} />
-            <p className={`${styles.switch} ${styles.animate}`}>
-              Don’t have an account?{" "}
-              <button type="button" onClick={() => switchMode("signup")} tabIndex={mode === "login" ? 0 : -1}>
-                Sign up
+          <form
+            ref={loginForm}
+            tabIndex={-1}
+            className={`${styles.form} ${styles.loginForm}`}
+            aria-label="Login"
+            aria-hidden={mode !== "login"}
+            aria-busy={mode === "login" && pending}
+            onSubmit={(event) => handleSubmit(event, "login")}
+          >
+            <fieldset disabled={mode !== "login" || pending}>
+              <legend className={styles.srOnly}>Login credentials</legend>
+              <h1 className={styles.animate} style={timing(0, 21)}>
+                Login
+              </h1>
+              <label className={`${styles.field} ${styles.animate}`} style={timing(1, 22)}>
+                <input
+                  name="username"
+                  type="text"
+                  autoComplete="username"
+                  placeholder=" "
+                  required
+                  pattern=".*\S.*"
+                />
+                <span>Username</span>
+                <Icon name="user" />
+              </label>
+              <label className={`${styles.field} ${styles.animate}`} style={timing(2, 23)}>
+                <input name="password" type="password" autoComplete="current-password" placeholder=" " required />
+                <span>Password</span>
+                <Icon name="lock" />
+              </label>
+              <button className={`${styles.submit} ${styles.animate}`} style={timing(3, 24)} type="submit">
+                {pending && mode === "login" ? "Logging in…" : "Login"}
               </button>
+              <OAuthButtons oauth={oauth} active={mode === "login"} style={timing(4, 25)} />
+              <p className={`${styles.switch} ${styles.animate}`} style={timing(4 + extra, 25 + extra)}>
+                Don’t have an account?{" "}
+                <button type="button" onClick={() => switchMode("signup")} tabIndex={mode === "login" ? 0 : -1}>
+                  Sign up
+                </button>
+              </p>
+            </fieldset>
+          </form>
+
+          <div className={`${styles.welcome} ${styles.loginWelcome}`} aria-hidden={mode !== "login"}>
+            <h2 className={styles.animate} style={timing(0, 20)}>
+              BACK ON
+              <br /> THE CASE?
+            </h2>
+            <p className={styles.animate} style={timing(1, 21)}>
+              Your saved checks and applications are right where you left them. Let&rsquo;s see which postings are still
+              alive.
             </p>
-          </fieldset>
-        </form>
+          </div>
 
-        <div className={`${styles.welcome} ${styles.loginWelcome}`} aria-hidden={mode !== "login"}>
-          <h2 className={styles.animate}>WELCOME<br /> BACK!</h2>
-          <p className={styles.animate}>We’re so happy to have you with us again. If you need anything, we are here to help.</p>
-        </div>
-
-        <form
-          className={`${styles.form} ${styles.signupForm}`}
-          aria-label="Register"
-          aria-hidden={mode !== "signup"}
-          aria-busy={mode === "signup" && pending}
-          onSubmit={(event) => handleSubmit(event, "signup")}
-        >
-          <fieldset disabled={mode !== "signup" || pending}>
-            <legend className={styles.srOnly}>Registration details</legend>
-            <h1 className={styles.animate}>Register</h1>
-            <label className={`${styles.field} ${styles.animate}`}>
-              <input
-                ref={signupUsername}
-                name="username"
-                type="text"
-                autoComplete="username"
-                placeholder=" "
-                required
-                maxLength={20}
-                pattern="[A-Za-z0-9_]{3,20}"
-                title="3–20 letters, numbers or underscores"
-              />
-              <span>Username</span>
-              <Icon name="user" />
-            </label>
-            <label className={`${styles.field} ${styles.animate}`}>
-              <input name="email" type="email" autoComplete="email" placeholder=" " required />
-              <span>Email</span>
-              <Icon name="email" />
-            </label>
-            <label className={`${styles.field} ${styles.animate}`}>
-              <input
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                placeholder=" "
-                minLength={15}
-                maxLength={64}
-                title="15–64 characters"
-                required
-              />
-              <span>Password (15+ characters)</span>
-              <Icon name="lock" />
-            </label>
-            <button className={`${styles.submit} ${styles.animate}`} type="submit">
-              {pending && mode === "signup" ? "Creating account…" : "Register"}
-            </button>
-            <OAuthButtons oauth={oauth} active={mode === "signup"} />
-            <p className={`${styles.switch} ${styles.animate}`}>
-              Already have an account?{" "}
-              <button type="button" onClick={() => switchMode("login")} tabIndex={mode === "signup" ? 0 : -1}>
-                Sign in
+          <form
+            ref={signupForm}
+            tabIndex={-1}
+            className={`${styles.form} ${styles.signupForm}`}
+            aria-label="Register"
+            aria-hidden={mode !== "signup"}
+            aria-busy={mode === "signup" && pending}
+            onSubmit={(event) => handleSubmit(event, "signup")}
+          >
+            <fieldset disabled={mode !== "signup" || pending}>
+              <legend className={styles.srOnly}>Registration details</legend>
+              <h1 className={styles.animate} style={timing(17, 0)}>
+                Register
+              </h1>
+              <label className={`${styles.field} ${styles.animate}`} style={timing(18, 1)}>
+                <input
+                  name="username"
+                  type="text"
+                  autoComplete="username"
+                  placeholder=" "
+                  required
+                  maxLength={20}
+                  pattern="[A-Za-z0-9_]{3,20}"
+                  title="3–20 letters, numbers or underscores"
+                />
+                <span>Username</span>
+                <Icon name="user" />
+              </label>
+              <label className={`${styles.field} ${styles.animate}`} style={timing(19, 2)}>
+                <input name="email" type="email" autoComplete="email" placeholder=" " required />
+                <span>Email</span>
+                <Icon name="email" />
+              </label>
+              <label className={`${styles.field} ${styles.animate}`} style={timing(20, 3)}>
+                <input
+                  name="password"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder=" "
+                  minLength={8}
+                  maxLength={64}
+                  title="8–64 characters with an uppercase letter, a number and a symbol"
+                  required
+                  aria-describedby="password-rules"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onFocus={() => setPasswordFocused(true)}
+                  onBlur={() => setPasswordFocused(false)}
+                />
+                <span>Password</span>
+                <Icon name="lock" />
+              </label>
+              <button className={`${styles.submit} ${styles.animate}`} style={timing(21, 4)} type="submit">
+                {pending && mode === "signup" ? "Creating account…" : "Register"}
               </button>
-            </p>
-          </fieldset>
-        </form>
+              <OAuthButtons oauth={oauth} active={mode === "signup"} style={timing(22, 5)} />
+              <p className={`${styles.switch} ${styles.animate}`} style={timing(22 + extra, 5 + extra)}>
+                Already have an account?{" "}
+                <button type="button" onClick={() => switchMode("login")} tabIndex={mode === "signup" ? 0 : -1}>
+                  Sign in
+                </button>
+              </p>
+            </fieldset>
+          </form>
 
-        <div className={`${styles.welcome} ${styles.signupWelcome}`} aria-hidden={mode !== "signup"}>
-          <h2 className={styles.animate}>WELCOME!</h2>
-          <p className={styles.animate}>We’re delighted to have you here. If you need any assistance, feel free to reach out.</p>
-        </div>
-      </section>
-      <p className={styles.status} role="status" aria-live="polite">{status}</p>
+          <div className={`${styles.welcome} ${styles.signupWelcome}`} aria-hidden={mode !== "signup"}>
+            {/* Intro and checklist share one grid cell and cross-fade, so the panel never jumps. */}
+            <div className={styles.swap} data-rules={showRules}>
+              <div className={styles.intro} aria-hidden={showRules}>
+                <h2 className={styles.animate} style={timing(17, 0)}>
+                  JOIN THE
+                  <br /> SÉANCE
+                </h2>
+                <p className={styles.animate} style={timing(18, 1)}>
+                  Check postings, track every application, and report scams so the next job seeker knows what&rsquo;s
+                  real.
+                </p>
+              </div>
+              <div className={styles.rules}>
+                <h2 className={`${styles.rulesTitle} ${styles.animate}`} style={timing(17, 0)}>
+                  Your password needs
+                </h2>
+                <ul id="password-rules" className={styles.animate} style={timing(18, 1)}>
+                  {rules.map((rule) => (
+                    <li key={rule.id} className={styles.rule} data-met={rule.met}>
+                      <svg className={styles.check} viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 12.5l4.5 4.5L19 7.5" />
+                      </svg>
+                      <span>{rule.label}</span>
+                      <span className={styles.srOnly}>{rule.met ? " (done)" : " (not yet)"}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+      <p className={styles.status} role="status" aria-live="polite">
+        {status}
+      </p>
       {footer}
     </main>
   );

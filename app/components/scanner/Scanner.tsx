@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { api, ApiCallError, CHANNEL_LABEL, type ChannelValue } from "@/lib/ui";
+import AutoGrowTextarea from "../AutoGrowTextarea";
 import ui from "../ui.module.css";
 import ResultCard from "./ResultCard";
 import styles from "./scanner.module.css";
@@ -222,17 +223,20 @@ export default function Scanner({ signedIn }: { signedIn: boolean }) {
                 <label htmlFor="scan-text" className={ui.label}>
                   Message text
                 </label>
-                <textarea
+                <AutoGrowTextarea
                   id="scan-text"
                   className={`${ui.input} mt-2 w-full px-4 py-3`}
-                  rows={6}
                   required
                   maxLength={20000}
-                  placeholder="Paste the recruiter's message here. We analyze it in memory and never store the text."
+                  placeholder="Paste the recruiter's message here."
                   value={message.text}
                   onChange={(e) => setMessage({ ...message, text: e.target.value })}
                   {...field("text")}
+                  aria-describedby={fields.text ? "text-error scan-text-hint" : "scan-text-hint"}
                 />
+                <p id="scan-text-hint" className={`${ui.small} mt-1.5`}>
+                  We analyze it in memory and never store the text.
+                </p>
                 {fieldError("text")}
               </div>
               <div className="grid gap-4 sm:grid-cols-3">

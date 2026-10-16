@@ -25,9 +25,21 @@ export const bandFor = (score: number): Band =>
 export const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 
 /** Labels of every phrase that matches, in list order. */
-export function matchPhrases(text: string | null | undefined, phrases: Phrase[]): string[] {
+export function matchPhrases(text: string | null | undefined, phrases: Phrase[], skipWhenBefore?: RegExp): string[] {
   if (!text) return [];
-  return phrases.filter((ph) => ph.re.test(text)).map((ph) => ph.label);
+  if (!skipWhenBefore) return phrases.filter((ph) => ph.re.test(text)).map((ph) => ph.label);
+  // A phrase counts if any one of its matches isn't preceded, in the same sentence, by skipWhenBefore.
+  return phrases
+    .filter((ph) => {
+      const re = new RegExp(ph.re.source, ph.re.flags.includes("g") ? ph.re.flags : ph.re.flags + "g");
+      for (const m of text.matchAll(re)) {
+        const before = text.slice(0, m.index);
+        const sentence = before.slice(Math.max(before.lastIndexOf("."), before.lastIndexOf("!"), before.lastIndexOf("?"), before.lastIndexOf("\n")) + 1);
+        if (!skipWhenBefore.test(sentence)) return true;
+      }
+      return false;
+    })
+    .map((ph) => ph.label);
 }
 
 export const quoteMatches = (labels: string[]) =>

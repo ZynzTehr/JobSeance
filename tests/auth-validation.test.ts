@@ -36,17 +36,23 @@ describe("signup usernames", () => {
 });
 
 describe("passwords", () => {
-  it("accepts exactly 15 characters and rejects 14", () => {
-    expect(checkPassword("a".repeat(15))).toEqual({ ok: true, password: "a".repeat(15) });
-    expect(checkPassword("a".repeat(14))).toEqual({ ok: false, message: "Password must be at least 15 characters." });
+  it("accepts exactly 8 characters with the mix and rejects 7", () => {
+    expect(checkPassword("Seance1!")).toEqual({ ok: true, password: "Seance1!" });
+    expect(checkPassword("Sean1!x")).toEqual({ ok: false, message: "Password must be at least 8 characters." });
   });
 
   it("rejects 65 characters", () => {
-    expect(checkPassword("a".repeat(65))).toEqual({ ok: false, message: "Password must be at most 64 characters." });
+    expect(checkPassword("A1!" + "a".repeat(62))).toEqual({ ok: false, message: "Password must be at most 64 characters." });
+  });
+
+  it("names exactly what's missing from the mix", () => {
+    expect(checkPassword("alllowercase")).toEqual({ ok: false, message: "Password needs an uppercase letter, a number and a symbol." });
+    expect(checkPassword("Uppercase1")).toEqual({ ok: false, message: "Password needs a symbol." });
+    expect(checkPassword("Upper-case!")).toEqual({ ok: false, message: "Password needs a number." });
   });
 
   it("never trims", () => {
-    expect(checkPassword("  fourteen-chr ")).toEqual({ ok: true, password: "  fourteen-chr " });
+    expect(checkPassword("  Eight-8 ")).toEqual({ ok: true, password: "  Eight-8 " });
   });
 
   it("rejects passwords over 72 bytes instead of letting bcrypt truncate them", () => {
@@ -55,9 +61,9 @@ describe("passwords", () => {
   });
 
   it("normalizes to NFC, so composed and decomposed forms match", () => {
-    const decomposed = "cafe\u0301-password-long";
+    const decomposed = "Cafe\u0301-password-1";
     const result = checkPassword(decomposed);
-    expect(result).toEqual({ ok: true, password: "café-password-long" });
+    expect(result).toEqual({ ok: true, password: "Café-password-1" });
   });
 });
 

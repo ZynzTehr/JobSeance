@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PASSWORD_MAX, PASSWORD_MAX_BYTES, PASSWORD_MIN, passwordRules } from "./password-rules";
 
 // Spec "Usernames" and "Security requirements". Pure functions, no I/O.
 
@@ -7,9 +8,7 @@ export const RESERVED_USERNAMES = new Set([
   "dashboard", "settings", "me", "support", "help", "jobseance", "null", "undefined",
 ]);
 
-export const PASSWORD_MIN = 15;
-export const PASSWORD_MAX = 64;
-export const PASSWORD_MAX_BYTES = 72; // bcrypt ignores everything past 72 bytes
+export { PASSWORD_MAX, PASSWORD_MAX_BYTES, PASSWORD_MIN };
 
 export function normalizeUsername(raw: string): string {
   return raw.trim().toLowerCase();
@@ -19,7 +18,7 @@ export function normalizeEmail(raw: string): string {
   return raw.trim().toLowerCase();
 }
 
-/** NFC-normalizes and checks length. Never trims. Returns the password to hash, or an error message. */
+/** NFC-normalizes and checks length and character mix. Never trims. Returns the password to hash, or an error message. */
 export function checkPassword(raw: string): { ok: true; password: string } | { ok: false; message: string } {
   const password = raw.normalize("NFC");
   const length = [...password].length;
@@ -27,6 +26,13 @@ export function checkPassword(raw: string): { ok: true; password: string } | { o
   if (length > PASSWORD_MAX) return { ok: false, message: `Password must be at most ${PASSWORD_MAX} characters.` };
   if (Buffer.byteLength(password, "utf8") > PASSWORD_MAX_BYTES) {
     return { ok: false, message: "Password is too long once encoded. Use fewer special characters." };
+  }
+  const missing = passwordRules(password)
+    .filter((r) => r.id !== "length" && !r.met)
+    .map((r) => ({ upper: "an uppercase letter", number: "a number", symbol: "a symbol" })[r.id as "upper" | "number" | "symbol"]);
+  if (missing.length) {
+    const list = missing.length === 1 ? missing[0] : `${missing.slice(0, -1).join(", ")} and ${missing[missing.length - 1]}`;
+    return { ok: false, message: `Password needs ${list}.` };
   }
   return { ok: true, password };
 }

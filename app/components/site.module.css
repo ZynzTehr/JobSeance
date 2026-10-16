@@ -56,8 +56,12 @@
   border-color: var(--lantern);
 }
 
+/* Same pill and hover sweep as the shared buttons in ui.module.css. No display here: Tailwind's md:hidden controls it. */
 .menuButton {
-  border: 1px solid var(--ink-line);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid var(--lantern);
   border-radius: 999px;
   background: transparent;
   color: var(--vellum);
@@ -65,6 +69,30 @@
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
+}
+
+.menuButton::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: -100%;
+  left: 0;
+  width: 100%;
+  height: 300%;
+  background: linear-gradient(var(--ink-raised), #4a5fa8, var(--ink-raised), #4a5fa8);
+  transition: top 0.5s ease;
+  pointer-events: none;
+}
+
+.menuButton:hover::before,
+.menuButton:focus-visible::before {
+  top: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menuButton::before {
+    transition: none;
+  }
 }
 
 /* Solid: the header's backdrop-filter stops a nested blur, so any transparency lets the hero headline bleed through. */

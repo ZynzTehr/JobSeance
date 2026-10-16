@@ -1,13 +1,22 @@
+/*
+ * Auth card: the reference design (two rotating panels, cqw geometry,
+ * per-item stagger) recolored onto the site tokens. Sizes, timings and
+ * transforms match the reference; only colors and the font differ.
+ * Below 648px wide (frame < 600px) a phone layout takes over; see the end.
+ */
+
 .stage {
   --accent: var(--lantern);
   --surface: var(--ink-raised);
+  /* Deep lantern: vellum text keeps 4.9:1 on it. */
+  --accent-deep: #4a5fa8;
   box-sizing: border-box;
   min-height: 100svh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 32px 20px;
+  padding: 36px 24px;
   background: var(--ink);
   color: var(--vellum);
   font-family: var(--font-body);
@@ -19,79 +28,109 @@
   box-sizing: border-box;
 }
 
-.card {
+/* The reference's 750 x 450 geometry (shown at 860 x 516), scaled with the frame through cqw units. */
+.frame {
+  container-type: inline-size;
   position: relative;
-  isolation: isolate;
-  width: min(780px, 100%);
-  height: 470px;
-  overflow: hidden;
-  border: 2px solid var(--accent);
-  background: var(--surface);
-  box-shadow: 0 0 25px #a9bcff70, inset 0 0 10px #a9bcff18;
+  width: min(860px, 100%);
+  aspect-ratio: 5 / 3;
 }
 
-.diagonal {
+.card {
   position: absolute;
   inset: 0;
-  z-index: -1;
-  background: linear-gradient(110deg, var(--ink-line), #4a5fa8);
-  clip-path: polygon(34% 0, 100% 0, 100% 100%, 84% 100%);
-  transition: clip-path 900ms cubic-bezier(0.65, 0, 0.35, 1);
+  isolation: isolate;
+  overflow: hidden;
+  border: 0.267cqw solid var(--accent);
+  background: var(--surface);
+  box-shadow: 0 0 3.333cqw #a9bcff70;
+  font-family: var(--font-body);
 }
 
-.signup .diagonal {
-  clip-path: polygon(0 0, 66% 0, 16% 100%, 0 100%);
+/* Two independently rotating planes. The gradient one fills the card
+   before the second, surface-colored plane rises from below. */
+.orangePanel {
+  position: absolute;
+  top: -1.111%;
+  right: 0;
+  width: 113.333%;
+  height: 133.333%;
+  background: linear-gradient(45deg, var(--surface), var(--accent-deep));
+  transform: rotate(10deg) skewY(40deg);
+  transform-origin: bottom right;
+  transition: transform 1.5s ease;
+  transition-delay: 1.6s;
+  pointer-events: none;
+}
+
+.signup .orangePanel {
+  transform: rotate(0deg) skewY(0deg);
+  transition-delay: 0.4s;
+}
+
+.darkPanel {
+  position: absolute;
+  top: 100%;
+  left: 33.333%;
+  width: 113.333%;
+  height: 155.556%;
+  border-top: 0.267cqw solid var(--accent);
+  background: var(--surface);
+  transform: rotate(0deg) skewY(0deg);
+  transform-origin: bottom left;
+  transition: transform 1.5s ease;
+  transition-delay: 0.5s;
+  pointer-events: none;
+}
+
+.signup .darkPanel {
+  transform: rotate(-11deg) skewY(-41deg);
+  transition-delay: 1.2s;
 }
 
 .form {
   position: absolute;
   top: 0;
-  width: 50%;
-  height: 100%;
+  z-index: 1;
   display: flex;
   align-items: center;
-  padding: 28px 40px;
-  transition: visibility 0s 650ms;
+  width: 50%;
+  height: 100%;
+  outline: none;
 }
 
-.loginForm { left: 0; }
-.signupForm { right: 0; }
+.loginForm { left: 0; padding: 0 5.333cqw; }
+/* Shifted right of the reference so a floated "Username" label clears the panel's diagonal edge. */
+.signupForm { right: 0; padding: 0 5.333cqw 0 9.333cqw; pointer-events: none; }
+.signup .loginForm { pointer-events: none; }
+.signup .signupForm { pointer-events: auto; }
 
-.form fieldset {
-  width: 100%;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.form h1 {
-  margin: 0 0 28px;
-  text-align: center;
-  font-size: 30px;
-  font-weight: 700;
-}
+.form fieldset { width: 100%; min-width: 0; margin: 0; padding: 0; border: 0; }
+.form h1 { margin: 0; color: var(--vellum); text-align: center; font-size: 4.267cqw; line-height: 1.5; font-weight: 700; }
 
 .field {
   position: relative;
   display: block;
-  height: 48px;
-  margin: 0 0 23px;
+  width: 100%;
+  height: 6.667cqw;
+  margin-top: 3.333cqw;
 }
 
 .field input {
   width: 100%;
   height: 100%;
-  padding: 16px 30px 5px 0;
+  padding: 0 3.067cqw 0 0;
   border: 0;
-  border-bottom: 2px solid var(--mist);
+  border-bottom: 0.267cqw solid var(--mist);
   border-radius: 0;
   outline: none;
   background: transparent;
   color: var(--vellum);
+  caret-color: var(--lantern);
   font: inherit;
-  font-size: 15px;
-  transition: border-color 200ms;
+  font-size: 2.133cqw;
+  font-weight: 500;
+  transition: border-color 0.5s ease;
 }
 
 .field span {
@@ -99,90 +138,93 @@
   top: 50%;
   left: 0;
   transform: translateY(-50%);
+  color: var(--vellum);
+  font-size: 2.133cqw;
+  line-height: 1.5;
   pointer-events: none;
-  font-size: 15px;
-  transition: top 200ms, color 200ms, font-size 200ms;
+  transition: top 0.5s ease, color 0.5s ease;
 }
 
 .field svg {
   position: absolute;
-  top: 16px;
-  right: 1px;
-  width: 18px;
-  height: 18px;
+  top: 50%;
+  right: 0;
+  width: 2.4cqw;
+  height: 2.4cqw;
+  transform: translateY(-50%);
+  color: var(--vellum);
   pointer-events: none;
-  transition: color 200ms;
+  transition: color 0.5s ease;
 }
 
 .field input:focus,
-.field input:not(:placeholder-shown) {
-  border-color: var(--accent);
-}
-
+.field input:not(:placeholder-shown) { border-color: var(--accent); }
 .field input:focus ~ span,
-.field input:not(:placeholder-shown) ~ span {
-  top: 3px;
-  color: var(--lantern);
-  font-size: 12px;
-}
-
-.field input:focus ~ svg { color: var(--accent); }
+.field input:not(:placeholder-shown) ~ span { top: -0.667cqw; color: var(--accent); }
+.field input:focus ~ svg,
+.field input:not(:placeholder-shown) ~ svg { color: var(--accent); }
+/* A filled field also turns lantern, so the focused one gets a thicker underline. */
+.field input:focus-visible { box-shadow: 0 0.267cqw 0 var(--accent); }
 .field input:autofill { -webkit-text-fill-color: var(--vellum); box-shadow: inset 0 0 0 100px var(--surface); }
+.field input:autofill:focus-visible { box-shadow: inset 0 0 0 100px var(--surface), 0 0.267cqw 0 var(--accent); }
+
+/* Pill with a gradient that sweeps in on hover. OAuth buttons share it, smaller. */
+.submit,
+.oauthButton {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 0.267cqw solid var(--accent);
+  border-radius: 5.333cqw;
+  background: transparent;
+  color: var(--vellum);
+  font: inherit;
+  cursor: pointer;
+}
 
 .submit {
   display: block;
   width: 100%;
-  min-height: 42px;
-  border: 1px solid #c4d1ff;
-  border-radius: 999px;
-  background: linear-gradient(#6f86d9, #34437a 62%, var(--ink-raised));
-  box-shadow: inset 0 1px 1px #ffffff35;
-  color: var(--vellum);
-  font: inherit;
-  font-size: 15px;
+  height: 6cqw;
+  margin-top: 3.333cqw;
+  font-size: 2.133cqw;
   font-weight: 600;
-  cursor: pointer;
 }
 
-.submit:hover { background: linear-gradient(#8ea2ee, #44569a 62%, #222d50); }
-.submit:disabled { cursor: wait; opacity: 0.7; }
-
-.switch {
-  margin: 22px 0 0;
-  text-align: center;
-  font-size: 13px;
-  line-height: 1.5;
+.submit::before,
+.oauthButton::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: -100%;
+  left: 0;
+  width: 100%;
+  height: 300%;
+  background: linear-gradient(var(--surface), var(--accent-deep), var(--surface), var(--accent-deep));
+  transition: top 0.5s ease;
 }
 
-.switch button {
-  display: block;
-  margin: 0 auto;
-  padding: 2px 6px;
-  border: 0;
-  background: transparent;
-  color: var(--lantern);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
+.submit:hover::before,
+.oauthButton:hover::before { top: 0; }
+.submit:disabled { cursor: wait; }
 
+.switch { margin: 2.667cqw 0 1.333cqw; color: var(--vellum); text-align: center; font-size: 1.867cqw; line-height: 1.5; }
+.switch button { display: block; margin: 0 auto; padding: 0; border: 0; background: transparent; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; }
 .switch button:hover { text-decoration: underline; }
 .stage button:focus-visible,
 .stage a:focus-visible { outline: 2px solid var(--lantern); outline-offset: 4px; }
 
-/* Social sign-in: room for one more row only when a provider is configured. */
-.withOAuth { height: 540px; }
-.withOAuth .switch { margin-top: 16px; }
-
-.oauth { margin: 16px 0 0; }
+/* Social sign-in: one more row, shown only when a provider is configured. */
+.oauth { margin-top: 2.667cqw; }
 
 .oauthDivider {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: 0 0 10px;
+  gap: 1.333cqw;
+  margin-bottom: 1.333cqw;
   color: var(--mist);
-  font-size: 12px;
+  font-size: 1.733cqw;
+  line-height: 1.5;
 }
 
 .oauthDivider::before,
@@ -193,136 +235,249 @@
   background: #a9bcff40;
 }
 
-.oauthRow { display: flex; gap: 10px; }
+.oauthRow { display: flex; gap: 1.333cqw; }
 
 .oauthButton {
   flex: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-height: 38px;
-  border: 1px solid #a9bcff55;
-  border-radius: 999px;
-  background: #ffffff0d;
-  color: var(--vellum);
-  font-size: 14px;
+  gap: 1.067cqw;
+  height: 5.067cqw;
+  font-size: 1.867cqw;
   font-weight: 600;
   text-decoration: none;
-  transition: background 200ms, border-color 200ms;
 }
 
-.oauthButton:hover { border-color: #c4d1ff; background: #ffffff1a; }
-.oauthButton svg { width: 16px; height: 16px; flex: none; }
+.oauthButton svg { flex: none; width: 2.133cqw; height: 2.133cqw; }
+
+/*
+ * With OAuth the Register column is ~501px tall (in 750px units), more than
+ * the 450px card. The card grows to 750 x 540, and the panels are re-anchored
+ * so their diagonals cross the card exactly where they do at 750 x 450:
+ * - gradient panel: pivot kept at 79.333cqw (595px) from the top;
+ * - surface panel: shifted left so its edge still meets the top at ~478px.
+ * The welcome text moves up by the extra 90px so it stays on the gradient.
+ */
+.withOAuth { aspect-ratio: 25 / 18; }
+.withOAuth .orangePanel { top: -0.667cqw; height: 80cqw; }
+.withOAuth .darkPanel { left: 27.2cqw; }
+.withOAuth .welcome { padding-bottom: 20cqw; }
 
 .welcome {
   position: absolute;
   top: 0;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  width: 37%;
+  width: 50%;
   height: 100%;
-  padding: 30px 36px;
-  transition: visibility 0s 650ms;
+  pointer-events: none;
 }
 
-.loginWelcome { right: 0; text-align: right; }
-.signupWelcome { left: 0; text-align: left; }
-.welcome h2 { margin: 0 0 12px; font-size: 31px; line-height: 1.1; }
-.welcome p { margin: 0; font-size: 14px; line-height: 1.5; }
+.loginWelcome { right: 0; padding: 0 5.333cqw 8cqw 20cqw; text-align: right; }
+.signupWelcome { left: 0; padding: 0 20cqw 8cqw 5.333cqw; text-align: left; }
+.welcome h2 { margin: 0; color: var(--vellum); font-size: 4.267cqw; line-height: 1.3; font-weight: 700; }
+.welcome p { margin: 0; color: var(--vellum); font-size: 2.133cqw; line-height: 1.5; }
 
-.animate {
-  transition: transform 650ms ease, opacity 450ms ease, filter 650ms ease;
-  transition-delay: 200ms;
+/* Register side: the intro and the password checklist share one grid cell and cross-fade. */
+.swap { display: grid; }
+.intro,
+.rules { grid-area: 1 / 1; transition: opacity 0.45s ease, transform 0.45s ease, filter 0.45s ease; }
+/* Wider than the intro (it may run into the panel's spare right padding) so each rule stays on one line. */
+.rules { align-self: center; width: max-content; opacity: 0; transform: translateY(1.6cqw); filter: blur(4px); }
+.swap[data-rules="true"] .intro { opacity: 0; transform: translateY(-1.6cqw); filter: blur(4px); }
+.swap[data-rules="true"] .rules { opacity: 1; transform: none; filter: none; }
+
+.welcome .rulesTitle { margin: 0 0 1.6cqw; font-size: 2.4cqw; line-height: 1.3; letter-spacing: 0.02em; }
+.rules ul { display: flex; flex-direction: column; gap: 1.2cqw; margin: 0; padding: 0; list-style: none; }
+
+.rule {
+  display: grid;
+  grid-template-columns: 2.4cqw 1fr;
+  align-items: center;
+  gap: 1.067cqw;
+  color: var(--vellum);
+  font-size: 1.733cqw;
+  line-height: 1.4;
+  white-space: nowrap;
+  text-decoration: line-through;
+  text-decoration-color: transparent;
+  transition: color 0.4s ease, text-decoration-color 0.4s ease;
 }
 
-.form fieldset > :nth-child(3) { transition-delay: 250ms; }
-.form fieldset > :nth-child(4) { transition-delay: 300ms; }
-.form fieldset > :nth-child(5) { transition-delay: 350ms; }
-.form fieldset > :nth-child(6) { transition-delay: 400ms; }
-.form fieldset > :nth-child(7) { transition-delay: 450ms; }
-.form fieldset > :nth-child(8) { transition-delay: 500ms; }
-.welcome p { transition-delay: 300ms; }
+/* Met: muted and struck through. #c3c9dd keeps about 3.4:1 even on the lightest part of the gradient. */
+.rule[data-met="true"] { color: #c3c9dd; text-decoration-color: #c3c9dd; }
 
-.signupForm,
-.signupWelcome { visibility: hidden; pointer-events: none; }
-
-.signupForm .animate,
-.signupWelcome .animate {
+.check {
+  width: 2.4cqw;
+  height: 2.4cqw;
+  fill: none;
+  stroke: var(--ok);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
   opacity: 0;
-  filter: blur(10px);
-  transform: translateX(120%);
-  transition-delay: 0ms;
+  transform: scale(0.6);
+  transition: opacity 0.25s ease, transform 0.35s cubic-bezier(0.3, 1.6, 0.5, 1);
 }
 
-.signup .loginForm,
-.signup .loginWelcome { visibility: hidden; pointer-events: none; }
+/* The check draws itself in from the left. */
+.check path { stroke-dasharray: 22; stroke-dashoffset: 22; transition: stroke-dashoffset 0.4s ease 0.1s; }
+.rule[data-met="true"] .check { opacity: 1; transform: none; }
+.rule[data-met="true"] .check path { stroke-dashoffset: 0; }
 
-.signup .loginForm .animate,
-.signup .loginWelcome .animate {
-  opacity: 0;
-  filter: blur(10px);
+.animate { transition: transform 0.7s ease, opacity 0.7s ease, filter 0.7s ease; }
+
+.loginForm .animate,
+.loginWelcome .animate {
+  transform: translateX(0);
+  opacity: 1;
+  filter: blur(0);
+  transition-delay: calc(0.1s * var(--in));
+}
+
+.signup .loginForm .animate {
   transform: translateX(-120%);
-  transition-delay: 0ms;
+  opacity: 0;
+  filter: blur(10px);
+  transition-delay: calc(0.1s * var(--out));
 }
 
-.signup .signupForm,
-.signup .signupWelcome { visibility: visible; pointer-events: auto; transition-delay: 0ms; }
+.signup .loginWelcome .animate {
+  transform: translateX(120%);
+  opacity: 0;
+  filter: blur(10px);
+  transition-delay: calc(0.1s * var(--out));
+}
 
-.card:not(.signup) .loginForm,
-.card:not(.signup) .loginWelcome { transition-delay: 0ms; }
+.signupForm .animate {
+  transform: translateX(120%);
+  opacity: 0;
+  filter: blur(10px);
+  transition-delay: calc(0.1s * var(--in));
+}
+
+.signupWelcome .animate {
+  transform: translateX(-120%);
+  opacity: 0;
+  filter: blur(10px);
+  transition-delay: calc(0.1s * var(--in));
+}
 
 .signup .signupForm .animate,
 .signup .signupWelcome .animate {
+  transform: translateX(0);
   opacity: 1;
   filter: blur(0);
-  transform: translateX(0);
-  transition-delay: 250ms;
+  transition-delay: calc(0.1s * var(--out));
 }
 
-.signup .signupForm fieldset > :nth-child(3) { transition-delay: 300ms; }
-.signup .signupForm fieldset > :nth-child(4) { transition-delay: 350ms; }
-.signup .signupForm fieldset > :nth-child(5) { transition-delay: 400ms; }
-.signup .signupForm fieldset > :nth-child(6) { transition-delay: 450ms; }
-.signup .signupForm fieldset > :nth-child(7) { transition-delay: 500ms; }
-.signup .signupForm fieldset > :nth-child(8) { transition-delay: 550ms; }
-.signup .signupWelcome p { transition-delay: 350ms; }
+.status { width: min(860px, 100%); min-height: 21px; margin: 20px 0 0; color: var(--lantern); text-align: center; font-size: 14px; line-height: 1.5; }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
-.status {
-  width: min(780px, 100%);
-  min-height: 42px;
-  margin: 20px 0 0;
-  color: var(--lantern);
-  text-align: center;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.srOnly {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-@media (max-width: 640px) {
+/*
+ * Phones and narrow windows (frame < 600px): the cqw card would shrink its
+ * text below a readable size, so the card becomes a normal-flow column with
+ * px sizes. Only the active side shows: its welcome text on a gradient band,
+ * then its form. The rotating panels and the slide animation are dropped;
+ * the active side fades in instead.
+ */
+@media (max-width: 647px) {
   .stage { padding: 28px 16px; }
-  .card { max-width: 420px; height: 590px; }
-  .withOAuth { height: 660px; }
-  .form { top: 150px; width: 100%; height: calc(100% - 150px); padding: 30px 32px; }
-  .welcome { top: 0; width: 100%; height: 150px; padding: 24px 32px; text-align: center; }
-  .welcome h2 { font-size: 25px; margin-bottom: 8px; }
+
+  .frame,
+  .withOAuth { width: min(420px, 100%); aspect-ratio: auto; }
+
+  .card {
+    position: relative;
+    inset: auto;
+    display: flex;
+    flex-direction: column;
+    border-width: 2px;
+    box-shadow: 0 0 24px #a9bcff70;
+  }
+
+  /* (0,3,0) so these beat .frame .form { display: block } below. */
+  .orangePanel,
+  .darkPanel,
+  .card:not(.signup) .signupForm,
+  .card:not(.signup) .signupWelcome,
+  .card.signup .loginForm,
+  .card.signup .loginWelcome { display: none; }
+
+  .form,
+  .welcome {
+    position: static;
+    width: 100%;
+    height: auto;
+    animation: fadeIn 0.4s var(--ease-out);
+  }
+
+  .frame .form { display: block; padding: 22px 24px 18px; }
+
+  .frame .welcome {
+    order: -1;
+    padding: 22px 24px;
+    border-bottom: 2px solid var(--accent);
+    background: linear-gradient(45deg, var(--surface), var(--accent-deep));
+    text-align: center;
+  }
+
+  .welcome h2 { font-size: 24px; line-height: 1.25; }
+  .welcome .rulesTitle { margin-bottom: 10px; font-size: 18px; }
+  .rules ul { gap: 8px; max-width: 320px; margin: 0 auto; text-align: left; }
+  .rules { width: auto; }
+  .rule { grid-template-columns: 18px 1fr; gap: 8px; font-size: 14px; white-space: normal; }
+  .check { width: 18px; height: 18px; }
+  .rules { transform: translateY(8px); }
+  .swap[data-rules="true"] .intro { transform: translateY(-8px); }
+  /* Only the visible layer takes up room, so the band stays compact until the checklist shows. */
+  .swap { position: relative; display: block; }
+  .rules,
+  .swap[data-rules="true"] .intro { position: absolute; top: 0; left: 0; width: 100%; }
+  .swap[data-rules="true"] .rules { position: static; }
   .welcome h2 br { display: none; }
-  .welcome p { max-width: 300px; margin: 0 auto; font-size: 12px; }
-  .diagonal { clip-path: polygon(0 0, 100% 0, 100% 23%, 0 28%); }
-  .signup .diagonal { clip-path: polygon(0 0, 100% 0, 100% 28%, 0 23%); }
+  .welcome p { max-width: 300px; margin: 6px auto 0; font-size: 14px; }
+
+  .card .form .animate,
+  .card .welcome .animate { transform: none; opacity: 1; filter: none; transition: none; }
+
+  .form h1 { font-size: 28px; line-height: 1.4; }
+  .field { height: 48px; margin-top: 24px; }
+  /* 16px inputs keep iOS from zooming in on focus. */
+  .field input { padding-right: 28px; border-bottom-width: 2px; font-size: 16px; }
+  .field span { font-size: 16px; }
+  .field input:focus ~ span,
+  .field input:not(:placeholder-shown) ~ span { top: -4px; }
+  .field svg { width: 18px; height: 18px; }
+  .field input:focus-visible { box-shadow: 0 2px 0 var(--accent); }
+  .field input:autofill:focus-visible { box-shadow: inset 0 0 0 100px var(--surface), 0 2px 0 var(--accent); }
+
+  .submit,
+  .oauthButton { border-width: 2px; border-radius: 40px; }
+  .submit { height: 46px; margin-top: 26px; font-size: 16px; }
+
+  .oauth { margin-top: 20px; }
+  .oauthDivider { gap: 10px; margin-bottom: 10px; font-size: 13px; }
+  .oauthRow { gap: 10px; }
+  .oauthButton { gap: 8px; height: 42px; font-size: 14px; }
+  .oauthButton svg { width: 16px; height: 16px; }
+
+  .switch { margin: 18px 0 0; font-size: 14px; }
+  .switch button { padding: 6px 10px; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .stage *, .stage *::before, .stage *::after {
+  .stage *,
+  .stage *::before,
+  .stage *::after {
     transition: none !important;
     animation: none !important;
   }

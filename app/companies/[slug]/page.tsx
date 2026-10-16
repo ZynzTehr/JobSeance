@@ -40,7 +40,7 @@ export default async function CompanyPage({ params }: PageProps<"/companies/[slu
   return (
     <main className={`${ui.page} flex-1`}>
       <div className="mx-auto w-full max-w-5xl px-5 pb-20 pt-12 sm:px-8">
-        <Link href="/companies" className={`${ui.ghost} -ml-2 inline-block px-2 py-1`}>
+        <Link href="/companies" className={`${ui.ghost} inline-block px-3 py-1.5`}>
           ← All companies
         </Link>
         <div className="mt-4 flex flex-wrap items-center gap-3">

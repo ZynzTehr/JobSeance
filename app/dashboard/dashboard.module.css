@@ -19,9 +19,13 @@
   overflow-wrap: anywhere;
 }
 
-.primary,
-.secondary {
+/* "Log out everywhere" deliberately keeps its own quiet outline style, separate from the shared
+   pill buttons in ui.module.css, so restyling those never changes it. "Log out" uses ui.primary. */
+.logoutEverywhere {
+  border: 1px solid var(--ink-line);
   border-radius: 999px;
+  background: transparent;
+  color: var(--vellum);
   font: inherit;
   font-size: 14px;
   font-weight: 600;
@@ -29,24 +33,9 @@
   transition: background 200ms, border-color 200ms, opacity 200ms;
 }
 
-.primary {
-  border: 1px solid #c4d1ff;
-  background: linear-gradient(#6f86d9, #34437a);
-  color: var(--vellum);
-}
+.logoutEverywhere:hover { border-color: var(--lantern); }
 
-.primary:hover { background: linear-gradient(#8ea2ee, #44569a); }
-
-.secondary {
-  border: 1px solid var(--ink-line);
-  background: transparent;
-  color: var(--vellum);
-}
-
-.secondary:hover { border-color: var(--lantern); }
-
-.primary:disabled,
-.secondary:disabled { cursor: wait; opacity: 0.6; }
+.logoutEverywhere:disabled { cursor: wait; opacity: 0.6; }
 
 .error { min-height: 1.5em; color: #f2a39b; font-size: 14px; }
 
