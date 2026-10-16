@@ -51,7 +51,7 @@ export default function TryIt() {
           </label>
           <select
             id="try-method"
-            className={`${ui.input} mt-2 w-full px-3 py-2.5`}
+            className={`${ui.input} mt-2 w-full py-2.5 pl-3 pr-12`}
             value={method}
             onChange={(e) => setMethod(e.target.value as (typeof METHODS)[number])}
           >

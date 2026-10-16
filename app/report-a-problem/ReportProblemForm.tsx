@@ -242,7 +242,7 @@ export default function ReportProblemForm({ companies, signedIn, prefill }: Prop
               </label>
               <select
                 id="rp-company"
-                className={`${ui.input} mt-2 w-full px-3 py-2.5`}
+                className={`${ui.input} mt-2 w-full py-2.5 pl-3 pr-12`}
                 required
                 value={targetIds.COMPANY}
                 onChange={(e) => setTargetIds({ ...targetIds, COMPANY: e.target.value })}
@@ -338,7 +338,7 @@ export default function ReportProblemForm({ companies, signedIn, prefill }: Prop
         </label>
         <select
           id="rp-reason"
-          className={`${ui.input} mt-2 w-full px-3 py-2.5`}
+          className={`${ui.input} mt-2 w-full py-2.5 pl-3 pr-12`}
           required
           disabled={!subject}
           value={reason}
