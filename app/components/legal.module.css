@@ -1,0 +1,117 @@
+/* Privacy notice and terms (long text pages), plus the auth-page notice. Layout stays in Tailwind. */
+
+.prose {
+  color: color-mix(in srgb, var(--vellum) 88%, transparent);
+  font-size: 15.5px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.prose strong {
+  color: var(--vellum);
+  font-weight: 600;
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+}
+
+.list li {
+  position: relative;
+  padding-left: 1.25rem;
+}
+
+.list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.72em;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--lantern);
+}
+
+.toc {
+  counter-reset: toc;
+  list-style: none;
+  padding: 0;
+}
+
+.toc li {
+  counter-increment: toc;
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+.toc li::before {
+  content: counter(toc, decimal-leading-zero);
+  display: inline-block;
+  min-width: 2.1em;
+  color: var(--mist);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+.tocLink {
+  color: var(--vellum);
+  text-decoration: none;
+  transition: color 160ms;
+}
+
+.tocLink:hover {
+  color: var(--lantern);
+}
+
+.section {
+  border-top: 1px solid var(--ink-line);
+}
+
+.term {
+  color: var(--vellum);
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.termNote {
+  color: var(--mist);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.definition {
+  color: color-mix(in srgb, var(--vellum) 85%, transparent);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.row {
+  border-bottom: 1px solid var(--ink-line);
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.quote {
+  border-left: 3px solid var(--lantern);
+  color: var(--vellum);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.cookie {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  color: #cfd8f5;
+}
+
+/* One line under the login/signup panel. Sits in the panel's bottom padding so the panel itself doesn't move. */
+.authNotice {
+  background: var(--ink);
+  color: var(--mist);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+}

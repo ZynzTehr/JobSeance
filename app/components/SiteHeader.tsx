@@ -31,6 +31,9 @@ export function SiteFooter() {
           <Link href="/methodology">Methodology</Link>
           <Link href="/api-docs">API</Link>
           <Link href="/companies">Companies</Link>
+          <Link href="/privacy">Privacy</Link>
+          <Link href="/terms">Terms</Link>
+          <Link href="/report-a-problem">Report a problem</Link>
         </nav>
       </div>
     </footer>

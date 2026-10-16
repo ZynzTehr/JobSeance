@@ -1,12 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import type { ReactNode } from "react";
 import AnimatedAuthForm, { type AuthValues } from "./AnimatedAuthForm";
 
 type Props = {
   initialMode: "login" | "signup";
   initialStatus?: string;
   oauth: { google: boolean; github: boolean };
+  footer?: ReactNode;
 };
 
 /** Connects the form to /api/auth/login and /api/auth/signup. The JWT arrives as an HttpOnly cookie. */

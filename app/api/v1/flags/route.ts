@@ -35,6 +35,10 @@ export const POST = handle(async (request: NextRequest) => {
       targetId = company.id;
       break;
     }
+    case "SITE":
+      // General contact and privacy requests: there is no record to point at.
+      targetId = "site";
+      break;
   }
 
   const hide = body.reason === "personal_info" && user !== null;
@@ -54,5 +58,7 @@ export const POST = handle(async (request: NextRequest) => {
     ...(hide && body.targetType === "OUTCOME_REPORT" ? [db.outcomeReport.update({ where: { id: targetId }, data, select: { id: true } })] : []),
     ...(hide && body.targetType === "SCAM_REPORT" ? [db.scamReport.update({ where: { id: targetId }, data, select: { id: true } })] : []),
   ]);
-  return Response.json({ flag }, { status: 201 });
+  // The client words its confirmation from these, not from what it assumed about the session.
+  const hidden = hide && (body.targetType === "OUTCOME_REPORT" || body.targetType === "SCAM_REPORT");
+  return Response.json({ flag, hidden, linkedToAccount: user !== null }, { status: 201 });
 });

@@ -89,7 +89,8 @@ export const API_GROUPS: EndpointGroup[] = [
       { method: "POST", path: "/api/v1/scam-reports", access: "Signed in · 20/hour", summary: "Report a scam message. Stores the domain, matched rules and score; a redacted excerpt only if you opt in.", request: j({ senderEmail: "talent@bramblecloud-careers.example", channel: "EMAIL", text: "…", shareExcerpt: false }) },
       { method: "PATCH", path: "/api/v1/scam-reports/:id", access: "Owner", summary: "Edit the channel or claimed company, or remove the excerpt.", request: j({ removeExcerpt: true }) },
       { method: "DELETE", path: "/api/v1/scam-reports/:id", access: "Owner", summary: "Delete a scam report. 204." },
-      { method: "POST", path: "/api/v1/flags", access: "Public · 20/hour", summary: "Report a problem with a report, check or company. A signed-in personal-info flag hides the report until reviewed.", request: j({ targetType: "COMPANY", targetId: "quietwater", reason: "false_fact", details: "…" }) },
+      { method: "POST", path: "/api/v1/flags", access: "Public · 20/hour", summary: "Report a problem with a report, check, company or the site (targetType SITE, for contact and privacy requests). Reasons: personal_info, fake, harassment, false_fact, score_wrong, privacy_request, other. A signed-in personal-info flag hides the report until reviewed.", request: j({ targetType: "COMPANY", targetId: "quietwater", reason: "false_fact", details: "…" }) },
+      { method: "GET", path: "/api/v1/cron/cleanup", access: "Vercel Cron · Bearer CRON_SECRET", summary: "Daily retention cleanup: unsaved and anonymous checks after 30 days, scam-report excerpts after 90, resolved flags 90 days after resolution. 401 without the secret.", response: j({ ok: true, checksDeleted: 12, excerptsCleared: 0, flagsDeleted: 0 }) },
     ],
   },
 ];
