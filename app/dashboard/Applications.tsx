@@ -71,7 +71,7 @@ function StatusSelect({ report, onCommit }: { report: ReportRow; onCommit: (outc
       </label>
       <select
         id={`status-${report.id}`}
-        className={`${ui.input} px-3 py-2`}
+        className={`${ui.input} py-2 pl-3 pr-12`}
         value={value}
         aria-busy={saving}
         onChange={(e) => {
@@ -228,7 +228,7 @@ export default function Applications({ reports, companies, prefill }: Props) {
             </label>
             <select
               id="log-company"
-              className={`${ui.input} mt-2 w-full px-3 py-2.5`}
+              className={`${ui.input} mt-2 w-full py-2.5 pl-3 pr-12`}
               required
               value={form.company}
               onChange={(e) => setForm({ ...form, company: e.target.value })}
@@ -296,7 +296,7 @@ export default function Applications({ reports, companies, prefill }: Props) {
             </label>
             <select
               id="log-outcome-status"
-              className={`${ui.input} mt-2 w-full px-3 py-2.5`}
+              className={`${ui.input} mt-2 w-full py-2.5 pl-3 pr-12`}
               value={form.outcome}
               onChange={(e) => setForm({ ...form, outcome: e.target.value as OutcomeValue })}
             >

@@ -275,7 +275,7 @@ export default function Scanner({ signedIn }: { signedIn: boolean }) {
                   </label>
                   <select
                     id="scan-channel"
-                    className={`${ui.input} mt-2 w-full px-4 py-3`}
+                    className={`${ui.input} mt-2 w-full py-3 pl-4 pr-12`}
                     value={message.channel}
                     onChange={(e) => setMessage({ ...message, channel: e.target.value })}
                   >
