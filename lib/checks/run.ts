@@ -154,7 +154,8 @@ async function resolveUrl(url: string): Promise<{ ref: BoardRef; jobId: string; 
       throw new CheckError({
         status: 422,
         code: "unsupported_url",
-        message: "We don't know this company's job board yet. Search by company and role instead.",
+        // Company + role won't help either: the company isn't in our directory.
+        message: `This is a Greenhouse job on ${parsed.hostname}, but we can't tell which company's board it's on. Click Apply: if the page that opens starts with job-boards.greenhouse.io, paste that link instead.`,
       });
     }
     return { ref: { ats: "GREENHOUSE", board: company.atsBoard }, jobId: parsed.jobId, company };
