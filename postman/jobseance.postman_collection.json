@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "JobSeance API",
-    "description": "Phase 5 CRUD collection. Logs in once per seeded user (demo, demo2), signs up nobody, and cleans up after itself, so it can run twice in a row.\n\nRun: npx newman@6.2.2 run postman/jobseance.postman_collection.json --env-var baseUrl=<URL> --env-var vercelBypass=<secret> [--env-var demoPassword=<seeded password>]",
+    "description": "Demo and CRUD collection. Logs in once per seeded user (demo, demo2), signs up nobody, and cleans up after itself, so it can run twice in a row. Folder \"★ Demo step 6\" holds demo step 6 in presenting order.\n\nRun: npx newman@6.2.2 run postman/jobseance.postman_collection.json --env-var baseUrl=<URL> [--env-var demoPassword=<seeded password>] [--env-var vercelBypass=<secret, previews only>]",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "event": [
@@ -181,6 +181,152 @@
                 "exec": [
                   "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
                   "pm.test(\"is demo\", () => pm.expect(pm.response.json().user.username).to.eql(\"demo\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "★ Demo step 6 (run in this order after \"Log in as demo\")",
+      "description": "The five-minute demo, step 6: a check with Authorization: Bearer, then PATCH the demo user's Quietwater report and put it back. Select an environment with baseUrl=https://job-seance.vercel.app and demoPassword=<production demo password> first.",
+      "item": [
+        {
+          "name": "Scan the demo message (Bearer)",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/checks",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"message\",\n  \"senderEmail\": \"talent@bramblecloud-careers.example\",\n  \"companyClaimed\": \"Bramblecloud Software\",\n  \"channel\": \"EMAIL\",\n  \"text\": \"Hello from the Bramblecloud Software hiring team. Your interview will be held by chat on WhatsApp. We will mail you a check to buy equipment from our vendor. Deposit the check by mobile deposit and send the remaining balance to the vendor. Please respond within 24 hours.\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"scam risk High\", () => pm.expect(body.scam.band).to.eql(\"HIGH\"));",
+                  "pm.test(\"8 warning signs\", () => pm.expect(body.scam.signals.filter((s) => s.points > 0).length).to.eql(8));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "My reports",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/reports/mine"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "const mine = pm.response.json().reports.find(r => r.company.slug === \"quietwater\");",
+                  "pm.test(\"has the seeded Quietwater report\", () => pm.expect(mine).to.be.an(\"object\"));",
+                  "pm.collectionVariables.set(\"demoReportId\", mine.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update status: Applied → No response",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/reports/{{demoReportId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"outcome\": \"NO_RESPONSE\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"updated\", () => pm.expect(pm.response.json().report.outcome).to.eql(\"NO_RESPONSE\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Put status back to Applied",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/reports/{{demoReportId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"outcome\": \"APPLIED\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"restored\", () => pm.expect(pm.response.json().report.outcome).to.eql(\"APPLIED\"));"
                 ]
               }
             }
@@ -393,72 +539,6 @@
           ]
         },
         {
-          "name": "My reports",
-          "protocolProfileBehavior": {
-            "disableCookies": true
-          },
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": "{{baseUrl}}/api/v1/reports/mine"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
-                  "const mine = pm.response.json().reports.find(r => r.company.slug === \"quietwater\");",
-                  "pm.test(\"has the seeded Quietwater report\", () => pm.expect(mine).to.be.an(\"object\"));",
-                  "pm.collectionVariables.set(\"demoReportId\", mine.id);"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Update status: Applied → No response",
-          "protocolProfileBehavior": {
-            "disableCookies": true
-          },
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/api/v1/reports/{{demoReportId}}",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"outcome\": \"NO_RESPONSE\"\n}"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
-                  "pm.test(\"updated\", () => pm.expect(pm.response.json().report.outcome).to.eql(\"NO_RESPONSE\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
           "name": "Other user edits it (403)",
           "protocolProfileBehavior": {
             "disableCookies": true
@@ -489,42 +569,6 @@
                 "exec": [
                   "pm.test(\"status 403\", () => pm.response.to.have.status(403));",
                   "pm.test(\"error code forbidden\", () => pm.expect(pm.response.json().error.code).to.eql(\"forbidden\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Put status back to Applied",
-          "protocolProfileBehavior": {
-            "disableCookies": true
-          },
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/api/v1/reports/{{demoReportId}}",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"outcome\": \"APPLIED\"\n}"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
-                  "pm.test(\"restored\", () => pm.expect(pm.response.json().report.outcome).to.eql(\"APPLIED\"));"
                 ]
               }
             }
