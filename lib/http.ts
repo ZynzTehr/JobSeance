@@ -13,7 +13,7 @@ export function headerGetter(headers: HeaderSource): Get {
 }
 
 /** The env vars that decide which origins may send cookie-authenticated writes. */
-export type OriginEnv = Readonly<Record<string, string | undefined>>; // reads APP_URL, VERCEL_URL, VERCEL_BRANCH_URL
+export type OriginEnv = Readonly<Record<string, string | undefined>>; // reads APP_URL, VERCEL_PROJECT_PRODUCTION_URL, VERCEL_URL, VERCEL_BRANCH_URL
 
 export type ApiError = {
   status: number;
@@ -31,6 +31,9 @@ export function errorBody(e: ApiError) {
 export function allowedOrigins(env: OriginEnv = process.env): Set<string> {
   const origins = new Set<string>();
   if (env.APP_URL) origins.add(new URL(env.APP_URL).origin);
+  // The production domain (job-seance.vercel.app). VERCEL_URL is only the per-deployment
+  // URL, so without this every browser write on production fails when APP_URL is unset or wrong.
+  if (env.VERCEL_PROJECT_PRODUCTION_URL) origins.add(`https://${env.VERCEL_PROJECT_PRODUCTION_URL}`);
   if (env.VERCEL_URL) origins.add(`https://${env.VERCEL_URL}`);
   if (env.VERCEL_BRANCH_URL) origins.add(`https://${env.VERCEL_BRANCH_URL}`);
   return origins;
