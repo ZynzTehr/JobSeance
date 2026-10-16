@@ -6,21 +6,21 @@ const met = (pw: string) => passwordRules(pw).map((r) => r.met);
 
 describe("passwordRules (sign-up checklist)", () => {
   it("shows nothing met before typing", () => {
-    expect(met("")).toEqual([false, false, false]);
+    expect(met("")).toEqual([false, false, false, false]);
   });
-  it("marks length and bytes as met for a short password", () => {
-    expect(met("short pass")).toEqual([false, true, true]);
+  it("ticks each rule as it's satisfied", () => {
+    expect(met("seance")).toEqual([false, false, false, false]);
+    expect(met("Seance")).toEqual([false, true, false, false]);
+    expect(met("Seance1")).toEqual([false, true, true, false]);
+    expect(met("Seance1!")).toEqual([true, true, true, true]);
   });
-  it("meets everything at 15 characters", () => {
-    expect(met("a".repeat(15))).toEqual([true, true, true]);
-  });
-  it("fails the byte rule for 20 emoji (80 bytes), like the server", () => {
-    const pw = "😀".repeat(20);
-    expect(met(pw)).toEqual([true, true, false]);
+  it("folds the 72-byte limit into the length rule", () => {
+    const pw = "A1!" + "😀".repeat(20); // 23 characters, 83 bytes
+    expect(met(pw)[0]).toBe(false);
     expect(checkPassword(pw).ok).toBe(false);
   });
   it("agrees with checkPassword on every case", () => {
-    for (const pw of ["", "x".repeat(14), "x".repeat(15), "x".repeat(64), "x".repeat(65), "é".repeat(36), "é".repeat(37)]) {
+    for (const pw of ["", "Short1!", "Seance1!", "seance1!", "SEANCE!!", "Seance11", "A1!" + "a".repeat(61), "A1!" + "a".repeat(62), "Éé1!" + "é".repeat(30), "  Eight-8 "]) {
       expect(passwordRules(pw).every((r) => r.met)).toBe(checkPassword(pw).ok);
     }
   });

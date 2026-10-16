@@ -433,6 +433,11 @@
   .check { width: 18px; height: 18px; }
   .rules { transform: translateY(8px); }
   .swap[data-rules="true"] .intro { transform: translateY(-8px); }
+  /* Only the visible layer takes up room, so the band stays compact until the checklist shows. */
+  .swap { position: relative; display: block; }
+  .rules,
+  .swap[data-rules="true"] .intro { position: absolute; top: 0; left: 0; width: 100%; }
+  .swap[data-rules="true"] .rules { position: static; }
   .welcome h2 br { display: none; }
   .welcome p { max-width: 300px; margin: 6px auto 0; font-size: 14px; }
 

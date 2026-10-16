@@ -25,7 +25,7 @@ export const API_GROUPS: EndpointGroup[] = [
         request: j({ username: "demo", password: "••••••••••••••••" }),
         response: j({ user: { id: "cm…", username: "demo", role: "ADMIN" }, token: "eyJhbGciOiJIUzI1NiIs…" }),
       },
-      { method: "POST", path: "/api/auth/signup", access: "Public", summary: "Create an account with username, email and a 15–64 character password.", request: j({ username: "ada_1", email: "ada@example.com", password: "a long passphrase here" }) },
+      { method: "POST", path: "/api/auth/signup", access: "Public", summary: "Create an account with username, email and an 8–64 character password that has an uppercase letter, a number and a symbol.", request: j({ username: "ada_1", email: "ada@example.com", password: "a long passphrase here" }) },
       { method: "POST", path: "/api/auth/logout", access: "Signed in", summary: "Clear the session cookie." },
       { method: "GET", path: "/api/v1/health", access: "Public", summary: "Database ping. 503 with db_unavailable if Postgres can't be reached.", response: j({ db: "ok" }) },
       { method: "GET", path: "/api/v1/me", access: "Signed in", summary: "Your account and linked providers.", response: j({ user: { username: "demo", email: "demo@…", providers: [] } }) },

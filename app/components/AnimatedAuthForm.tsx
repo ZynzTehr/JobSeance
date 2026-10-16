@@ -272,9 +272,9 @@ export default function AnimatedAuthForm({
                   type="password"
                   autoComplete="new-password"
                   placeholder=" "
-                  minLength={15}
+                  minLength={8}
                   maxLength={64}
-                  title="15–64 characters"
+                  title="8–64 characters with an uppercase letter, a number and a symbol"
                   required
                   aria-describedby="password-rules"
                   value={password}
@@ -282,7 +282,7 @@ export default function AnimatedAuthForm({
                   onFocus={() => setPasswordFocused(true)}
                   onBlur={() => setPasswordFocused(false)}
                 />
-                <span>Password (15+ characters)</span>
+                <span>Password</span>
                 <Icon name="lock" />
               </label>
               <button className={`${styles.submit} ${styles.animate}`} style={timing(21, 4)} type="submit">
