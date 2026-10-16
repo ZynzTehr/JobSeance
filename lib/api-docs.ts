@@ -48,7 +48,7 @@ export const API_GROUPS: EndpointGroup[] = [
           checkedAt: "2026-10-15T23:13:06.616Z",
           ghost: { score: 0, band: "LOW", signals: [{ id: "G-BOARD", points: 0, status: "found", fact: "Live on Discord's Greenhouse board", source: "boards-api.greenhouse.io", checkedAt: "…" }] },
           scam: { score: 0, band: "LOW", signals: [], warnings: 0 },
-          meta: { configVersion: "2026-10-15.1", disclaimer: "…", verificationChecklist: ["…"] },
+          meta: { configVersion: "2026-10-16.1", disclaimer: "…", verificationChecklist: ["…"] },
         }),
       },
       { method: "GET", path: "/api/v1/checks", access: "Signed in", summary: "Your saved checks, newest first." },

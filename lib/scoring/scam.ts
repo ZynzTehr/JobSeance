@@ -3,6 +3,7 @@ import {
   REPORTED,
   RUN_CODE_NOTE,
   SCAM_CITES,
+  ANTI_FRAUD_NOTICE,
   SCAM_PHRASES,
   SCAM_POINTS,
   type ScamRuleId,
@@ -54,7 +55,7 @@ export function scoreScam(input: ScamInput): Score {
 
   // Phrase rules, in table order.
   for (const [id, phrases] of Object.entries(SCAM_PHRASES) as [ScamRuleId, NonNullable<(typeof SCAM_PHRASES)[ScamRuleId]>][]) {
-    const hits = matchPhrases(input.text, phrases);
+    const hits = matchPhrases(input.text, phrases, ANTI_FRAUD_NOTICE);
     if (hits.length) fire(id, quoteMatches(hits), "rules", SCAM_POINTS[id], id === "S-RUN-CODE" ? RUN_CODE_NOTE : undefined);
   }
 

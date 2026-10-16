@@ -29,6 +29,17 @@ describe("ghost rubric: worked examples", () => {
     expect([r.score, r.band]).toEqual([0, "LOW"]);
   });
 
+  it("'talent pool' only counts as pipeline wording, not diversity boilerplate", () => {
+    const evergreen = (description: string) =>
+      scoreGhost({ board: live, postedAt: daysAgo(10), description, community: [], now }).signals.some((s) => s.id === "G-EVERGREEN");
+    expect(evergreen("Airbnb is committed to working with the broadest talent pool possible.")).toBe(false);
+    expect(evergreen("Not the right fit? Join our talent pool.")).toBe(true);
+    expect(evergreen("We are building a talent community for future roles.")).toBe(true);
+    expect(evergreen("Partner with product to deliver current priorities and shape future opportunities.")).toBe(false);
+    expect(evergreen("We welcome applications from candidates interested in future opportunities with our team.")).toBe(true);
+    expect(evergreen("Strong performance may lead to consideration for future opportunities at Stripe.")).toBe(false);
+  });
+
   it("live, 120 days old, 'join our talent community' → 25, Caution", () => {
     const r = scoreGhost({ board: live, postedAt: daysAgo(120), description: "Join our talent community today.", community: [], now });
     expect(r.signals.filter((s) => s.points).map((s) => [s.id, s.points])).toEqual([
@@ -208,6 +219,65 @@ describe("scam rules: phrases", () => {
     ["S-TOO-GOOD", "Earn $500/day from home, no experience."],
     ["S-PAY-TO-WORK", "There is a small training fee."],
   ])("%s fires on scam wording", (id, text) => {
+    expect(scam({ text }).signals.map((s) => s.id)).toContain(id);
+  });
+
+  // Real postings that fired before (production rehearsal, 2026-10-16).
+  it.each([
+    ["Airbnb's anti-fraud notice", "Our recruiters will never ask for your Social Security number, bank account details, passport, or payment app information while you are interviewing."],
+    ["Reddit's ML platform role", "Lead the design of ML signal-governance capabilities and act on signal metadata."],
+    ["Notion's sales role", "Prioritize accounts by signal strength, and prioritize based on signal and data, not just volume."],
+    ["a signal-processing role", "You will work on Signal Processing for radar."],
+    ["a 'never pay' notice", "We will never ask you to pay a fee, purchase gift cards, or send money via Zelle, Cash App, or wire transfer."],
+    ["a 'we don't request' notice", "Acme does not request bank account details, Social Security numbers, or payment in gift cards or cryptocurrency."],
+    ["a 'never deposit a check' notice", "Our recruiters will never request that you deposit a check and send the remaining funds to anyone."],
+    ["a 'don't need your SSN' notice", "Legitimate recruiters don't need your bank details or SSN before an offer."],
+    ["a driver's licence requirement", "A valid driver's license is required. Must be able to provide a valid driver's license and proof of insurance."],
+    ["a Bitcoin-ATM employer", "Bitcoin ATM field technician: service and maintain our crypto kiosks."],
+    ["'signal' as a word", "Our team focuses on signal, not noise, and we act on signal from customer interviews."],
+    ["Databricks' engine role", "Efficient storage structures (encodings, indexes) Automatic physical data optimization What we look for"],
+    ["Coinbase's node role", "Own performance analysis and optimization tasks across the blockchain node stack."],
+    ["Coinbase's payments role", "power how millions of users send, receive, and move crypto on Coinbase."],
+    ["Stripe's Terminal role", "Enterprise features—on-reader forms, tipping, gift cards. Partnerships with card issuers, local payment methods, crypto providers."],
+    ["Databricks' compensation role", "Proactively detect anomalies and apply conservative holds to prevent overpayment."],
+    ["Airbnb's market role", "Must have driver's licence to visit hosts in vacation rental areas."],
+  ])("no scam rule fires on %s", (_, text) => {
+    expect(scam({ text }).signals.filter((s) => s.points > 0)).toEqual([]);
+  });
+
+  it.each([
+    ["S-PII-EARLY", "Don't worry, just send your SSN and bank account details today."],
+    ["S-PII-EARLY", "We never meet in person. Send your Social Security number to start."],
+    ["S-CHAT-ONLY", "Message me on Signal for the interview."],
+    ["S-TASK-SCAM", "Earn $300 a day doing app optimization from your phone."],
+    ["S-PAYMENT-METHOD", "Your salary will be paid in USDT."],
+    ["S-PAYMENT-METHOD", "Buy three Apple gift cards and send the gift card codes."],
+    ["S-FAKE-CHECK", "We sent an overpayment by mistake, please return the difference by Zelle."],
+    ["S-PII-EARLY", "Please send a photo of your driver's license to HR."],
+    // Found by an adversarial hunt after the narrowing (2026-10-16): realistic scam wording that must keep firing.
+    ["S-PII-EARLY", "We don't require an interview, just send your SSN and bank account number to get started."],
+    ["S-PII-EARLY", "Don't worry, we never ask for upfront fees, all we need is your SSN and bank account details for direct deposit."],
+    ["S-PII-EARLY", "We don't need a resume, but please send us a photo of your driver's license for the I-9."],
+    ["S-PII-EARLY", "Please attach a clear picture of the front and back of your driver's license for I-9 verification."],
+    ["S-PII-EARLY", "Kindly forward a scanned copy of your valid driver's license to complete your onboarding."],
+    ["S-FAKE-CHECK", "This position doesn't require experience, you will receive a check to buy your equipment, deposit the check using mobile deposit and send the remaining balance to our vendor."],
+    ["S-FAKE-CHECK", "Due to an overpayment on your first check, please forward the excess amount to our vendor immediately."],
+    ["S-PAY-TO-WORK", "We don't need a cover letter, simply pay the $85 training fee via Zelle to secure your spot."],
+    ["S-RESHIP", "We will not require you to commute, just receive laptops at your home and reship them to our clients."],
+    ["S-TASK-SCAM", "We do not require any upfront payment, just complete your app optimization tasks and earn commission per task."],
+    ["S-TASK-SCAM", "Data optimization tasks: complete 40 orders a day and receive commissions."],
+    ["S-TASK-SCAM", "Order optimization job. Work 1 hour per day. Earn $300+."],
+    ["S-PAYMENT-METHOD", "Please purchase three $500 Target gift cards and email pictures of the back of the cards to our vendor."],
+    ["S-PAYMENT-METHOD", "Your training materials must be paid for with Google Play gift cards."],
+    ["S-PAYMENT-METHOD", "You will be paid weekly in Bitcoin."],
+    ["S-PAYMENT-METHOD", "Send the balance through Western Union to the vendor."],
+    ["S-PAYMENT-METHOD", "Deposit the cash into a Bitcoin ATM and scan the QR code I send you."],
+    ["S-CHAT-ONLY", "We do not require a resume, kindly add me on WhatsApp for your interview."],
+    ["S-CHAT-ONLY", "Kindly reach out to the hiring manager via signal to schedule your interview."],
+    ["S-CHAT-ONLY", "PLEASE CONTACT HR ON SIGNAL FOR YOUR INTERVIEW"],
+    ["S-CHAT-ONLY", "text us via signal"],
+    ["S-CHAT-ONLY", "Please download Signal app first."],
+  ])("%s still fires on scam wording: %s", (id, text) => {
     expect(scam({ text }).signals.map((s) => s.id)).toContain(id);
   });
 
