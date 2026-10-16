@@ -52,11 +52,21 @@ Built with Next.js 16.4 (App Router), Prisma 7.10, Neon Postgres, Passport.js an
 
 | Environment | URL | Neon branch | Sign-in |
 | --- | --- | --- | --- |
-| Local | http://localhost:3000 | `dev` | Email + password, Google, GitHub |
-| Preview (one per pull request) | Vercel preview URL | `dev` | Email + password only |
-| Production | https://job-seance.vercel.app | `main` | Username + password, Google, GitHub |
+| Local | http://localhost:3000 | `dev` | Username + password; Google and GitHub once their client IDs are set |
+| Preview (one per pull request) | Vercel preview URL | `dev` | Username + password only |
+| Production | https://job-seance.vercel.app | `main` | Username + password; Google and GitHub once their client IDs are set |
 
-Set each variable per environment in Vercel. On previews, leave `APP_URL` unset; the app falls back to `https://$VERCEL_URL`.
+Set each variable per environment in Vercel. On previews, leave `APP_URL` unset; the app falls back to `https://$VERCEL_URL`. Same-origin checks also trust Vercel's `VERCEL_PROJECT_PRODUCTION_URL`, so production accepts its own domain even if `APP_URL` is unset. Set `CRON_SECRET` in Production so the daily cleanup can run.
+
+## Postman
+
+`postman/jobseance.postman_collection.json` covers the whole API. It logs in once per seeded user, signs up nobody and cleans up after itself.
+
+```bash
+npx newman@6.2.2 run postman/jobseance.postman_collection.json --env-var baseUrl=http://localhost:3000
+```
+
+Against production, create a Postman environment with `baseUrl=https://job-seance.vercel.app` and `demoPassword` set to the production demo password (the default is the dev seed's). The folder **★ Demo step 6** holds the demo's API step in presenting order: run "0 · Setup › Log in as demo" first.
 
 ## Version pins
 

@@ -52,6 +52,13 @@ describe("checkRequest", () => {
       const preview = { VERCEL_URL: "job-seance-abc.vercel.app" };
       expect(checkRequest("POST", { ...json, origin: "https://job-seance-abc.vercel.app" }, "write", preview)).toBeNull();
     });
+    it("accept the production domain on production, even with APP_URL unset or wrong", () => {
+      const production = { APP_URL: "https://jobseance.vercel.app", VERCEL_URL: "job-seance-xyz.vercel.app", VERCEL_PROJECT_PRODUCTION_URL: "job-seance.vercel.app" };
+      const browser = { ...json, origin: "https://job-seance.vercel.app", "sec-fetch-site": "same-origin" };
+      expect(checkRequest("POST", browser, "auth", production)).toBeNull();
+      expect(checkRequest("POST", browser, "write", production)).toBeNull();
+      expect(checkRequest("POST", { ...json, origin: "https://job-seance.vercel.app" }, "auth", { VERCEL_URL: "job-seance-xyz.vercel.app" })?.status).toBe(403);
+    });
   });
 
   it("reads Web Headers too", () => {
