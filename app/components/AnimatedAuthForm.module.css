@@ -74,7 +74,6 @@
   left: 33.333%;
   width: 113.333%;
   height: 155.556%;
-  border-top: 0.267cqw solid var(--accent);
   background: var(--surface);
   transform: rotate(0deg) skewY(0deg);
   transform-origin: bottom left;
