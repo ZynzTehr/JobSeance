@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import ui from "../components/ui.module.css";
 import styles from "./dashboard.module.css";
 
 const ACTIONS = {
@@ -41,7 +42,7 @@ export default function SessionActions() {
           <button
             key={action}
             type="button"
-            className={`${action === "logout" ? styles.primary : styles.secondary} px-5 py-2.5`}
+            className={`${action === "logout" ? ui.primary : styles.logoutEverywhere} px-5 py-2.5`}
             onClick={() => run(action)}
             disabled={pending !== null}
           >

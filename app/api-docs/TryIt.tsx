@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import AutoGrowTextarea from "../components/AutoGrowTextarea";
 import ui from "../components/ui.module.css";
 import styles from "./api-docs.module.css";
 
@@ -85,10 +86,9 @@ export default function TryIt() {
           <label htmlFor="try-body" className={ui.label}>
             JSON body
           </label>
-          <textarea
+          <AutoGrowTextarea
             id="try-body"
             className={`${ui.input} ${styles.mono} mt-2 w-full px-3 py-2.5`}
-            rows={5}
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder='{"kind": "company_role", "company": "bramblecloud", "role": "Data Analyst"}'

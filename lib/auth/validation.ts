@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PASSWORD_MAX, PASSWORD_MAX_BYTES, PASSWORD_MIN } from "./password-rules";
 
 // Spec "Usernames" and "Security requirements". Pure functions, no I/O.
 
@@ -7,9 +8,7 @@ export const RESERVED_USERNAMES = new Set([
   "dashboard", "settings", "me", "support", "help", "jobseance", "null", "undefined",
 ]);
 
-export const PASSWORD_MIN = 15;
-export const PASSWORD_MAX = 64;
-export const PASSWORD_MAX_BYTES = 72; // bcrypt ignores everything past 72 bytes
+export { PASSWORD_MAX, PASSWORD_MAX_BYTES, PASSWORD_MIN };
 
 export function normalizeUsername(raw: string): string {
   return raw.trim().toLowerCase();

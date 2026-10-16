@@ -3,6 +3,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { flushSync } from "react-dom";
 import { api, ApiCallError } from "@/lib/ui";
+import AutoGrowTextarea from "../components/AutoGrowTextarea";
 import ui from "../components/ui.module.css";
 import {
   isFixedTarget,
@@ -363,10 +364,9 @@ export default function ReportProblemForm({ companies, signedIn, prefill }: Prop
             {details.length} / {MAX_DETAILS}
           </span>
         </div>
-        <textarea
+        <AutoGrowTextarea
           id="rp-details"
           className={`${ui.input} mt-2 w-full px-3 py-2.5`}
-          rows={6}
           required
           maxLength={MAX_DETAILS}
           value={details}

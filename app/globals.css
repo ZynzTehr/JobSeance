@@ -33,6 +33,8 @@
 
   /* Destructive actions only. Band colors stay reserved for scores. */
   --danger: #d9655e;
+  /* A requirement met (e.g. the sign-up password checklist). Not a score color. */
+  --ok: #8be0b4;
 
   --font-heading: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
   --font-body: var(--font-plex), ui-sans-serif, system-ui, sans-serif;

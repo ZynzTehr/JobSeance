@@ -43,3 +43,6 @@ next-env.d.ts
 
 /app/generated/prisma
 .neon
+
+# Presentation notes (local only)
+presentation-companies.md

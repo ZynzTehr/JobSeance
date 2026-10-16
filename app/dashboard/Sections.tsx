@@ -212,15 +212,22 @@ export function DeleteAccount() {
       <label htmlFor="delete-confirm" className={ui.label}>
         Type DELETE to confirm
       </label>
-      <div className="flex flex-col gap-3 sm:flex-row">
+      <div className="flex flex-col items-start gap-3">
         <input
           id="delete-confirm"
-          className={`${ui.input} px-3 py-2.5 sm:w-48`}
+          className={`${ui.input} w-full px-3 py-2.5 sm:w-48`}
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           autoComplete="off"
         />
-        <button id="delete-account" type="button" className={`${ui.danger} px-5 py-2.5`} disabled={confirm !== "DELETE" || busy} onClick={remove}>
+        <button
+          id="delete-account"
+          type="button"
+          className={`${ui.danger} px-5 py-2.5`}
+          disabled={confirm !== "DELETE" || busy}
+          aria-busy={busy}
+          onClick={remove}
+        >
           {busy ? "Deleting…" : "Delete my account"}
         </button>
       </div>
