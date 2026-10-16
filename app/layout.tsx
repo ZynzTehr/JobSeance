@@ -23,7 +23,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${bricolage.variable} ${plex.variable} h-full`}>
-      <body className="min-h-full flex flex-col">
+      {/* Browser extensions (e.g. ColorZilla's cz-shortcut-listen) add attributes to <body> before
+          React hydrates. This silences only <body>'s own attributes; mismatches inside still report. */}
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <SiteHeader />
         {children}
         <SiteFooter />
