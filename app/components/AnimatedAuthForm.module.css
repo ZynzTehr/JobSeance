@@ -74,7 +74,7 @@
   left: 33.333%;
   width: 113.333%;
   height: 155.556%;
-  border-top: 0.267cqw solid var(--accent);
+  /* No border on the rising edge: the panels meet as a clean change of color, like on the Login side. */
   background: var(--surface);
   transform: rotate(0deg) skewY(0deg);
   transform-origin: bottom left;
