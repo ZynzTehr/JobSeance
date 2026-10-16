@@ -35,7 +35,7 @@ export default function SessionActions() {
   }
 
   return (
-    <div className="mt-10">
+    <div className="mt-6">
       <div className="flex flex-wrap gap-3">
         {(Object.keys(ACTIONS) as Action[]).map((action) => (
           <button

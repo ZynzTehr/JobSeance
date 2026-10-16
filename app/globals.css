@@ -31,6 +31,9 @@
   --band-high: #e5675c;
   --band-none: #7c8496;
 
+  /* Destructive actions only. Band colors stay reserved for scores. */
+  --danger: #d9655e;
+
   --font-heading: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
   --font-body: var(--font-plex), ui-sans-serif, system-ui, sans-serif;
 

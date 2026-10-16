@@ -1,45 +1,11 @@
-/* Visuals only; layout comes from Tailwind utilities in the markup. */
+/* Visuals only; layout comes from Tailwind utilities in the markup. Shared cards and type live in ui.module.css. */
 
-.stage {
-  background:
-    radial-gradient(60rem 40rem at 50% -10%, #a9bcff1f, transparent 70%),
-    var(--ink);
-}
-
-.card {
-  border: 1px solid var(--ink-line);
-  border-radius: 20px;
-  background: linear-gradient(180deg, #1f2a4acc, var(--ink-raised));
-  box-shadow: 0 30px 80px -30px #000000aa, 0 0 0 1px #a9bcff10 inset;
-  animation: rise 600ms var(--ease-out) both;
-}
-
-.eyebrow {
-  color: var(--lantern);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.heading {
-  font-family: var(--font-heading);
-  font-size: clamp(28px, 5vw, 38px);
-  font-weight: 700;
-  line-height: 1.1;
-  overflow-wrap: anywhere;
-}
-
-.lede,
 .hint {
   color: var(--mist);
-  font-size: 15px;
+  font-size: 13px;
   line-height: 1.6;
 }
 
-.hint { font-size: 13px; }
-
-.details { border-top: 1px solid var(--ink-line); }
 
 .term {
   color: var(--mist);
@@ -82,9 +48,43 @@
 .primary:disabled,
 .secondary:disabled { cursor: wait; opacity: 0.6; }
 
-.error { min-height: 1.5em; color: var(--band-high); font-size: 14px; }
+.error { min-height: 1.5em; color: #f2a39b; font-size: 14px; }
 
 @keyframes rise {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: none; }
+}
+
+/* Phase 6 dashboard rows and forms */
+.row {
+  border: 1px solid var(--ink-line);
+  border-radius: 14px;
+  background: #121b35;
+  transition: border-color 200ms;
+}
+
+.row:hover {
+  border-color: color-mix(in srgb, var(--lantern) 35%, var(--ink-line));
+}
+
+.rowTitle {
+  color: var(--vellum);
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.rowLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.rowLink:hover {
+  color: var(--lantern);
+}
+
+.formCard {
+  border: 1px dashed var(--ink-line);
+  border-radius: 16px;
+  background: #0f1730;
 }

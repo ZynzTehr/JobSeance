@@ -1,0 +1,322 @@
+/* Shared visual primitives (cards, type, buttons, inputs, band chips). Layout stays in Tailwind. */
+
+.page {
+  background:
+    radial-gradient(70rem 36rem at 15% -12%, #a9bcff1c, transparent 70%),
+    radial-gradient(50rem 30rem at 100% 0%, #6f86d914, transparent 70%),
+    var(--ink);
+}
+
+.card {
+  border: 1px solid var(--ink-line);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #1f2a4ab3, var(--ink-raised));
+  box-shadow: 0 24px 60px -32px #000000b3, 0 0 0 1px #a9bcff0d inset;
+}
+
+.cardLink {
+  composes: card;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 200ms, transform 200ms var(--ease-out), box-shadow 200ms;
+}
+
+.cardLink:hover {
+  border-color: color-mix(in srgb, var(--lantern) 55%, var(--ink-line));
+  transform: translateY(-2px);
+  box-shadow: 0 30px 70px -30px #000000cc, 0 0 0 1px #a9bcff1f inset;
+}
+
+.rise {
+  animation: rise 520ms var(--ease-out) both;
+}
+
+.eyebrow {
+  color: var(--lantern);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.title {
+  font-family: var(--font-heading);
+  font-size: clamp(32px, 6vw, 52px);
+  font-weight: 700;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  font-variation-settings: "opsz" 96, "wdth" 85;
+}
+
+.h2 {
+  font-family: var(--font-heading);
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.h3 {
+  font-family: var(--font-heading);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.lede {
+  color: color-mix(in srgb, var(--vellum) 82%, transparent);
+  font-size: 17px;
+  line-height: 1.65;
+}
+
+.body {
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.muted {
+  color: var(--mist);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.small {
+  color: var(--mist);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.link {
+  color: var(--lantern);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--lantern) 40%, transparent);
+  text-underline-offset: 3px;
+}
+
+.link:hover {
+  text-decoration-color: var(--lantern);
+}
+
+.rule {
+  border-top: 1px solid var(--ink-line);
+}
+
+.code {
+  border: 1px solid var(--ink-line);
+  border-radius: 10px;
+  background: #0d1426;
+  color: #cfd8f5;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre;
+}
+
+.inlineCode {
+  border-radius: 6px;
+  background: #0d1426;
+  color: #cfd8f5;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  padding: 0.1em 0.35em;
+}
+
+/* Buttons */
+.primary,
+.secondary,
+.ghost,
+.danger {
+  border-radius: 999px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 200ms, border-color 200ms, opacity 200ms, color 200ms;
+}
+
+.primary {
+  border: 1px solid #c4d1ff;
+  background: linear-gradient(#6f86d9, #34437a);
+  color: var(--vellum);
+  box-shadow: 0 10px 30px -12px #6f86d9aa;
+}
+
+.primary:hover {
+  background: linear-gradient(#8ea2ee, #44569a);
+}
+
+.secondary {
+  border: 1px solid var(--ink-line);
+  background: #ffffff05;
+  color: var(--vellum);
+}
+
+.secondary:hover {
+  border-color: var(--lantern);
+}
+
+.ghost {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--mist);
+}
+
+.ghost:hover {
+  color: var(--vellum);
+}
+
+.danger {
+  border: 1px solid color-mix(in srgb, var(--danger) 60%, transparent);
+  background: transparent;
+  color: #f2a39b;
+}
+
+.danger:hover {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+}
+
+.primary:disabled,
+.secondary:disabled,
+.ghost:disabled,
+.danger:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+/* Form controls */
+.label {
+  color: var(--mist);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.input {
+  border: 1px solid var(--ink-line);
+  border-radius: 12px;
+  background: #0f1730;
+  color: var(--vellum);
+  font: inherit;
+  font-size: 15px;
+  transition: border-color 160ms, box-shadow 160ms;
+}
+
+.input::placeholder {
+  color: #6a7390;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--lantern);
+  box-shadow: 0 0 0 3px #a9bcff26;
+}
+
+.input[aria-invalid="true"] {
+  border-color: #f2a39b;
+}
+
+textarea.input {
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.checkbox {
+  accent-color: var(--lantern);
+}
+
+.fieldError {
+  color: #f2a39b;
+  font-size: 13px;
+}
+
+.status {
+  min-height: 1.4em;
+  font-size: 14px;
+}
+
+.statusError {
+  composes: status;
+  color: #f2a39b;
+}
+
+.statusOk {
+  composes: status;
+  color: var(--mist);
+}
+
+/* Badges and band chips. Band colors are only ever used for scores. */
+.badge {
+  border: 1px solid var(--ink-line);
+  border-radius: 999px;
+  color: var(--mist);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.chip {
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.LOW {
+  composes: chip;
+  background: color-mix(in srgb, var(--band-low) 18%, transparent);
+  color: var(--band-low);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--band-low) 45%, transparent) inset;
+}
+
+.CAUTION {
+  composes: chip;
+  background: color-mix(in srgb, var(--band-caution) 18%, transparent);
+  color: var(--band-caution);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--band-caution) 45%, transparent) inset;
+}
+
+.HIGH {
+  composes: chip;
+  background: color-mix(in srgb, var(--band-high) 18%, transparent);
+  color: #f08a80;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--band-high) 50%, transparent) inset;
+}
+
+.NOT_ENOUGH_DATA {
+  composes: chip;
+  background: color-mix(in srgb, var(--band-none) 18%, transparent);
+  color: #b4bac8;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--band-none) 45%, transparent) inset;
+}
+
+.table {
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.table th {
+  color: var(--mist);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.table td,
+.table th {
+  border-bottom: 1px solid var(--ink-line);
+  vertical-align: top;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

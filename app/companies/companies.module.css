@@ -1,0 +1,46 @@
+/* Company directory and company page visuals. */
+
+.fictional {
+  border: 1px dashed color-mix(in srgb, var(--lantern) 55%, transparent);
+  border-radius: 999px;
+  color: var(--lantern);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.fact {
+  color: var(--vellum);
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.big {
+  font-family: var(--font-heading);
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.roles {
+  list-style: none;
+  padding: 0;
+}
+
+.roles li + li {
+  border-top: 1px solid var(--ink-line);
+}
+
+.roleLink {
+  color: var(--vellum);
+  font-size: 15px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.roleLink:hover {
+  color: var(--lantern);
+}
