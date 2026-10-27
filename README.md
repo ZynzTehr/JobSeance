@@ -32,6 +32,7 @@ Built with Next.js 16.4 (App Router), Prisma 7.10, Neon Postgres, Passport.js an
    | `GOOGLE_*`, `GITHUB_*` | From your OAuth apps; leave empty to hide that sign-in button |
    | `CRON_SECRET`, `USE_FIXTURES` | Optional |
    | `DEMO_USER_EMAIL`, `DEMO_USER_PASSWORD` | Optional; used by the database seed |
+   | `ADMIN_USER_EMAIL`, `ADMIN_USER_PASSWORD` | Optional, seed only (set in your shell): a separate `admin` account. When set, `demo` is seeded as a plain user, since its password is typed on stage |
    | `ANTHROPIC_API_KEY` | Optional; turns on AI reading, board searches and page reads. Use a dedicated key with a monthly spend limit set in the Anthropic console |
    | `AI_MODE`, `AI_MODEL`, `AI_MODEL_LOCATE`, `AI_DAILY_USD` | Optional: `off` disables AI without removing the key; model for reading and board guesses (default `claude-haiku-5-5`); model for web search and page reads (default `claude-sonnet-5-5`); global daily spend cap in USD (default 2) |
 
@@ -85,6 +86,29 @@ Checks read the employer's own system, never a job site. Greenhouse, Lever and A
 - **Never counted.** Anyone can open a board under a company's name (a Workable account called "Spotify" exists), so a discovered board and its listing are 0-point info rows. An admin adds the company to the directory to make it count.
 - **Presence check and page reading** run only on `Company.careersHosts`, an admin-curated allowlist (seeded for Apple, Microsoft and Meta). Page text comes from the fetch tool's own result block; a field the model reports is shown only if it appears word for word on the page. Phrase hits from a page are shown, not counted.
 - Web searches and page reads are limited to 5 per account per day on top of the 20 AI checks, and each search costs $0.01 plus tokens.
+
+## Admin page (phase 12)
+
+`/admin` is for accounts with the `ADMIN` role, which is granted only in the database. Everyone else gets the same 404 as a missing page, and the API endpoints below answer 404 too. Admins see an Admin link in the header.
+
+- **AI spend:** today's and the last 7 days' estimated spend, calls, searches, page reads, refusals and errors. One switch pauses every AI call (the `Setting` row `aiPaused`) within a minute, without a redeploy.
+- **Boards found for companies we don't list:** review a discovered board, type the official domains yourself, and add the company to the directory. Board checks then count for it.
+- **Official domains and careers hosts:** careers hosts must sit under an official domain and can't be a job site or a hiring system.
+- **Open problem reports:** set a flag to under review, upheld (removes a reported outcome or scam report) or rejected (makes a hidden report visible again).
+
+| Endpoint | What it does |
+| --- | --- |
+| `GET /api/v1/admin/ai-usage` | AI spend and counts, numbers only |
+| `POST /api/v1/admin/ai-pause` | `{ "paused": true }` or `false` |
+| `GET /api/v1/admin/discoveries` | Found boards not yet in the directory |
+| `PATCH /api/v1/companies/:slug` | `officialDomains`, `careersHosts` |
+| `PATCH /api/v1/flags/:id` | `status`, `resolutionNote` |
+
+In production, seed a separate admin account from your shell and demote `demo`, whose password is typed on stage:
+
+```bash
+ADMIN_USER_EMAIL=... ADMIN_USER_PASSWORD=... DEMO_USER_PASSWORD=... npx prisma db seed --config prisma7.config.ts
+```
 
 ## Environments
 

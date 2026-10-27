@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { handle, HttpError, readBody, readQuery, writer } from "@/lib/api";
 import { slugify } from "@/lib/checks/run";
 import { getDb } from "@/lib/db";
+import { careersHostProblem } from "@/lib/admin";
 import { boardExists } from "@/lib/lookups/boards";
 import { companyCreate, companyQuery, conflictOn } from "@/lib/schemas";
 
@@ -16,6 +17,7 @@ const companySelect = {
   atsBoard: true,
   atsHost: true,
   officialDomains: true,
+  careersHosts: true,
   isFictional: true,
 } as const;
 
@@ -38,6 +40,9 @@ export const POST = handle(async (request: NextRequest) => {
   const body = await readBody(request, companyCreate);
   const slug = body.slug ?? slugify(body.name);
   if (!slug) throw new HttpError({ status: 400, code: "validation_failed", message: "Pick a slug.", fields: { slug: "Required." } });
+  const careersHosts = [...new Set(body.careersHosts ?? [])];
+  const hostProblem = careersHostProblem(careersHosts, body.officialDomains);
+  if (hostProblem) throw new HttpError({ status: 400, code: "validation_failed", message: hostProblem, fields: { careersHosts: hostProblem } });
 
   if (body.ats !== "NONE") {
     const exists = await boardExists({ ats: body.ats, board: body.atsBoard!, ...(body.atsHost ? { host: body.atsHost } : {}) }).catch(() => {
@@ -51,7 +56,7 @@ export const POST = handle(async (request: NextRequest) => {
 
   const company = await getDb()
     .company.create({
-      data: { name: body.name, slug, officialDomains: [...new Set(body.officialDomains)], ats: body.ats, atsBoard: body.atsBoard ?? null, atsHost: body.atsHost ?? null },
+      data: { name: body.name, slug, officialDomains: [...new Set(body.officialDomains)], ats: body.ats, atsBoard: body.atsBoard ?? null, atsHost: body.atsHost ?? null, careersHosts },
       select: companySelect,
     })
     .catch((e) => conflictOn(e, "slug", "A company with that slug already exists."));

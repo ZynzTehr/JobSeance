@@ -37,11 +37,12 @@ function LogoutButton({ className, onDone }: { className: string; onDone: () => 
 }
 
 /** Nav with active state; collapses into a menu button at phone width. */
-export default function NavLinks({ signedIn }: { signedIn: boolean }) {
+export default function NavLinks({ signedIn, admin = false }: { signedIn: boolean; admin?: boolean }) {
   const pathname = usePathname() ?? "";
   const [open, setOpen] = useState(false);
   const active = (href: string) => pathname.startsWith(href);
-  const links = signedIn ? MEMBER_LINKS : PUBLIC_LINKS;
+  // Admins only: everyone else never sees the link (the page itself 404s for them too).
+  const links = signedIn ? [...MEMBER_LINKS, ...(admin ? [{ href: "/admin", label: "Admin" }] : [])] : PUBLIC_LINKS;
 
   const items = (
     <>

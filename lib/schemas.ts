@@ -78,6 +78,9 @@ const domainName = z
   .toLowerCase()
   .regex(/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9-]{2,63}$/, "Use a domain like acme.com.");
 
+/** Admin-curated employer careers hosts (presence check and page reading). Checked against officialDomains in lib/admin.ts. */
+export const careersHostList = z.array(domainName).max(10, "At most 10 careers hosts.");
+
 export const ATS_VALUES = ["GREENHOUSE", "LEVER", "ASHBY", "WORKDAY", "SMARTRECRUITERS", "WORKABLE", "RECRUITEE", "AMAZON", "NONE"] as const;
 
 export const companyCreate = z
@@ -102,6 +105,7 @@ export const companyCreate = z
       .toLowerCase()
       .regex(/^[a-z0-9][a-z0-9-]{0,62}\.wd\d{1,3}\.myworkday(?:jobs|site)\.com$/, "Use the Workday host, like acme.wd5.myworkdayjobs.com.")
       .optional(),
+    careersHosts: careersHostList.optional(),
   })
   .refine((b) => (b.ats === "NONE") === !b.atsBoard, {
     message: "A board token is required for every job-board system, and not allowed for NONE.",
@@ -109,6 +113,25 @@ export const companyCreate = z
   })
   .refine((b) => (b.ats === "WORKDAY") === Boolean(b.atsHost), { message: "Workday needs its host; other systems don't take one.", path: ["atsHost"] })
   .refine((b) => (b.ats === "WORKDAY") === Boolean(b.atsBoard?.includes("/")), { message: "Workday boards are tenant/site; others have no slash.", path: ["atsBoard"] });
+
+/** PATCH /api/v1/companies/:slug (admin): the hand-curated fields only. */
+export const companyUpdate = z
+  .strictObject({
+    officialDomains: z.array(domainName).min(1, "Add at least one official domain.").max(10).optional(),
+    careersHosts: careersHostList.optional(),
+  })
+  .refine((b) => Object.keys(b).length > 0, { message: "Send at least one field to change.", path: ["body"] });
+
+export const FLAG_RESOLUTIONS = ["UNDER_REVIEW", "UPHELD", "REJECTED"] as const;
+
+/** PATCH /api/v1/flags/:id (admin). */
+export const flagUpdate = z.strictObject({
+  status: z.enum(FLAG_RESOLUTIONS),
+  resolutionNote: z.string().trim().max(1000).optional(),
+});
+
+/** POST /api/v1/admin/ai-pause. */
+export const aiPauseBody = z.strictObject({ paused: z.boolean() });
 
 export const companyQuery = z.strictObject({
   q: z.string().trim().max(100).optional(),

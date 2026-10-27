@@ -19,6 +19,16 @@ const DEV_DEMO_PASSWORD = "seance-demo-password-dev";
 const demoEmail = (process.env.DEMO_USER_EMAIL || "demo@jobseance.example").trim().toLowerCase();
 const demoPassword = (process.env.DEMO_USER_PASSWORD || DEV_DEMO_PASSWORD).normalize("NFC");
 
+// Phase 12: a separate admin account, from the shell only (never a default). When it is set,
+// "demo" becomes a plain USER, because the demo password is typed in front of an audience.
+const adminEmail = process.env.ADMIN_USER_EMAIL?.trim().toLowerCase() || null;
+const adminPassword = process.env.ADMIN_USER_PASSWORD?.normalize("NFC") || null;
+if (Boolean(adminEmail) !== Boolean(adminPassword)) throw new Error("Set both ADMIN_USER_EMAIL and ADMIN_USER_PASSWORD, or neither.");
+if (adminPassword && ([...adminPassword].length < 12 || Buffer.byteLength(adminPassword) > 72)) {
+  throw new Error("ADMIN_USER_PASSWORD must be at least 12 characters and at most 72 bytes.");
+}
+if (adminPassword && adminPassword === demoPassword) throw new Error("ADMIN_USER_PASSWORD must differ from the demo password.");
+
 // Length limits as at sign-up (8-64 characters, at most 72 bytes, never trimmed). The character-mix
 // rule isn't enforced here, so existing demo passwords keep working; login never re-checks the policy.
 const passwordLength = [...demoPassword].length;
@@ -55,7 +65,7 @@ const realCompanies: { name: string; slug: string; domains: string[]; ats: Ats; 
 const careersCompanies: { name: string; slug: string; domains: string[]; careersHosts: string[] }[] = [
   { name: "Apple", slug: "apple", domains: ["apple.com"], careersHosts: ["jobs.apple.com"] },
   { name: "Microsoft", slug: "microsoft", domains: ["microsoft.com"], careersHosts: ["jobs.careers.microsoft.com", "careers.microsoft.com"] },
-  { name: "Meta", slug: "meta", domains: ["meta.com", "fb.com"], careersHosts: ["metacareers.com"] },
+  { name: "Meta", slug: "meta", domains: ["meta.com", "fb.com", "metacareers.com"], careersHosts: ["metacareers.com"] },
 ];
 
 const fictionalCompanies = [
@@ -102,6 +112,8 @@ async function main() {
 
   // bcrypt is slow on purpose (cost 12), so hash before opening the transaction.
   const passwordHash = await bcrypt.hash(demoPassword, 12);
+  const adminHash = adminPassword ? await bcrypt.hash(adminPassword, 12) : null;
+  if (adminEmail) console.log("Creating the admin account; demo becomes a USER.");
 
   const counts = await db.$transaction(
     async (tx) => {
@@ -117,7 +129,7 @@ async function main() {
       }
 
       const demoUsers = [
-        { username: "demo", email: demoEmail, role: "ADMIN" as const, name: "Demo user" },
+        { username: "demo", email: demoEmail, role: adminEmail ? ("USER" as const) : ("ADMIN" as const), name: "Demo user" },
         { username: "demo2", email: "demo2@jobseance.example", role: "USER" as const, name: "Second demo user" },
       ];
       const demos: User[] = [];
@@ -131,6 +143,13 @@ async function main() {
         );
       }
       const demo = demos[0];
+      if (adminEmail && adminHash) {
+        await tx.user.upsert({
+          where: { email: adminEmail },
+          update: { username: "admin", passwordHash: adminHash, role: "ADMIN" },
+          create: { username: "admin", email: adminEmail, name: "Admin", role: "ADMIN", passwordHash: adminHash },
+        });
+      }
 
       for (const c of realCompanies) {
         const data = { name: c.name, officialDomains: c.domains, ats: c.ats, atsBoard: c.board, atsHost: c.host ?? null, isFictional: false };
