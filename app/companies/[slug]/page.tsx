@@ -35,7 +35,7 @@ export default async function CompanyPage({ params }: PageProps<"/companies/[slu
   const [postings, community] = await Promise.all([postingsWithin(company.slug, 6000), companyAggregate(company.id)]);
   const roles = openRoles(postings);
   const live = postings && postings !== "unavailable" ? postings.postings.filter((p) => p.state === "LIVE") : [];
-  const board = boardUrl(company.ats, company.atsBoard);
+  const board = boardUrl(company.ats, company.atsBoard, company.atsHost);
 
   return (
     <main className={`${ui.page} flex-1`}>

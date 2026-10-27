@@ -32,8 +32,13 @@ export const postingTextSchema = z.strictObject({
 });
 export type PostingTextInput = z.infer<typeof postingTextSchema>;
 
+/** Fact text for a role missing from a system's own search: shown, never counted. */
+export const searchMissDetail = (role: string, boardName: string) =>
+  `No posting titled "${role.slice(0, 80)}" turned up in a search of ${boardName}. Searches can miss a posting, so nothing counted`;
+
 export type CompanyBoard =
-  | { kind: "board"; ref: BoardRef; boardName: string; source: string; postings: PostingSummary[] }
+  /** searched = the system's own search (Workday, SmartRecruiters, amazon.jobs), so a miss proves nothing. */
+  | { kind: "board"; ref: BoardRef; boardName: string; source: string; postings: PostingSummary[]; searched?: boolean }
   | { kind: "stored"; postings: PostingFacts[] } // companies with no public board (fictional demo data)
   | { kind: "unavailable"; boardName: string; source: string };
 
@@ -46,7 +51,8 @@ export type PostingDeps = {
   findCompany(name: string): Promise<Company | null>;
   /** AI-read name: exact slug or exact name only. */
   findCompanyExact(name: string): Promise<Company | null>;
-  companyBoard(company: Company): Promise<CompanyBoard>;
+  /** The role is passed so search systems (Workday, SmartRecruiters, amazon.jobs) can search for it. */
+  companyBoard(company: Company, role: string): Promise<CompanyBoard>;
   lookupJob(ref: BoardRef, jobId: string, company: Company | null): Promise<{ board: BoardStatus; posting: PostingFacts | null }>;
   /** An ATS job link found in the text → board + job id (+ directory company), or null. */
   resolveLink(url: string): Promise<{ ref: BoardRef; jobId: string; company: Company | null } | null>;
@@ -175,7 +181,7 @@ export async function checkPostingText(input: PostingTextInput, deps: PostingDep
   } else if (lookUp && company && !role) {
     board = { kind: "couldnt_verify", boardName: "", source: "JobSeance company list", detail: "No role title found in the text, so the board wasn't searched (nothing counted)" };
   } else if (lookUp && company && role) {
-    const found = await deps.companyBoard(company);
+    const found = await deps.companyBoard(company, role);
     if (found.kind === "unavailable") {
       board = { kind: "couldnt_verify", boardName: found.boardName, source: found.source };
     } else if (found.kind === "stored") {
@@ -189,6 +195,13 @@ export async function checkPostingText(input: PostingTextInput, deps: PostingDep
       if (pick) {
         ({ board, posting } = await deps.lookupJob(found.ref, pick.externalId, company));
         counted = true;
+      } else if (typed && found.searched) {
+        board = {
+          kind: "couldnt_verify",
+          boardName: found.boardName,
+          source: found.source,
+          detail: searchMissDetail(role, found.boardName),
+        };
       } else if (typed) {
         board = { kind: "not_found", boardName: found.boardName, source: found.source, detail: `No posting titled "${role.slice(0, 80)}" on ${found.boardName}` };
         counted = true;

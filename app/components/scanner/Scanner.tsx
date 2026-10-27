@@ -13,7 +13,7 @@ import type { CheckResult, MessageInput, PostingInput } from "./types";
 type Kind = "url" | "company_role" | "posting_text" | "message";
 
 const TABS: { kind: Kind; label: string; hint: string }[] = [
-  { kind: "url", label: "Job link", hint: "A Greenhouse, Lever or Ashby job URL" },
+  { kind: "url", label: "Job link", hint: "A job link from Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Workable, Recruitee or amazon.jobs" },
   { kind: "company_role", label: "Company + role", hint: "Look a role up on the company's own board" },
   { kind: "posting_text", label: "Pasted posting", hint: "Copied from LinkedIn, Indeed or anywhere: Claude reads the company and role, we check the employer's own board" },
   { kind: "message", label: "Recruiter message", hint: "Paste an email or text you received" },

@@ -15,14 +15,14 @@ export const GHOST_SIGNALS: Record<string, SignalInfo> = {
   "G-BOARD": {
     name: "On the employer's own job board",
     points: `+${GHOST.notOnBoard}`,
-    when: "The company's Greenhouse, Lever or Ashby board is known and this job ID isn't on it. A live listing scores 0.",
-    source: "The employer's public job-board API, checked live",
+    when: "The company's job board is known and this job ID isn't on it. A live listing scores 0. On systems we can only search (Workday, SmartRecruiters, amazon.jobs), a role that doesn't turn up in the search shows \"couldn't verify\", never \"not found\".",
+    source: "The employer's own hiring system (Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Workable, Recruitee or amazon.jobs), checked live",
   },
   "G-AGE": {
     name: "How long it's been listed",
     points: `0 / +${age[1]} / +${age[2]} / +${age[3]}`,
-    when: `Listed ${days[0]} days or less / ${days[0] + 1}–${days[1]} / ${days[1] + 1}–${days[2]} / over ${days[2]} days, from the board's own first-published date (never LinkedIn's "posted" date, which resets on repost).`,
-    source: "The employer's public job-board API",
+    when: `Listed ${days[0]} days or less / ${days[0] + 1}–${days[1]} / ${days[1] + 1}–${days[2]} / over ${days[2]} days, from the board's own first-published date (Workday: the posting's start date; amazon.jobs: its posted date), never LinkedIn's "posted" date, which resets on repost.`,
+    source: "The employer's own hiring system",
   },
   "G-EVERGREEN": {
     name: "Pipeline wording",
@@ -92,7 +92,7 @@ export const SCAM_SIGNALS: Record<string, SignalInfo> = Object.fromEntries(
 /** Facts gathered for context on pasted postings. 0 points; never part of a score. */
 export const GATHERED_SIGNALS: Record<string, { name: string; when: string }> = {
   "A-READ": { name: "What we read from the text", when: "Claude read the company and role from your pasted text (or, if you opted in, suggested fields from a recruiter message), or you typed them. The values are shown on the result but never stored." },
-  "A-LINK": { name: "Job link in the text", when: "The pasted text contained a Greenhouse, Lever or Ashby job link, so we checked that exact job." },
+  "A-LINK": { name: "Job link in the text", when: "The pasted text contained a job link on a system we read (Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Workable, Recruitee or amazon.jobs), so we checked that exact job." },
   "A-HEADERS": { name: "Sender from pasted headers", when: "You pasted the email's headers and left the sender blank, so we used the address in the From line." },
   "A-POSTED": { name: "Posting date in the text", when: "The text says when it was posted. Job sites reset that date on repost, so it is never counted; only the board's own date is." },
 };

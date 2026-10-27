@@ -14,6 +14,7 @@ const companySelect = {
   name: true,
   ats: true,
   atsBoard: true,
+  atsHost: true,
   officialDomains: true,
   isFictional: true,
 } as const;
@@ -39,7 +40,7 @@ export const POST = handle(async (request: NextRequest) => {
   if (!slug) throw new HttpError({ status: 400, code: "validation_failed", message: "Pick a slug.", fields: { slug: "Required." } });
 
   if (body.ats !== "NONE") {
-    const exists = await boardExists({ ats: body.ats, board: body.atsBoard! }).catch(() => {
+    const exists = await boardExists({ ats: body.ats, board: body.atsBoard!, ...(body.atsHost ? { host: body.atsHost } : {}) }).catch(() => {
       throw new HttpError({ status: 502, code: "board_unavailable", message: "The job board didn't respond. Try again in a minute." });
     });
     if (!exists) {
@@ -50,7 +51,7 @@ export const POST = handle(async (request: NextRequest) => {
 
   const company = await getDb()
     .company.create({
-      data: { name: body.name, slug, officialDomains: [...new Set(body.officialDomains)], ats: body.ats, atsBoard: body.atsBoard ?? null },
+      data: { name: body.name, slug, officialDomains: [...new Set(body.officialDomains)], ats: body.ats, atsBoard: body.atsBoard ?? null, atsHost: body.atsHost ?? null },
       select: companySelect,
     })
     .catch((e) => conflictOn(e, "slug", "A company with that slug already exists."));

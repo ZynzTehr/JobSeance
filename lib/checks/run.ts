@@ -4,11 +4,13 @@ import type { ApiError } from "@/lib/http";
 import { fixturesEnabled, type BoardRef } from "@/lib/lookups/boards";
 import { describeDomain, officialDomains, registrableDomain, type DomainReport } from "@/lib/lookups/domains";
 import type { FetchOptions } from "@/lib/lookups/fetch";
-import { parseJobUrl, type BoardAts } from "@/lib/lookups/job-url";
+import { parseJobUrl, SEARCH_ATS, type BoardAts } from "@/lib/lookups/job-url";
+import { searchBoardJobs } from "@/lib/lookups/boards";
+import { UpstreamError } from "@/lib/lookups/fetch";
 import { boardRef, BoardUnavailableError, getCompanyPostings, lookupPosting, type PostingFacts } from "@/lib/lookups/postings";
 import { currentTransport, offTransport, type AiTransport } from "@/lib/ai/transport";
 import { checkMessageText, messageExtras, type MessageReading } from "@/lib/checks/message";
-import { checkPostingText, postingTextSchema, type CompanyBoard, type PostingDeps, type Reading } from "@/lib/checks/posting";
+import { checkPostingText, postingTextSchema, searchMissDetail, type CompanyBoard, type PostingDeps, type Reading } from "@/lib/checks/posting";
 import { dmarcPolicy } from "@/lib/lookups/mail-auth";
 import { CONFIG_VERSION, DISCLAIMER, HIGH_SCAM_ADVICE, VERIFICATION_CHECKLIST } from "@/lib/scoring/config";
 import { scoreGhost, type BoardStatus, type CommunityReport, type CommunitySummary, type Score, type Signal } from "@/lib/scoring/ghost";
@@ -47,8 +49,26 @@ export class CheckError extends Error {
   }
 }
 
-const ATS_LABEL: Record<BoardAts, string> = { GREENHOUSE: "Greenhouse", LEVER: "Lever", ASHBY: "Ashby" };
-const ATS_HOST: Record<BoardAts, string> = { GREENHOUSE: "boards-api.greenhouse.io", LEVER: "api.lever.co", ASHBY: "api.ashbyhq.com" };
+const ATS_LABEL: Record<BoardAts, string> = {
+  GREENHOUSE: "Greenhouse",
+  LEVER: "Lever",
+  ASHBY: "Ashby",
+  WORKDAY: "Workday",
+  SMARTRECRUITERS: "SmartRecruiters",
+  WORKABLE: "Workable",
+  RECRUITEE: "Recruitee",
+  AMAZON: "amazon.jobs",
+};
+const ATS_HOST: Record<BoardAts, string> = {
+  GREENHOUSE: "boards-api.greenhouse.io",
+  LEVER: "api.lever.co",
+  ASHBY: "api.ashbyhq.com",
+  WORKDAY: "myworkdayjobs.com (career-site search)",
+  SMARTRECRUITERS: "api.smartrecruiters.com",
+  WORKABLE: "apply.workable.com",
+  RECRUITEE: "recruitee.com",
+  AMAZON: "amazon.jobs (search)",
+};
 
 export const boardSource = (ats: BoardAts) => (fixturesEnabled() ? `${ATS_HOST[ats]} (saved copy)` : ATS_HOST[ats]);
 export const boardName = (ref: BoardRef, company: Company | null) =>
@@ -108,7 +128,9 @@ export async function lookupBoardJob(
     board = { kind: "live", boardName: name, source };
     posting = lookup.posting;
   } else if (lookup.found === false) {
-    board = { kind: "not_found", boardName: name, source, detail: `Job ${jobId} is no longer on ${name}` };
+    // Workday and Workable show ids in upper case; we store them lowercased.
+    const shown = ref.ats === "WORKDAY" || ref.ats === "WORKABLE" ? jobId.toUpperCase() : jobId;
+    board = { kind: "not_found", boardName: name, source, detail: `Job ${shown} is no longer on ${name}` };
     posting = lookup.previous;
   } else {
     board = { kind: "couldnt_verify", boardName: name, source };
@@ -182,7 +204,10 @@ export async function resolveUrl(url: string): Promise<{ ref: BoardRef; jobId: s
   const company = await db.company.findFirst({
     where: { ats: parsed.ats, atsBoard: { equals: parsed.board, mode: "insensitive" } },
   });
-  const ref: BoardRef = { ats: parsed.ats, board: company?.atsBoard ?? parsed.board, region: parsed.region };
+  const host = company?.atsHost ?? parsed.host;
+  // The pasted job path only makes sense on the host it came from.
+  const jobPath = parsed.jobPath && host === parsed.host ? parsed.jobPath : undefined;
+  const ref: BoardRef = { ats: parsed.ats, board: company?.atsBoard ?? parsed.board, region: parsed.region, ...(host ? { host } : {}), ...(jobPath ? { jobPath } : {}) };
   return { ref, jobId: parsed.jobId, company };
 }
 
@@ -208,19 +233,20 @@ async function checkCompanyRole(company: Company, role: string, now: Date): Prom
     return scoreBoardCheck({ kind: "no_board", companyName: company.name }, posting, null, community, now);
   }
 
-  const name = boardName(ref, company);
-  const source = boardSource(ref.ats);
-  let list;
-  try {
-    list = await getCompanyPostings(company.slug, now);
-  } catch (error) {
-    if (!(error instanceof BoardUnavailableError)) throw error;
-    return scoreBoardCheck({ kind: "couldnt_verify", boardName: name, source }, null, ref.ats, community, now);
+  const found = await companyBoard(company, now, role);
+  if (found.kind !== "board") {
+    const name = boardName(ref, company);
+    return scoreBoardCheck({ kind: "couldnt_verify", boardName: name, source: boardSource(ref.ats) }, null, ref.ats, community, now);
   }
-  const match = list ? pickByTitle(list.postings, role) : null;
+  const match = pickByTitle(found.postings, role);
+  if (!match && found.searched) {
+    // A search can miss a posting (different wording, index lag), so a miss is never counted.
+    const detail = searchMissDetail(role, found.boardName);
+    return scoreBoardCheck({ kind: "couldnt_verify", boardName: found.boardName, source: found.source, detail }, null, ref.ats, community, now);
+  }
   if (!match) {
-    const detail = `No posting titled "${role.slice(0, 80)}" on ${name}`;
-    return scoreBoardCheck({ kind: "not_found", boardName: name, source, detail }, null, ref.ats, community, now);
+    const detail = `No posting titled "${role.slice(0, 80)}" on ${found.boardName}`;
+    return scoreBoardCheck({ kind: "not_found", boardName: found.boardName, source: found.source, detail }, null, ref.ats, community, now);
   }
   return checkBoardJob(ref, match.externalId, company, { now, community });
 }
@@ -286,7 +312,11 @@ export async function findCompanyExact(name: string): Promise<Company | null> {
   return db.company.findFirst({ where: { name: { equals: bare, mode: "insensitive" } } });
 }
 
-async function companyBoard(company: Company, now: Date): Promise<CompanyBoard> {
+/**
+ * A company's postings to match a role against: the stored rows (no public board), the cached
+ * board, or for search systems (Workday, SmartRecruiters, amazon.jobs) the system's own search.
+ */
+async function companyBoard(company: Company, now: Date, role?: string): Promise<CompanyBoard> {
   const ref = boardRef(company);
   if (!ref) {
     const rows = await getDb().posting.findMany({ where: { companyId: company.id } });
@@ -297,6 +327,15 @@ async function companyBoard(company: Company, now: Date): Promise<CompanyBoard> 
   }
   const name = boardName(ref, company);
   const source = boardSource(ref.ats);
+  if (SEARCH_ATS.has(ref.ats) && role) {
+    try {
+      const jobs = await searchBoardJobs(ref, role);
+      return { kind: "board", ref, boardName: name, source, searched: true, postings: jobs.map((j) => ({ ...j, state: "LIVE" as const })) };
+    } catch (error) {
+      if (!(error instanceof UpstreamError)) throw error;
+      return { kind: "unavailable", boardName: name, source };
+    }
+  }
   try {
     const list = await getCompanyPostings(company.slug, now);
     return { kind: "board", ref, boardName: name, source, postings: list?.postings ?? [] };
@@ -323,7 +362,7 @@ export function postingDeps(userId: string, now: Date, ai: AiTransport, signal?:
     signal,
     findCompany,
     findCompanyExact,
-    companyBoard: (company) => companyBoard(company, now),
+    companyBoard: (company, role) => companyBoard(company, now, role),
     lookupJob: (ref, jobId, company) => lookupBoardJob(ref, jobId, company, { now }),
     resolveLink: async (url) => {
       try {

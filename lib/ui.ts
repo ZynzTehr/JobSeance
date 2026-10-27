@@ -34,7 +34,17 @@ export const CHANNEL_LABEL = {
 } as const;
 export type ChannelValue = keyof typeof CHANNEL_LABEL;
 
-export const ATS_LABEL = { GREENHOUSE: "Greenhouse", LEVER: "Lever", ASHBY: "Ashby", NONE: "No public board" } as const;
+export const ATS_LABEL = {
+  GREENHOUSE: "Greenhouse",
+  LEVER: "Lever",
+  ASHBY: "Ashby",
+  WORKDAY: "Workday",
+  SMARTRECRUITERS: "SmartRecruiters",
+  WORKABLE: "Workable",
+  RECRUITEE: "Recruitee",
+  AMAZON: "amazon.jobs",
+  NONE: "No public board",
+} as const;
 
 /** Error from an /api/v1 call, carrying the server's message and field errors. */
 export class ApiCallError extends Error {

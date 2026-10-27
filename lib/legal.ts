@@ -78,9 +78,10 @@ export const PROCESSORS: Processor[] = [
     when: "Only for those checks, while AI reading is on and under its daily limit",
   },
   {
-    name: "Greenhouse, Lever and Ashby",
-    role: "Public job boards we read to check a posting",
-    receives: "Only the board token (the company's name on that board) and, for a single job, the job ID. Never anything about you.",
+    name: "Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Workable, Recruitee and amazon.jobs",
+    role: "Employers' public job boards and hiring systems we read to check a posting",
+    receives:
+      "Only the company's identifier on that system (its board token, or for Workday its career-site address) and, for a single job, the job ID. On Workday, SmartRecruiters and amazon.jobs, also the role title, to search for it. Never anything about you.",
     when: "When a check needs that company's board and our copy is more than an hour old",
   },
   {

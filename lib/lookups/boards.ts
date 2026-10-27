@@ -1,10 +1,22 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { getJson, UpstreamError, type FetchOptions } from "@/lib/lookups/fetch";
-import type { BoardAts, LeverRegion } from "@/lib/lookups/job-url";
+import {
+  adapterExists,
+  adapterJob,
+  adapterList,
+  adapterSearch,
+  normalizeAmazon,
+  normalizeRecruitee,
+  normalizeSmartRecruiters,
+  normalizeWorkable,
+  normalizeWorkday,
+  type AdapterJob,
+} from "@/lib/lookups/adapters";
+import { SEARCH_ATS, type BoardAts, type LeverRegion } from "@/lib/lookups/job-url";
 
-// Greenhouse, Lever and Ashby public job-board clients. Each returns the same
-// trimmed shape. With USE_FIXTURES=1 they read fixtures/<ats>-<board>.json
+// Job-board clients: Greenhouse, Lever and Ashby here, the phase 10 systems in
+// lib/lookups/adapters.ts. Each returns the same trimmed shape. With USE_FIXTURES=1 they read fixtures/<ats>-<board>.json
 // (a raw board response) instead of the network.
 
 export type BoardJob = {
@@ -17,7 +29,18 @@ export type BoardJob = {
   description: string | null; // plain text, max 20,000 chars
 };
 
-export type BoardRef = { ats: BoardAts; board: string; region?: LeverRegion };
+export type BoardRef = {
+  ats: BoardAts;
+  board: string;
+  region?: LeverRegion;
+  /** Workday only: the career-site host. */
+  host?: string;
+  /** Workday only: the pasted job's own path, used to confirm a removed job. */
+  jobPath?: string;
+};
+
+/** Greenhouse, Lever and Ashby use the clients below; the phase 10 systems use lib/lookups/adapters.ts. */
+const ORIGINAL = new Set<BoardAts>(["GREENHOUSE", "LEVER", "ASHBY"]);
 
 const MAX_DESCRIPTION = 20_000;
 const SAFE_BOARD = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
@@ -124,11 +147,33 @@ export function normalizeAshby(job: AshbyJob): BoardJob {
   };
 }
 
+const fromAdapter = (j: AdapterJob): BoardJob => ({
+  externalId: j.externalId,
+  title: j.title,
+  location: j.location,
+  url: j.url,
+  postedAt: j.postedAt,
+  internalJobId: j.internalJobId,
+  description: j.descriptionHtml ? htmlToText(j.descriptionHtml) : null,
+});
+
 /** Turns a raw board response (live or fixture) into BoardJobs. */
-export function normalizeBoard(ats: BoardAts, raw: unknown): BoardJob[] {
+export function normalizeBoard(ats: BoardAts, raw: unknown, ref: Omit<BoardRef, "ats"> = { board: "" }): BoardJob[] {
   if (ats === "GREENHOUSE") return ((raw as { jobs?: GreenhouseJob[] }).jobs ?? []).map(normalizeGreenhouse);
   if (ats === "LEVER") return (Array.isArray(raw) ? (raw as LeverPosting[]) : []).map(normalizeLever);
-  return ((raw as { jobs?: AshbyJob[] }).jobs ?? []).map(normalizeAshby);
+  if (ats === "ASHBY") return ((raw as { jobs?: AshbyJob[] }).jobs ?? []).map(normalizeAshby);
+  const r = { ...ref, ats };
+  const jobs =
+    ats === "WORKDAY"
+      ? normalizeWorkday(raw as never, r)
+      : ats === "SMARTRECRUITERS"
+        ? normalizeSmartRecruiters(raw as never, r)
+        : ats === "WORKABLE"
+          ? normalizeWorkable(raw as never, r)
+          : ats === "RECRUITEE"
+            ? normalizeRecruitee(raw as never, r)
+            : normalizeAmazon(raw as never);
+  return jobs.map(fromAdapter);
 }
 
 // ---- URLs (built from constants + encodeURIComponent) -----------------------
@@ -148,9 +193,12 @@ function jobUrl({ ats, board, region }: BoardRef, jobId: string): string | null 
   return null; // Ashby has no single-job endpoint
 }
 
+/** Fixture file name: "workday-nvidia--nvidiaexternalcareersite.json" for board "nvidia/NVIDIAExternalCareerSite". */
+export const fixtureName = (ref: BoardRef) => `${ref.ats.toLowerCase()}-${ref.board.toLowerCase().replace("/", "--")}.json`;
+
 async function readFixture(ref: BoardRef): Promise<unknown> {
-  if (!SAFE_BOARD.test(ref.board)) throw new UpstreamError("not_found");
-  const file = path.join(process.cwd(), "fixtures", `${ref.ats.toLowerCase()}-${ref.board.toLowerCase()}.json`);
+  if (!ref.board.split("/").every((part) => SAFE_BOARD.test(part)) || ref.board.split("/").length > 2) throw new UpstreamError("not_found");
+  const file = path.join(process.cwd(), "fixtures", fixtureName(ref));
   try {
     return JSON.parse(await readFile(file, "utf8"));
   } catch {
@@ -160,16 +208,43 @@ async function readFixture(ref: BoardRef): Promise<unknown> {
 
 // ---- Clients -----------------------------------------------------------------
 
-/** Every job on a board. Throws UpstreamError("not_found") for an unknown board. */
+/**
+ * A board's jobs. For search systems (Workday, SmartRecruiters, amazon.jobs) this is only
+ * the newest page, so `partial` is true and `total` is the system's own count.
+ */
+export async function fetchBoardList(ref: BoardRef, opts?: FetchOptions): Promise<{ jobs: BoardJob[]; total: number | null; partial: boolean }> {
+  const partial = SEARCH_ATS.has(ref.ats);
+  if (fixturesEnabled()) {
+    const jobs = normalizeBoard(ref.ats, await readFixture(ref), ref);
+    return { jobs, total: jobs.length, partial };
+  }
+  if (ORIGINAL.has(ref.ats)) {
+    const jobs = normalizeBoard(ref.ats, await getJson(boardUrl(ref), opts), ref);
+    return { jobs, total: jobs.length, partial: false };
+  }
+  const list = await adapterList(ref, opts);
+  return { jobs: list.jobs.map(fromAdapter), total: list.total, partial };
+}
+
+/** Every job on a board (or the newest page for search systems). Throws UpstreamError("not_found") for an unknown board. */
 export async function fetchBoardJobs(ref: BoardRef, opts?: FetchOptions): Promise<BoardJob[]> {
-  const raw = fixturesEnabled() ? await readFixture(ref) : await getJson(boardUrl(ref), opts);
-  return normalizeBoard(ref.ats, raw);
+  return (await fetchBoardList(ref, opts)).jobs;
+}
+
+/** Jobs whose title matches a role, using the system's own search (search systems) or the whole board. */
+export async function searchBoardJobs(ref: BoardRef, role: string, opts?: FetchOptions): Promise<BoardJob[]> {
+  if (fixturesEnabled() || !SEARCH_ATS.has(ref.ats)) return fetchBoardJobs(ref, opts);
+  return (await adapterSearch(ref, role, opts)).map(fromAdapter);
 }
 
 /** One job with its description, or null when it isn't on the board (Greenhouse 404s look the same for both). */
 export async function fetchBoardJob(ref: BoardRef, jobId: string, opts?: FetchOptions): Promise<BoardJob | null> {
   const id = jobId.toLowerCase();
-  const single = jobUrl(ref, jobId);
+  if (!fixturesEnabled() && !ORIGINAL.has(ref.ats)) {
+    const job = await adapterJob(ref, id, opts);
+    return job ? fromAdapter(job) : null;
+  }
+  const single = ORIGINAL.has(ref.ats) ? jobUrl(ref, jobId) : null;
   if (fixturesEnabled() || !single) {
     const jobs = await fetchBoardJobs(ref, opts);
     return jobs.find((j) => j.externalId.toLowerCase() === id) ?? null;
@@ -190,6 +265,7 @@ export async function fetchBoardJob(ref: BoardRef, jobId: string, opts?: FetchOp
  */
 export async function boardExists(ref: BoardRef, opts?: FetchOptions): Promise<boolean> {
   const b = encodeURIComponent(ref.board);
+  if (!fixturesEnabled() && !ORIGINAL.has(ref.ats)) return adapterExists(ref, opts);
   try {
     if (fixturesEnabled()) await readFixture(ref);
     else if (ref.ats === "GREENHOUSE") await getJson(`https://boards-api.greenhouse.io/v1/boards/${b}`, opts);

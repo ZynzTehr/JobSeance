@@ -78,6 +78,8 @@ const domainName = z
   .toLowerCase()
   .regex(/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9-]{2,63}$/, "Use a domain like acme.com.");
 
+export const ATS_VALUES = ["GREENHOUSE", "LEVER", "ASHBY", "WORKDAY", "SMARTRECRUITERS", "WORKABLE", "RECRUITEE", "AMAZON", "NONE"] as const;
+
 export const companyCreate = z
   .strictObject({
     name: z.string().trim().min(1).max(100),
@@ -87,17 +89,30 @@ export const companyCreate = z
       .regex(/^[a-z0-9][a-z0-9-]{0,63}$/, "Lowercase letters, digits and dashes.")
       .optional(),
     officialDomains: z.array(domainName).min(1, "Add at least one official domain.").max(10),
-    ats: z.enum(["GREENHOUSE", "LEVER", "ASHBY", "NONE"]),
-    atsBoard: z.string().trim().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/, "Use the board token from the job-board URL.").optional(),
+    ats: z.enum(ATS_VALUES),
+    atsBoard: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}(?:\/[A-Za-z0-9][A-Za-z0-9._-]{0,99})?$/, "Use the board token from the job-board URL (Workday: tenant/site).")
+      .optional(),
+    /** Workday only: the career site's host, e.g. acme.wd5.myworkdayjobs.com. */
+    atsHost: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .regex(/^[a-z0-9][a-z0-9-]{0,62}\.wd\d{1,3}\.myworkday(?:jobs|site)\.com$/, "Use the Workday host, like acme.wd5.myworkdayjobs.com.")
+      .optional(),
   })
   .refine((b) => (b.ats === "NONE") === !b.atsBoard, {
-    message: "A board token is required for Greenhouse, Lever and Ashby, and not allowed otherwise.",
+    message: "A board token is required for every job-board system, and not allowed for NONE.",
     path: ["atsBoard"],
-  });
+  })
+  .refine((b) => (b.ats === "WORKDAY") === Boolean(b.atsHost), { message: "Workday needs its host; other systems don't take one.", path: ["atsHost"] })
+  .refine((b) => (b.ats === "WORKDAY") === Boolean(b.atsBoard?.includes("/")), { message: "Workday boards are tenant/site; others have no slash.", path: ["atsBoard"] });
 
 export const companyQuery = z.strictObject({
   q: z.string().trim().max(100).optional(),
-  ats: z.enum(["GREENHOUSE", "LEVER", "ASHBY", "NONE"]).optional(),
+  ats: z.enum(ATS_VALUES).optional(),
 });
 
 export const flagCreate = z.strictObject({
