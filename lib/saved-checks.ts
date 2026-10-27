@@ -18,6 +18,7 @@ export async function savedChecks(userId: string) {
       signals: true,
       configVersion: true,
       saved: true,
+      aiUsed: true,
       createdAt: true,
       companyId: true,
       postingId: true,

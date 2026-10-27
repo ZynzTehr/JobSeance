@@ -852,6 +852,50 @@
           ]
         },
         {
+          "name": "Scan a pasted posting (AI reading or couldn't verify)",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/checks",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"posting_text\",\n  \"text\": \"Data Analyst (Remote)\\nBramblecloud Software\\n\\nWe are collecting resumes for future openings on our analytics team.\",\n  \"sourceSite\": \"LinkedIn\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"201 with gathered facts\", () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.kind).to.eql(\"posting_text\");",
+                  "  pm.expect(body.gathered).to.be.an(\"array\").that.is.not.empty;",
+                  "  // Live AI, recorded answer or AI off: the first fact is either a reading or couldn't verify, never a verdict.",
+                  "  pm.expect([\"found\", \"couldnt_verify\"]).to.include(body.gathered[0].status);",
+                  "  pm.expect(body.gathered.every((s) => s.points === 0)).to.eql(true);",
+                  "  pm.expect(body.meta.disclaimer).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Save it",
           "protocolProfileBehavior": {
             "disableCookies": true

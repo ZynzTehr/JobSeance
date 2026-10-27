@@ -335,8 +335,9 @@ describe("timeouts", () => {
 // ---- Request shape -------------------------------------------------------------------
 
 describe("checkSchema", () => {
-  it("accepts the three spec shapes", () => {
+  it("accepts the four request shapes", () => {
     expect(checkSchema.safeParse({ kind: "url", url: "https://job-boards.greenhouse.io/discord/jobs/8806482002" }).success).toBe(true);
+    expect(checkSchema.safeParse({ kind: "posting_text", text: "Data Analyst at Bramblecloud" }).success).toBe(true);
     expect(checkSchema.safeParse({ kind: "company_role", company: "bramblecloud", role: "Data Analyst" }).success).toBe(true);
     expect(checkSchema.safeParse(demo).success).toBe(true);
   });
@@ -357,5 +358,19 @@ describe("checkSchema", () => {
 
   it("has a config version", () => {
     expect(CONFIG_VERSION).toMatch(/^\d{4}-\d{2}-\d{2}\.\d+$/);
+  });
+});
+
+describe("S-MISMATCH without official domains on file", () => {
+  it("is couldn't verify, never a penalty", () => {
+    const r = scoreScam({
+      text: null,
+      sender: { ...bramblecloudSender, lookalike: null, reporters: 0 },
+      claimed: { slug: "acme", name: "Acme", officialDomains: [] },
+      namesEmployer: true,
+      notOnBoard: null,
+      now,
+    });
+    expect(r.signals.find((s) => s.id === "S-MISMATCH")).toMatchObject({ points: 0, status: "couldnt_verify" });
   });
 });

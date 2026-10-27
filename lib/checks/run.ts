@@ -6,8 +6,10 @@ import { describeDomain, registrableDomain, type DomainReport } from "@/lib/look
 import type { FetchOptions } from "@/lib/lookups/fetch";
 import { parseJobUrl, type BoardAts } from "@/lib/lookups/job-url";
 import { boardRef, BoardUnavailableError, getCompanyPostings, lookupPosting, type PostingFacts } from "@/lib/lookups/postings";
+import { currentTransport, type AiTransport } from "@/lib/ai/transport";
+import { checkPostingText, postingTextSchema, type CompanyBoard, type PostingDeps, type Reading } from "@/lib/checks/posting";
 import { CONFIG_VERSION, DISCLAIMER, HIGH_SCAM_ADVICE, VERIFICATION_CHECKLIST } from "@/lib/scoring/config";
-import { scoreGhost, type BoardStatus, type CommunityReport, type CommunitySummary, type Score } from "@/lib/scoring/ghost";
+import { scoreGhost, type BoardStatus, type CommunityReport, type CommunitySummary, type Score, type Signal } from "@/lib/scoring/ghost";
 import { scoreScam, warningCount, type SenderFacts } from "@/lib/scoring/scam";
 import type { Company, Prisma } from "@/app/generated/prisma/client";
 
@@ -30,8 +32,11 @@ export const checkSchema = z.discriminatedUnion("kind", [
     companyClaimed: z.string().trim().max(100).optional(),
     channel: z.enum(CHANNELS).optional(),
   }),
+  postingTextSchema,
 ]);
 export type CheckInput = z.infer<typeof checkSchema>;
+
+const INPUT_KIND = { url: "URL", company_role: "COMPANY_ROLE", message: "MESSAGE", posting_text: "POSTING_TEXT" } as const satisfies Record<CheckInput["kind"], string>;
 
 export class CheckError extends Error {
   constructor(readonly api: ApiError) {
@@ -42,8 +47,8 @@ export class CheckError extends Error {
 const ATS_LABEL: Record<BoardAts, string> = { GREENHOUSE: "Greenhouse", LEVER: "Lever", ASHBY: "Ashby" };
 const ATS_HOST: Record<BoardAts, string> = { GREENHOUSE: "boards-api.greenhouse.io", LEVER: "api.lever.co", ASHBY: "api.ashbyhq.com" };
 
-const boardSource = (ats: BoardAts) => (fixturesEnabled() ? `${ATS_HOST[ats]} (saved copy)` : ATS_HOST[ats]);
-const boardName = (ref: BoardRef, company: Company | null) =>
+export const boardSource = (ats: BoardAts) => (fixturesEnabled() ? `${ATS_HOST[ats]} (saved copy)` : ATS_HOST[ats]);
+export const boardName = (ref: BoardRef, company: Company | null) =>
   company ? `${company.name}'s ${ATS_LABEL[ref.ats]} board` : `the "${ref.board}" ${ATS_LABEL[ref.ats]} board`;
 
 export const slugify = (s: string) =>
@@ -67,7 +72,7 @@ export async function findCompany(name: string): Promise<Company | null> {
   return db.company.findFirst({ where: { name: { startsWith: name.trim(), mode: "insensitive" } }, orderBy: { name: "asc" } });
 }
 
-async function communityFor(companyId: string, now: Date): Promise<CommunityReport[]> {
+export async function communityFor(companyId: string, now: Date): Promise<CommunityReport[]> {
   const since = new Date(now.getTime() - 180 * 86_400_000);
   const rows = await getDb().outcomeReport.findMany({
     where: { companyId, visibility: "VISIBLE", createdAt: { gte: since } },
@@ -84,13 +89,13 @@ export type BoardCheck = {
   posting: PostingFacts | null;
 };
 
-/** Looks up one job and scores it. With company = null nothing touches the DB (used by tests). */
-export async function checkBoardJob(
+/** Looks up one job on its board: live, gone (with the cached copy) or couldn't verify. No scoring. */
+export async function lookupBoardJob(
   ref: BoardRef,
   jobId: string,
   company: Company | null,
-  { now = new Date(), fetch, community = [] }: { now?: Date; fetch?: FetchOptions; community?: CommunityReport[] } = {},
-): Promise<BoardCheck> {
+  { now = new Date(), fetch }: { now?: Date; fetch?: FetchOptions } = {},
+): Promise<{ board: BoardStatus; posting: PostingFacts | null }> {
   const lookup = await lookupPosting(ref, jobId, company, { now, fetch });
   const name = boardName(ref, company);
   const source = boardSource(ref.ats);
@@ -105,6 +110,17 @@ export async function checkBoardJob(
   } else {
     board = { kind: "couldnt_verify", boardName: name, source };
   }
+  return { board, posting };
+}
+
+/** Looks up one job and scores it. With company = null nothing touches the DB (used by tests). */
+export async function checkBoardJob(
+  ref: BoardRef,
+  jobId: string,
+  company: Company | null,
+  { now = new Date(), fetch, community = [] }: { now?: Date; fetch?: FetchOptions; community?: CommunityReport[] } = {},
+): Promise<BoardCheck> {
+  const { board, posting } = await lookupBoardJob(ref, jobId, company, { now, fetch });
   return scoreBoardCheck(board, posting, ref.ats, community, now);
 }
 
@@ -134,7 +150,7 @@ function scoreBoardCheck(
   return { ghost, scam, posting };
 }
 
-async function resolveUrl(url: string): Promise<{ ref: BoardRef; jobId: string; company: Company | null }> {
+export async function resolveUrl(url: string): Promise<{ ref: BoardRef; jobId: string; company: Company | null }> {
   const parsed = parseJobUrl(url);
   if ("error" in parsed) {
     throw new CheckError({
@@ -167,7 +183,7 @@ async function resolveUrl(url: string): Promise<{ ref: BoardRef; jobId: string; 
   return { ref, jobId: parsed.jobId, company };
 }
 
-function pickByTitle<T extends { title: string }>(items: T[], role: string): T | null {
+export function pickByTitle<T extends { title: string }>(items: T[], role: string): T | null {
   const want = normalizeTitle(role);
   if (!want) return null;
   const exact = items.find((i) => normalizeTitle(i.title) === want);
@@ -263,9 +279,82 @@ async function checkMessage(input: Extract<CheckInput, { kind: "message" }>, now
   return { scam, claimed, senderDomain: report?.domain ?? null };
 }
 
+// ---- Pasted postings (phase 9) ----------------------------------------------------
+
+const LEGAL_SUFFIX = /[,\s]+(inc|incorporated|llc|l\.l\.c|ltd|limited|corp|corporation|co|company|gmbh|plc|ag|sa|bv)\.?$/i;
+
+/** For AI-read names: exact slug or exact name (legal suffixes stripped). Never a prefix match. */
+export async function findCompanyExact(name: string): Promise<Company | null> {
+  const bare = name.trim().replace(LEGAL_SUFFIX, "").trim();
+  if (!bare) return null;
+  const db = getDb();
+  const slug = slugify(bare);
+  if (slug) {
+    const bySlug = await db.company.findUnique({ where: { slug } });
+    if (bySlug) return bySlug;
+  }
+  return db.company.findFirst({ where: { name: { equals: bare, mode: "insensitive" } } });
+}
+
+async function companyBoard(company: Company, now: Date): Promise<CompanyBoard> {
+  const ref = boardRef(company);
+  if (!ref) {
+    const rows = await getDb().posting.findMany({ where: { companyId: company.id } });
+    return {
+      kind: "stored",
+      postings: rows.map((r) => ({ id: r.id, externalId: r.externalId, title: r.title, location: r.location, url: r.url, postedAt: r.postedAt, internalJobId: r.internalJobId, description: r.description })),
+    };
+  }
+  const name = boardName(ref, company);
+  const source = boardSource(ref.ats);
+  try {
+    const list = await getCompanyPostings(company.slug, now);
+    return { kind: "board", ref, boardName: name, source, postings: list?.postings ?? [] };
+  } catch (error) {
+    if (!(error instanceof BoardUnavailableError)) throw error;
+    return { kind: "unavailable", boardName: name, source };
+  }
+}
+
+async function senderForDomain(domain: string, now: Date) {
+  const report = await describeDomain(domain, now);
+  if (!report) return null;
+  const reporters = (
+    await getDb().scamReport.findMany({ where: { senderDomain: report.domain, visibility: "VISIBLE" }, distinct: ["userId"], select: { userId: true } })
+  ).length;
+  return senderFacts(report, reporters);
+}
+
+export function postingDeps(userId: string, now: Date, ai: AiTransport, signal?: AbortSignal): PostingDeps {
+  return {
+    ai,
+    userId,
+    now,
+    signal,
+    findCompany,
+    findCompanyExact,
+    companyBoard: (company) => companyBoard(company, now),
+    lookupJob: (ref, jobId, company) => lookupBoardJob(ref, jobId, company, { now }),
+    resolveLink: async (url) => {
+      try {
+        return await resolveUrl(url);
+      } catch (error) {
+        if (error instanceof CheckError) return null;
+        throw error;
+      }
+    },
+    community: (companyId) => communityFor(companyId, now),
+    sender: (domain) => senderForDomain(domain, now),
+    pickByTitle,
+  };
+}
+
+/** A pasted-posting check gets 45 s in total, AI step included. */
+export const POSTING_DEADLINE_MS = 45_000;
+
 // ---- Entry point ------------------------------------------------------------------
 
-export async function runCheck(input: CheckInput, userId: string | null, now = new Date()) {
+export async function runCheck(input: CheckInput, userId: string | null, now = new Date(), opts: { ai?: AiTransport } = {}) {
   const db = getDb();
   const notEnough: Score = { score: null, band: "NOT_ENOUGH_DATA", signals: [] };
   let ghost: Score;
@@ -274,8 +363,24 @@ export async function runCheck(input: CheckInput, userId: string | null, now = n
   let company: Company | null = null;
   let posting: PostingFacts | null = null;
   let senderDomain: string | null = null;
+  let gathered: Signal[] = [];
+  let reading: Reading | null = null;
+  let ai: { used: boolean; model: string | null; mode: "live" | "replay" | null; suggestedKind: "message" | null } | null = null;
 
-  if (input.kind === "message") {
+  if (input.kind === "posting_text") {
+    if (!userId) throw new CheckError({ status: 401, code: "unauthorized", message: "Sign in to continue." });
+    const transport = opts.ai ?? (await currentTransport());
+    const result = await checkPostingText(input, postingDeps(userId, now, transport, AbortSignal.timeout(POSTING_DEADLINE_MS)));
+    const { community: summary, ...ghostScore } = result.ghost;
+    ghost = ghostScore;
+    community = summary;
+    scam = result.scam;
+    posting = result.posting;
+    company = result.company;
+    gathered = result.gathered;
+    reading = result.reading;
+    ai = result.ai;
+  } else if (input.kind === "message") {
     const result = await checkMessage(input, now);
     ghost = notEnough;
     scam = result.scam;
@@ -305,7 +410,7 @@ export async function runCheck(input: CheckInput, userId: string | null, now = n
   const check = await db.check.create({
     data: {
       userId,
-      inputKind: input.kind === "url" ? "URL" : input.kind === "company_role" ? "COMPANY_ROLE" : "MESSAGE",
+      inputKind: INPUT_KIND[input.kind],
       postingId: posting?.id ?? null,
       companyId: company?.id ?? null,
       senderDomain,
@@ -313,8 +418,9 @@ export async function runCheck(input: CheckInput, userId: string | null, now = n
       ghostBand: ghost.band,
       scamScore: scam.score,
       scamBand: scam.band,
-      signals: [...ghost.signals, ...scam.signals] as unknown as Prisma.InputJsonValue,
+      signals: [...gathered, ...ghost.signals, ...scam.signals] as unknown as Prisma.InputJsonValue,
       configVersion: CONFIG_VERSION,
+      aiUsed: Boolean(ai?.used),
     },
     select: { id: true, createdAt: true },
   });
@@ -328,6 +434,7 @@ export async function runCheck(input: CheckInput, userId: string | null, now = n
     ghost,
     scam: { ...scam, warnings: warningCount(scam) },
     ...(community ? { community } : {}),
+    ...(input.kind === "posting_text" ? { gathered, reading, ai } : {}),
     meta: {
       configVersion: CONFIG_VERSION,
       disclaimer: DISCLAIMER,

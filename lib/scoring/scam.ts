@@ -99,6 +99,9 @@ export function scoreScam(input: ScamInput): Score {
       info("S-MISMATCH", `${s.domain} is a hiring platform recruiters commonly send from`, "JobSeance ATS list");
     } else if (official) {
       info("S-MISMATCH", `Sender domain matches ${s.domain}, an official ${input.claimed!.name} domain`, "JobSeance company list");
+    } else if (input.claimed && !freemail && input.claimed.officialDomains.length === 0) {
+      // Missing data never counts: without official domains on file there is nothing to compare.
+      info("S-MISMATCH", `We don't have ${input.claimed.name}'s official domains on file`, "JobSeance company list", "couldnt_verify");
     } else if (input.claimed && !freemail) {
       fire("S-MISMATCH", `${s.domain} is not an official ${input.claimed.name} domain`, "JobSeance company list");
     }

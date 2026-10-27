@@ -10,9 +10,10 @@ export const RETENTION = {
   checkDays: 30, // anonymous or unsaved checks
   excerptDays: 90, // ScamReport.redactedExcerpt, counted from the report's createdAt
   resolvedFlagDays: 90, // UPHELD or REJECTED flags, counted from resolvedAt
+  aiUsageDays: 90, // AiUsage / AiUserUsage daily counters (numbers only)
 } as const;
 
-export type CleanupCounts = { checksDeleted: number; excerptsCleared: number; flagsDeleted: number };
+export type CleanupCounts = { checksDeleted: number; excerptsCleared: number; flagsDeleted: number; aiUsageDeleted: number };
 
 const DAY_MS = 86_400_000;
 const daysBefore = (now: Date, days: number) => new Date(now.getTime() - days * DAY_MS);
@@ -22,9 +23,10 @@ export async function runCleanup(db: Db, now: Date = new Date()): Promise<Cleanu
   const checkCutoff = daysBefore(now, RETENTION.checkDays);
   const excerptCutoff = daysBefore(now, RETENTION.excerptDays);
   const flagCutoff = daysBefore(now, RETENTION.resolvedFlagDays);
+  const aiDayCutoff = daysBefore(now, RETENTION.aiUsageDays).toISOString().slice(0, 10);
 
-  const [checks, excerpts, flags] = await db.$transaction([
-    // Saved checks of signed-in users are kept; everything else expires.
+  const [checks, excerpts, flags, aiDays, aiUserDays] = await db.$transaction([
+    // Saved checks are kept; everything else expires.
     db.check.deleteMany({
       where: { createdAt: { lt: checkCutoff }, OR: [{ userId: null }, { saved: false }] },
     }),
@@ -35,9 +37,16 @@ export async function runCleanup(db: Db, now: Date = new Date()): Promise<Cleanu
     db.flag.deleteMany({
       where: { status: { in: ["UPHELD", "REJECTED"] }, resolvedAt: { lt: flagCutoff } },
     }),
+    db.aiUsage.deleteMany({ where: { day: { lt: aiDayCutoff } } }),
+    db.aiUserUsage.deleteMany({ where: { day: { lt: aiDayCutoff } } }),
   ]);
 
-  return { checksDeleted: checks.count, excerptsCleared: excerpts.count, flagsDeleted: flags.count };
+  return {
+    checksDeleted: checks.count,
+    excerptsCleared: excerpts.count,
+    flagsDeleted: flags.count,
+    aiUsageDeleted: aiDays.count + aiUserDays.count,
+  };
 }
 
 /** True only when the secret is set and the header is exactly `Bearer <secret>` (constant-time). */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { jobPageUrl, parseJobUrl } from "@/lib/lookups/job-url";
+import { classifyHost, jobPageUrl, parseJobUrl } from "@/lib/lookups/job-url";
 
 describe("parseJobUrl", () => {
   it.each([
@@ -102,5 +102,18 @@ describe("parseJobUrl", () => {
       jobId: "8806482002",
     });
     expect(parseJobUrl("https://boards.greenhouse.io/embed/job_app?for=../x&token=1")).toHaveProperty("error");
+  });
+});
+
+describe("classifyHost", () => {
+  it.each([
+    ["www.linkedin.com", "job_site", "LinkedIn"],
+    ["lnkd.in", "job_site", "LinkedIn"],
+    ["uk.indeed.co.uk", "job_site", "Indeed"],
+    ["acme.wd5.myworkdayjobs.com", "other_ats", "Workday"],
+    ["job-boards.greenhouse.io", "ats", "Greenhouse"],
+    ["careers.doordash.com", "unknown", null],
+  ])("%s is %s", (host, kind, name) => {
+    expect(classifyHost(host)).toEqual({ kind, name });
   });
 });

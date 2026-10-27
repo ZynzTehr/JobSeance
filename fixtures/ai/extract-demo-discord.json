@@ -1,0 +1,14 @@
+{
+  "model": "claude-haiku-5-5",
+  "synthetic": true,
+  "note": "Synthetic answer written for the offline demo and tests; re-record with scripts/record-ai-fixtures.mts when a key is available.",
+  "value": {
+    "documentKind": "job_posting",
+    "employerName": "Discord",
+    "roleTitle": "Commercial Policy Lead",
+    "location": "San Francisco Bay Area (Hybrid)",
+    "employmentType": "Full-time",
+    "isStaffingAgency": false,
+    "postedAgoText": "Posted 2 weeks ago"
+  }
+}

@@ -15,12 +15,26 @@ const warnings = (s: ScoreJson) => s.signals.filter((x) => x.points > 0).length;
 function SignalRow({ signal }: { signal: SignalJson }) {
   // Points can be negative (G-COMMUNITY's Offer/Hired penalty), which lowers the score rather than being neutral.
   const state =
-    signal.status === "couldnt_verify" ? "unverified" : signal.points > 0 ? "warning" : signal.points < 0 ? "lowers" : "clear";
-  const label = { warning: "Warning sign found", lowers: "Lowers the risk", clear: "No warning sign", unverified: "Couldn't verify" }[state];
+    signal.status === "couldnt_verify"
+      ? "unverified"
+      : signal.points > 0
+        ? "warning"
+        : signal.points < 0
+          ? "lowers"
+          : signal.kind === "info"
+            ? "info"
+            : "clear";
+  const label = {
+    warning: "Warning sign found",
+    lowers: "Lowers the risk",
+    clear: "No warning sign",
+    info: "For your information",
+    unverified: "Couldn't verify",
+  }[state];
   return (
     <li className={`${styles.signal} grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 py-4`} data-state={state}>
       <span className={`${styles.signalIcon} mt-0.5 flex h-6 w-6 items-center justify-center`} role="img" aria-label={label} title={label}>
-        {{ warning: "!", lowers: "↓", clear: "✓", unverified: "?" }[state]}
+        {{ warning: "!", lowers: "↓", clear: "✓", info: "i", unverified: "?" }[state]}
       </span>
       <div className="min-w-0">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -30,13 +44,21 @@ function SignalRow({ signal }: { signal: SignalJson }) {
         </div>
         <p className={`${styles.fact} mt-1`}>{signal.fact}</p>
         {signal.note && <p className={`${ui.small} mt-1`}>{signal.note}</p>}
-        <p className={`${ui.small} mt-1.5`}>
+        <p className={`${ui.small} ${styles.sourceLine} mt-1.5`}>
           Source: {signal.source}
           {signal.cite && (
             <>
               {" · "}
               <a className={ui.link} href={signal.cite} target="_blank" rel="noreferrer">
                 Read the guidance
+              </a>
+            </>
+          )}
+          {signal.sourceUrl && (
+            <>
+              {" · "}
+              <a className={ui.link} href={signal.sourceUrl} target="_blank" rel="noreferrer">
+                Open the page
               </a>
             </>
           )}
@@ -66,7 +88,16 @@ function BandPanel({ title, score, summary, delay }: { title: string; score: Sco
   );
 }
 
-export default function ResultCard({ result, message, signedIn }: { result: CheckResult; message: MessageInput | null; signedIn: boolean }) {
+type Props = {
+  result: CheckResult;
+  message: MessageInput | null;
+  signedIn: boolean;
+  /** Re-check a pasted posting with the company and title confirmed by the user. */
+  onConfirm?: (reading: { company: string; title: string }) => void;
+  onUseMessageTab?: () => void;
+};
+
+export default function ResultCard({ result, message, signedIn, onConfirm, onUseMessageTab }: Props) {
   const { ghost, scam, meta, community, posting } = result;
   const isMessage = result.kind === "message";
   const subject = isMessage ? "message" : "posting";
@@ -126,7 +157,7 @@ export default function ResultCard({ result, message, signedIn }: { result: Chec
       <header className="flex flex-col gap-2">
         <p className={ui.eyebrow}>What we found</p>
         <h2 id="result-heading" tabIndex={-1} className={styles.resultTitle}>
-          {isMessage ? "Pasted recruiter message" : (posting?.title ?? "Company + role lookup")}
+          {isMessage ? "Pasted recruiter message" : (posting?.title ?? (result.kind === "posting_text" ? "Pasted posting" : "Company + role lookup"))}
         </h2>
         <p className={ui.muted}>
           {posting?.location && <>{posting.location} · </>}
@@ -142,6 +173,61 @@ export default function ResultCard({ result, message, signedIn }: { result: Chec
           )}
         </p>
       </header>
+
+      {result.reading && (result.reading.company || result.reading.title) && (
+        <section aria-labelledby="reading-heading" className={`${styles.reading} flex flex-col gap-3 p-5`}>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 id="reading-heading" className={ui.h3}>
+              What Claude read from your text
+            </h3>
+            <span className={`${ui.badge} px-2 py-0.5`}>AI-assisted</span>
+          </div>
+          <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-3">
+            {(
+              [
+                ["Company", result.reading.company],
+                ["Role", result.reading.title],
+                ["Location", result.reading.location],
+              ] as const
+            ).map(([term, value]) => (
+              <div key={term}>
+                <dt className={ui.small}>{term}</dt>
+                <dd className={`${styles.readingValue} m-0`}>{value ?? "Not stated"}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className={ui.small}>
+            Claude only read these; the employer&rsquo;s board and our rules did the checking. A title that isn&rsquo;t an exact
+            match on the board counts only after you confirm it.
+          </p>
+          {onConfirm && result.reading.company && result.reading.title && (
+            <div>
+              <button
+                type="button"
+                id="result-confirm"
+                className={`${ui.secondary} px-5 py-2.5`}
+                onClick={() => onConfirm({ company: result.reading!.company!, title: result.reading!.title! })}
+              >
+                That&rsquo;s right, check it with these
+              </button>
+            </div>
+          )}
+        </section>
+      )}
+
+      {result.ai?.suggestedKind === "message" && (
+        <p className={ui.body}>
+          This looks like a recruiter message.{" "}
+          {onUseMessageTab ? (
+            <button type="button" className={ui.link} onClick={onUseMessageTab}>
+              Check it on the Recruiter message tab
+            </button>
+          ) : (
+            "Check it on the Recruiter message tab"
+          )}{" "}
+          so the sender checks run too.
+        </p>
+      )}
 
       <section aria-label="Risk bands" className="grid gap-4 md:grid-cols-2">
         <BandPanel title="Ghost-job risk" score={ghost} summary={ghostSummary} delay={60} />
@@ -175,6 +261,7 @@ export default function ResultCard({ result, message, signedIn }: { result: Chec
         </h3>
         <p className={ui.muted}>Every signal we checked, including the ones that found nothing. Lookups that failed score 0.</p>
         {[
+          { title: "Facts gathered", signals: result.gathered ?? [] },
           { title: "Ghost-job signals", signals: ghost.signals },
           { title: "Scam signals", signals: scam.signals },
         ]
