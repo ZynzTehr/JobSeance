@@ -35,7 +35,7 @@ export default function AuthPanel(props: Props) {
       // Prefer the specific field message (e.g. "That username is taken.").
       throw new Error((fields && Object.values(fields)[0]) || data?.error?.message || "Something went wrong.");
     }
-    router.push("/dashboard");
+    router.push("/scan");
     router.refresh();
   }
 

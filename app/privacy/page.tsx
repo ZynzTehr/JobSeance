@@ -79,8 +79,8 @@ export default function PrivacyPage() {
           </h2>
           <ul className={`${styles.list} ${styles.prose} mt-3 flex flex-col gap-2`}>
             <li>
-              You can run checks without an account. Pasted messages are analyzed in memory and not stored, unless you choose
-              to share a redacted excerpt with a scam report.
+              Every check needs an account, so we can moderate and monitor use. Pasted messages are analyzed in memory and
+              not stored, unless you choose to share a redacted excerpt with a scam report.
             </li>
             <li>No analytics, no ads, no tracking cookies and no third-party scripts. We never sell or rent your data.</li>
             <li>Your individual reports are never shown publicly. Other people see only totals.</li>
@@ -113,9 +113,8 @@ export default function PrivacyPage() {
               path and browser user agent) in its request logs.
             </li>
             <li>
-              <strong>Rate limiting.</strong> To stop abuse, our server counts requests per IP address. Report and flag
-              submissions from a signed-in user are counted per account instead, and login attempts are also counted per
-              username typed. These counters live only in the server&rsquo;s memory, are dropped within about a minute of
+              <strong>Rate limiting.</strong> To stop abuse, our server counts checks, report and flag submissions per
+              account, other requests per IP address, and login attempts also per username typed. These counters live only in the server&rsquo;s memory, are dropped within about a minute of
               their window ending (no window is longer than an hour), and are never written to our database.
             </li>
             <li>
@@ -138,7 +137,7 @@ export default function PrivacyPage() {
               warning list matched. A company-and-role check that finds no matching posting also keeps the role title you
               typed in that fact;
             </li>
-            <li>your account ID, if you are signed in.</li>
+            <li>your account ID (every check needs one).</li>
           </List>
 
           <Sub>When you create an account</Sub>
@@ -265,7 +264,7 @@ export default function PrivacyPage() {
           <p>A cleanup job runs once a day, so data can last up to a day past these limits.</p>
           <List>
             <li>
-              <strong>Checks run without an account, and checks you don&rsquo;t save:</strong> deleted after{" "}
+              <strong>Checks you don&rsquo;t save:</strong> deleted after{" "}
               {RETENTION_DAYS.checks} days.
             </li>
             <li>
@@ -316,15 +315,12 @@ export default function PrivacyPage() {
             </li>
           </List>
           <p>
-            Your account details, application reports and saved checks are also available as JSON through the{" "}
-            <Link className={ui.link} href="/api-docs">API</Link>; scam reports are listed on the dashboard only. The API
-            also lets you edit an application report&rsquo;s dates and note and a scam report&rsquo;s channel or claimed
-            company.
+            Your account details, application reports and saved checks are what the site&rsquo;s own API returns to you
+            when signed in; scam reports are listed on the dashboard only.
           </p>
           <p>
-            You can&rsquo;t change your username or email address yourself; ask us through the contact link below. Checks
-            run without an account aren&rsquo;t tied to you, so we can&rsquo;t find them for you, and they expire after{" "}
-            {RETENTION_DAYS.checks} days. If you gave an email address with a problem report and want it removed, ask us.
+            You can&rsquo;t change your username or email address yourself; ask us through the contact link below. If you
+            gave an email address with a problem report and want it removed, ask us.
           </p>
         </Section>
 

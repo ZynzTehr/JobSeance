@@ -41,14 +41,23 @@
   color: var(--vellum);
 }
 
+/* Shared by the Log in link and the Log out button. */
 .account {
   border: 1px solid var(--ink-line);
   border-radius: 999px;
+  background: transparent;
   color: var(--vellum);
+  font: inherit;
   font-size: 14px;
   font-weight: 600;
   text-decoration: none;
+  cursor: pointer;
   transition: border-color 160ms;
+}
+
+.account:disabled {
+  cursor: wait;
+  opacity: 0.7;
 }
 
 .account:hover,

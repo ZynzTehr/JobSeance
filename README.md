@@ -1,6 +1,6 @@
 # JobSeance
 
-JobSeance checks a job posting or recruiter message for two risks: **ghost-job risk** (is the role really open?) and **scam risk** (is the recruiter real?). Every score shows the facts and sources behind it.
+JobSeance checks a job posting or recruiter message for two risks: **ghost-job risk** (is the role really open?) and **scam risk** (is the recruiter real?). Every score shows the facts and sources behind it. Every check needs an account (username + password, Google or GitHub): the landing page is the login form and the scanner lives at `/scan`.
 
 Built with Next.js 16.4 (App Router), Prisma 7.10, Neon Postgres, Passport.js and Tailwind CSS. Hosted on Vercel.
 

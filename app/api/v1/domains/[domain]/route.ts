@@ -1,18 +1,19 @@
 import type { NextRequest } from "next/server";
-import { jsonError } from "@/lib/auth/require-user";
-import { clientIp, rateLimit, tooManyRequests } from "@/lib/http";
+import { handle, HttpError, reader } from "@/lib/api";
+import { rateLimit, tooManyRequests } from "@/lib/http";
 import { describeDomain } from "@/lib/lookups/domains";
 
 export const dynamic = "force-dynamic";
 
-/** GET /api/v1/domains/:domain: age, mail records, free-mail, ATS and lookalike flags. Public, 60/min per IP (shared with checks). */
-export async function GET(request: NextRequest, ctx: RouteContext<"/api/v1/domains/[domain]">) {
-  const limit = rateLimit(`scan:ip:${clientIp(request.headers)}`, 60, 60);
-  if (!limit.ok) return jsonError(tooManyRequests(limit.retryAfter));
+/** GET /api/v1/domains/:domain: age, mail records, free-mail, ATS and lookalike flags. Signed in, 60/min per account (shared with checks). */
+export const GET = handle(async (request: NextRequest, ctx: RouteContext<"/api/v1/domains/[domain]">) => {
+  const user = await reader(request);
+  const limit = rateLimit(`scan:user:${user.id}`, 60, 60);
+  if (!limit.ok) throw new HttpError(tooManyRequests(limit.retryAfter));
 
   const { domain: param } = await ctx.params;
   const report = await describeDomain(param);
-  if (!report) return jsonError({ status: 400, code: "invalid_domain", message: "Enter a domain like example.com." });
+  if (!report) throw new HttpError({ status: 400, code: "invalid_domain", message: "Enter a domain like example.com." });
 
   const { host, domain, facts, lookalike } = report;
   return Response.json({
@@ -29,4 +30,4 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/v1/domai
     officialFor: report.officialFor,
     checkedAt: facts.checkedAt,
   });
-}
+});

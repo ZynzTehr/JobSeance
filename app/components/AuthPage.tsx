@@ -10,10 +10,10 @@ import { SESSION_COOKIE, oauthEnabled, userFromToken } from "@/lib/auth/session"
 
 type SearchParams = Promise<{ error?: string | string[] }>;
 
-/** Shared by /login and /signup: signed-in visitors go straight to the dashboard. */
+/** Shared by /, /login and /signup: signed-in visitors go straight to the scanner. */
 export default async function AuthPage({ mode, searchParams }: { mode: "login" | "signup"; searchParams: SearchParams }) {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  if (await userFromToken(token)) redirect("/dashboard");
+  if (await userFromToken(token)) redirect("/scan");
 
   const { error } = await searchParams;
   const code = Array.isArray(error) ? error[0] : error;

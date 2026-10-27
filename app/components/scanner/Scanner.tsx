@@ -294,7 +294,7 @@ export default function Scanner({ signedIn }: { signedIn: boolean }) {
             <button id="scan-submit" type="submit" className={`${ui.primary} px-7 py-3`} disabled={running}>
               {running ? "Checking…" : "Check it"}
             </button>
-            <p className={ui.small}>Free, no account needed. Lookups run on our server with 5-second timeouts.</p>
+            <p className={ui.small}>Lookups run on our server with 5-second timeouts.</p>
           </div>
           <p className={ui.statusError} role="alert">
             {error}

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import ui from "../components/ui.module.css";
 import { BAND_RANGES, GHOST_SIGNALS, SCAM_SIGNALS, type SignalInfo } from "@/lib/methodology";
 import { CONFIG_VERSION, DISCLAIMER } from "@/lib/scoring/config";
@@ -136,13 +135,6 @@ export default function MethodologyPage() {
         </section>
 
         <p className={`${ui.small} mt-10 max-w-[72ch]`}>{DISCLAIMER}</p>
-        <p className={`${ui.small} mt-3`}>
-          Want the raw data? Every check is available from the{" "}
-          <Link className={ui.link} href="/api-docs">
-            REST API
-          </Link>
-          .
-        </p>
       </div>
     </main>
   );

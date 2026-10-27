@@ -62,7 +62,7 @@ export function SavedChecks({ checks }: { checks: SavedCheckRow[] }) {
     return (
       <p className={ui.muted}>
         Nothing saved yet. Run a check on the{" "}
-        <Link className={ui.link} href="/">
+        <Link className={ui.link} href="/scan">
           scanner
         </Link>{" "}
         and press &ldquo;Save this check&rdquo;.
