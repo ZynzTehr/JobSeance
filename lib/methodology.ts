@@ -123,6 +123,7 @@ export const AI_RULES = [
   "Before anything is sent, our server masks email addresses, phone and ID numbers and links. Names are not masked. Email headers are never sent.",
   "For a company we don't list, Claude may suggest where it posts jobs and Anthropic's web search may look on public job-board sites (Sonnet 5.5, at most 3 searches). Every suggestion is checked on the job board itself, and nothing found this way is counted.",
   "For a company we list that doesn't use a board we read, a web search can look for the title on its own careers site, and Anthropic's fetch tool can read a job link you paste there. Only sites an admin allowlisted are searched or read, and nothing from them is counted yet.",
+  "We're measuring whether Claude can spot reworded warning signs our phrase lists miss. In that test it only marks sentence numbers, and nothing it marks is shown or counted.",
   "If the AI step is off, over our daily limit, too slow or declines, the result says so and the step scores 0, like any failed lookup.",
 ] as const;
 

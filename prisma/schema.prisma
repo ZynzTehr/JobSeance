@@ -302,3 +302,19 @@ model BoardDiscovery {
 
   @@index([status, checkedAt])
 }
+
+// Phase 13 shadow mode: which warning-sign rules a model matched, per sentence number,
+// next to whether our phrase rule fired. Never text, never shown, never scored. 30 days.
+model AiShadow {
+  id            String   @id @default(cuid())
+  checkId       String
+  provider      String // "haiku" (live traffic); "jev" only in the offline evaluation
+  ruleId        String
+  sentenceIndex Int // -1 when only the phrase rule fired
+  score         Float // model confidence 0-1 (0 when the model didn't match)
+  regexFired    Boolean
+  createdAt     DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([ruleId])
+}

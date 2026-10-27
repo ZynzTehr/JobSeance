@@ -40,6 +40,7 @@ export async function reserveAiCall(
     userId,
     micros,
     tool = false,
+    skipUser = false,
     now = new Date(),
     capMicros = dailyCapMicros(),
     perUser = AI_LIMITS.perUserPerDay,
@@ -48,6 +49,8 @@ export async function reserveAiCall(
     userId: string;
     micros: number;
     tool?: boolean;
+    /** Our own background calls (shadow mode): global budget only, never the account's allowance. */
+    skipUser?: boolean;
     now?: Date;
     capMicros?: number;
     perUser?: number;
@@ -64,6 +67,8 @@ export async function reserveAiCall(
 
   const refundGlobal = () =>
     db.aiUsage.updateMany({ where: { day }, data: { spendMicros: { decrement: micros }, calls: { decrement: 1 } } }).then(() => undefined);
+
+  if (skipUser) return { ok: true, release: refundGlobal };
 
   await db.aiUserUsage.upsert({ where: { userId_day: { userId, day } }, update: {}, create: { userId, day } });
   const user = await db.aiUserUsage.updateMany({

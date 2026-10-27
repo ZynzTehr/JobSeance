@@ -4,11 +4,14 @@
 export const PROMPT_VERSION = "2026-10-27.1";
 /** Prompts for finding boards, presence checks and page reads (phase 11). */
 export const LOCATE_PROMPT_VERSION = "2026-10-27.1";
+/** Prompt for the shadow-mode warning-sign cues (phase 13). */
+export const CUES_PROMPT_VERSION = "2026-10-27.1";
 
 /** Default models. AI_MODEL overrides extraction and guesses, AI_MODEL_LOCATE the web tools. Opus is deliberately not used (cost). */
 export const AI_MODELS = {
   extract: "claude-haiku-5-5",
   guess: "claude-haiku-5-5",
+  cues: "claude-haiku-5-5",
   // Web search and fetch with direct callers only; Sonnet 5.5 supports the 20260209 tool versions.
   locate: "claude-sonnet-5-5",
 } as const;
@@ -24,9 +27,9 @@ export const PRICE_PER_MTOK: Record<string, { input: number; output: number }> =
 export const SEARCH_MICROS = 10_000;
 
 /** Spend reserved before a call (micro-dollars), refined with real token counts after it. */
-export const RESERVE_MICROS = { extract: 3_000, guess: 2_000, search: 80_000, presence: 50_000, page: 60_000 } as const;
+export const RESERVE_MICROS = { extract: 3_000, guess: 2_000, search: 80_000, presence: 50_000, page: 60_000, cues: 3_000 } as const;
 
-export const AI_TIMEOUT_MS = { extract: 20_000, guess: 10_000, search: 30_000, presence: 25_000, page: 25_000 } as const;
+export const AI_TIMEOUT_MS = { extract: 20_000, guess: 10_000, search: 30_000, presence: 25_000, page: 25_000, cues: 10_000 } as const;
 
 export const AI_LIMITS = {
   /** Default global daily cap when AI_DAILY_USD is unset. */
@@ -40,7 +43,7 @@ export const AI_LIMITS = {
 } as const;
 
 /** Thinking counts toward max_tokens on Claude 5.5 models, so leave room. */
-export const MAX_TOKENS = { extract: 4096, guess: 2048, search: 8000, presence: 6000, page: 6000 } as const;
+export const MAX_TOKENS = { extract: 4096, guess: 2048, search: 8000, presence: 6000, page: 6000, cues: 4096 } as const;
 
 /** Max web searches per call; page reads fetch one page. */
 export const MAX_USES = { search: 3, presence: 2, page: 1 } as const;

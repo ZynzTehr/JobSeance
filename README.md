@@ -110,6 +110,22 @@ In production, seed a separate admin account from your shell and demote `demo`, 
 ADMIN_USER_EMAIL=... ADMIN_USER_PASSWORD=... DEMO_USER_PASSWORD=... npx prisma db seed --config prisma7.config.ts
 ```
 
+## Warning-sign cues in shadow mode (phase 13)
+
+Our phrase rules catch exact wording ("training fee"); scammers reword it ("cover the onboarding cost"). Phase 13 measures whether a model can spot the reworded versions, without showing or counting anything yet.
+
+- **Off by default.** Set `CUES_PROVIDER=haiku` to turn it on. It runs after the response is sent (Next's `after()`), only on checks that already sent the masked text to Anthropic: pasted postings Claude read, and recruiter messages with "Let Claude read this message" ticked.
+- **Numbers only.** `AiShadow` stores the rule id, the sentence number, the model's score and whether our phrase rule fired. It never stores text, and rows are deleted after 30 days. Calls count against the global daily cap, never an account's allowance.
+- **Jev (TypeSafe AI)** is a second provider in `lib/ai/cues.ts`, used only by the evaluation script until TypeSafe's data-retention terms are verified and listed on the privacy page.
+- **Evaluation:** `fixtures/eval/cues-labelled.jsonl` holds 72 reworded warning signs and 36 honest sentences (21 anti-fraud notices). The script also samples real postings cached from public boards, and prints its estimated cost before spending anything:
+
+  ```bash
+  ANTHROPIC_API_KEY=... npx tsx --tsconfig tsconfig.json scripts/eval-cues.mts --yes --postings 100
+  ```
+
+  It writes `docs/eval/cues-shadow-report.md`. Showing cues as "AI noticed (not counted)" needs at least 90% precision and at most 2 extra hits per 1,000 real postings. Counting points needs 97% precision and a scoring-version change.
+- On the labelled set, today's phrase rules catch 4 of the 72 reworded signs. They also fire on 4 of the anti-fraud notices, for example "We don't conduct interviews over WhatsApp".
+
 ## Environments
 
 | Environment | URL | Neon branch | Sign-in |
