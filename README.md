@@ -64,6 +64,7 @@ Anthropic's Claude (`claude-haiku-5-5`, effort `low`) reads the company, role an
   ```
 
 - `npm test` never calls an AI API: `tests/setup.ts` turns AI off and blocks Anthropic hosts.
+- Recruiter message tab: pasted email headers are parsed in memory (`lib/lookups/mail-auth.ts`) for DKIM/SPF/DMARC (`S-AUTH-FAIL`) and Reply-To (`S-REPLY-TO`); the optional "Let Claude read this message" box only suggests the sender and company fields.
 
 ## Environments
 

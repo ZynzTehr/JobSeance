@@ -307,3 +307,14 @@
     transform: scaleX(1);
   }
 }
+
+/* Optional email-headers box on the Recruiter message tab. */
+.headersBox {
+  border: 1px solid var(--ink-line);
+  border-radius: 12px;
+  padding: 12px 16px;
+}
+
+.headersBox[open] {
+  border-color: #a9bcff40;
+}

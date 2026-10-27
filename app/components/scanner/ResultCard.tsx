@@ -95,9 +95,32 @@ type Props = {
   /** Re-check a pasted posting with the company and title confirmed by the user. */
   onConfirm?: (reading: { company: string; title: string }) => void;
   onUseMessageTab?: () => void;
+  onUseMessageReading?: (suggested: { companyClaimed: string | null; senderEmail: string | null }) => void;
 };
 
-export default function ResultCard({ result, message, signedIn, onConfirm, onUseMessageTab }: Props) {
+const CHANNEL_NAME: Record<string, string> = {
+  email: "Email",
+  whatsapp: "WhatsApp",
+  telegram: "Telegram",
+  signal: "Signal",
+  sms: "Text message",
+  phone: "Phone",
+  other: "Other",
+};
+
+const ASK_LABEL: Record<string, string> = {
+  fee_or_purchase: "pay a fee or buy something",
+  check_deposit: "deposit a check",
+  personal_documents: "send ID documents",
+  bank_or_card: "share bank or card details",
+  crypto_or_gift_card: "pay in crypto or gift cards",
+  reship_packages: "receive or forward packages",
+  run_code: "run their code",
+  chat_app_interview: "interview on a chat app",
+  urgent_reply: "reply urgently",
+};
+
+export default function ResultCard({ result, message, signedIn, onConfirm, onUseMessageTab, onUseMessageReading }: Props) {
   const { ghost, scam, meta, community, posting } = result;
   const isMessage = result.kind === "message";
   const subject = isMessage ? "message" : "posting";
@@ -209,6 +232,47 @@ export default function ResultCard({ result, message, signedIn, onConfirm, onUse
                 onClick={() => onConfirm({ company: result.reading!.company!, title: result.reading!.title! })}
               >
                 That&rsquo;s right, check it with these
+              </button>
+            </div>
+          )}
+        </section>
+      )}
+
+      {result.messageReading && (
+        <section aria-labelledby="message-reading-heading" className={`${styles.reading} flex flex-col gap-3 p-5`}>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 id="message-reading-heading" className={ui.h3}>
+              What Claude read from the message
+            </h3>
+            <span className={`${ui.badge} px-2 py-0.5`}>AI-assisted</span>
+          </div>
+          <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
+            {(
+              [
+                ["Says it's from", result.messageReading.claimedCompany],
+                ["Asks you to write to", result.messageReading.contactAddress],
+                ["Continue on", result.messageReading.channels.map((c) => CHANNEL_NAME[c] ?? c).join(", ") || null],
+                ["Asks you to", result.messageReading.asks.map((a) => ASK_LABEL[a] ?? a).join("; ") || null],
+              ] as const
+            ).map(([term, value]) => (
+              <div key={term}>
+                <dt className={ui.small}>{term}</dt>
+                <dd className={`${styles.readingValue} m-0`}>{value ?? "Not stated"}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className={ui.small}>Suggestions only: they didn&rsquo;t change the score. Use them to fill the fields and check again.</p>
+          {onUseMessageReading && (result.messageReading.claimedCompany || result.messageReading.contactAddress) && (
+            <div>
+              <button
+                type="button"
+                id="result-use-reading"
+                className={`${ui.secondary} px-5 py-2.5`}
+                onClick={() =>
+                  onUseMessageReading({ companyClaimed: result.messageReading!.claimedCompany, senderEmail: result.messageReading!.contactAddress })
+                }
+              >
+                Use these and check again
               </button>
             </div>
           )}

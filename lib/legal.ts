@@ -72,10 +72,10 @@ export const PROCESSORS: Processor[] = [
   },
   {
     name: "Anthropic (Claude API)",
-    role: "AI model that reads a pasted job posting to find the company name, role title and location. It never computes a score.",
+    role: "AI model that reads a pasted job posting (company, role, location) or, if you opt in, a recruiter message (company it claims, contact domain, what it asks). It never computes a score.",
     receives:
-      "Only on the Pasted posting tab, and only when you don't type the company and role yourself: the text you pasted, after our server masks email addresses, phone numbers, SSN-like and other long numbers, and links. Names in the text are not masked. Never your IP address, your account, the link you copied it from, or text from the other tabs. Anthropic states that it does not use API data to train its models.",
-    when: "Only for Pasted posting checks, while AI reading is on and under its daily limit",
+      "On the Pasted posting tab when you don't type the company and role yourself, and on the Recruiter message tab only if you tick \"Let Claude read this message\": the text you pasted, after our server masks email addresses, phone numbers, SSN-like and other long numbers, and links. Names in the text are not masked. Never your IP address, your account, the link you copied it from, or the email headers you paste. Anthropic states that it does not use API data to train its models.",
+    when: "Only for those checks, while AI reading is on and under its daily limit",
   },
   {
     name: "Greenhouse, Lever and Ashby",
@@ -91,8 +91,8 @@ export const PROCESSORS: Processor[] = [
   },
   {
     name: "DNS resolver (Google Public DNS, dns.google)",
-    role: "Checks whether a sender's domain accepts email",
-    receives: "Only the sender's domain. Never the full email address or the message.",
+    role: "Checks whether a sender's domain accepts email and, if you paste email headers, whether it publishes a DMARC policy",
+    receives: "Only domain names: the sender's domain, and the From domain of headers you paste. Never the full email address, the headers or the message.",
     when: "Same as RDAP",
   },
 ];

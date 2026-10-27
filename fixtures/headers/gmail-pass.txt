@@ -1,0 +1,13 @@
+Delivered-To: jobseeker@gmail.example
+Received: by 2002:a05:6a10:1234 with SMTP id abc;
+        Mon, 26 Oct 2026 09:12:03 -0700 (PDT)
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@acme.example header.s=s1 header.b=AbCdEf;
+       spf=pass (google.com: domain of bounce@mail.acme.example designates 203.0.113.5 as permitted sender) smtp.mailfrom=bounce@mail.acme.example;
+       dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=acme.example
+From: Acme Talent <talent@acme.example>
+Reply-To: talent@acme.example
+Subject: Your application
+Date: Mon, 26 Oct 2026 16:12:01 +0000
+
+Hello,

@@ -29,3 +29,7 @@ We are collecting resumes for future openings on our analytics team. Selected ca
 Before onboarding, new hires pay a $85 training fee for the starter kit, payable by Zelle. Send questions to talent@bramblecloud-careers.example.
 
 Full-time · Remote (US)`;
+
+/** The Recruiter message tab's demo (the same text as fixtures/demo-scam-message.json). */
+export const DEMO_MESSAGE_BRAMBLECLOUD =
+  "Hello from the Bramblecloud Software hiring team. Your interview will be held by chat on WhatsApp. We will mail you a check to buy equipment from our vendor. Deposit the check by mobile deposit and send the remaining balance to the vendor. Please respond within 24 hours.";

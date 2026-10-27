@@ -2,12 +2,14 @@ import { z } from "zod";
 import { getDb } from "@/lib/db";
 import type { ApiError } from "@/lib/http";
 import { fixturesEnabled, type BoardRef } from "@/lib/lookups/boards";
-import { describeDomain, registrableDomain, type DomainReport } from "@/lib/lookups/domains";
+import { describeDomain, officialDomains, registrableDomain, type DomainReport } from "@/lib/lookups/domains";
 import type { FetchOptions } from "@/lib/lookups/fetch";
 import { parseJobUrl, type BoardAts } from "@/lib/lookups/job-url";
 import { boardRef, BoardUnavailableError, getCompanyPostings, lookupPosting, type PostingFacts } from "@/lib/lookups/postings";
-import { currentTransport, type AiTransport } from "@/lib/ai/transport";
+import { currentTransport, offTransport, type AiTransport } from "@/lib/ai/transport";
+import { checkMessageText, messageExtras, type MessageReading } from "@/lib/checks/message";
 import { checkPostingText, postingTextSchema, type CompanyBoard, type PostingDeps, type Reading } from "@/lib/checks/posting";
+import { dmarcPolicy } from "@/lib/lookups/mail-auth";
 import { CONFIG_VERSION, DISCLAIMER, HIGH_SCAM_ADVICE, VERIFICATION_CHECKLIST } from "@/lib/scoring/config";
 import { scoreGhost, type BoardStatus, type CommunityReport, type CommunitySummary, type Score, type Signal } from "@/lib/scoring/ghost";
 import { scoreScam, warningCount, type SenderFacts } from "@/lib/scoring/scam";
@@ -31,6 +33,7 @@ export const checkSchema = z.discriminatedUnion("kind", [
     senderEmail: z.string().trim().max(254).optional(),
     companyClaimed: z.string().trim().max(100).optional(),
     channel: z.enum(CHANNELS).optional(),
+    ...messageExtras,
   }),
   postingTextSchema,
 ]);
@@ -244,39 +247,26 @@ export function senderFacts(report: DomainReport, reporters: number): SenderFact
   };
 }
 
-async function checkMessage(input: Extract<CheckInput, { kind: "message" }>, now: Date) {
-  let report: DomainReport | null = null;
-  if (input.senderEmail) {
-    report = await describeDomain(input.senderEmail, now);
-    if (!report) {
-      throw new CheckError({
-        status: 400,
-        code: "validation_failed",
-        message: "Check the sender address.",
-        fields: { senderEmail: "Enter an address like name@company.com." },
-      });
-    }
+async function checkMessage(input: Extract<CheckInput, { kind: "message" }>, userId: string | null, now: Date, ai: AiTransport | undefined) {
+  if (input.senderEmail && !registrableDomain(input.senderEmail)) {
+    throw new CheckError({
+      status: 400,
+      code: "validation_failed",
+      message: "Check the sender address.",
+      fields: { senderEmail: "Enter an address like name@company.com." },
+    });
   }
-  const claimed = input.companyClaimed ? await findCompany(input.companyClaimed) : null;
-  const reporters = report
-    ? (
-        await getDb().scamReport.findMany({
-          where: { senderDomain: report.domain, visibility: "VISIBLE" },
-          distinct: ["userId"],
-          select: { userId: true },
-        })
-      ).length
-    : 0;
-
-  const scam = scoreScam({
-    text: input.text,
-    sender: report ? senderFacts(report, reporters) : null,
-    claimed: claimed && { slug: claimed.slug, name: claimed.name, officialDomains: claimed.officialDomains },
-    namesEmployer: Boolean(input.companyClaimed),
-    notOnBoard: null,
+  if (input.aiRead && !userId) throw new CheckError({ status: 401, code: "unauthorized", message: "Sign in to continue." });
+  return checkMessageText(input, {
+    ai: input.aiRead ? (ai ?? (await currentTransport())) : offTransport,
+    userId: userId ?? "",
     now,
+    signal: AbortSignal.timeout(POSTING_DEADLINE_MS),
+    findCompany,
+    sender: (addressOrDomain) => senderForDomain(addressOrDomain, now),
+    dmarcPolicy: (domain) => dmarcPolicy(domain),
+    officials: officialDomains,
   });
-  return { scam, claimed, senderDomain: report?.domain ?? null };
 }
 
 // ---- Pasted postings (phase 9) ----------------------------------------------------
@@ -365,6 +355,7 @@ export async function runCheck(input: CheckInput, userId: string | null, now = n
   let senderDomain: string | null = null;
   let gathered: Signal[] = [];
   let reading: Reading | null = null;
+  let messageReading: MessageReading | null = null;
   let ai: { used: boolean; model: string | null; mode: "live" | "replay" | null; suggestedKind: "message" | null } | null = null;
 
   if (input.kind === "posting_text") {
@@ -381,11 +372,14 @@ export async function runCheck(input: CheckInput, userId: string | null, now = n
     reading = result.reading;
     ai = result.ai;
   } else if (input.kind === "message") {
-    const result = await checkMessage(input, now);
+    const result = await checkMessage(input, userId, now, opts.ai);
     ghost = notEnough;
     scam = result.scam;
     company = result.claimed;
     senderDomain = result.senderDomain;
+    gathered = result.gathered;
+    messageReading = result.reading;
+    ai = result.ai;
   } else {
     let result: BoardCheck;
     if (input.kind === "url") {
@@ -435,6 +429,7 @@ export async function runCheck(input: CheckInput, userId: string | null, now = n
     scam: { ...scam, warnings: warningCount(scam) },
     ...(community ? { community } : {}),
     ...(input.kind === "posting_text" ? { gathered, reading, ai } : {}),
+    ...(input.kind === "message" && (gathered.length || input.aiRead) ? { gathered, messageReading, ai } : {}),
     meta: {
       configVersion: CONFIG_VERSION,
       disclaimer: DISCLAIMER,

@@ -39,6 +39,8 @@ const EXAMPLES = {
     senderEmail: "talent@bramblecloud-careers.example",
     companyClaimed: "Bramblecloud Software",
     channel: "EMAIL" as ChannelValue,
+    headers: "",
+    aiRead: false,
     text: "Hello from the Bramblecloud Software hiring team. Your interview will be held by chat on WhatsApp. We will mail you a check to buy equipment from our vendor. Deposit the check by mobile deposit and send the remaining balance to the vendor. Please respond within 24 hours.",
   },
 };
@@ -62,7 +64,7 @@ export default function Scanner({ signedIn }: { signedIn: boolean }) {
   const [company, setCompany] = useState("");
   const [role, setRole] = useState("");
   const [postingInput, setPostingInput] = useState<PostingInput>(EMPTY_POSTING);
-  const [message, setMessage] = useState<MessageInput>({ text: "", senderEmail: "", companyClaimed: "", channel: "EMAIL" });
+  const [message, setMessage] = useState<MessageInput>({ text: "", senderEmail: "", companyClaimed: "", channel: "EMAIL", headers: "", aiRead: false });
   const [running, setRunning] = useState(false);
   const [step, setStep] = useState(0);
   const [error, setError] = useState("");
@@ -125,7 +127,7 @@ export default function Scanner({ signedIn }: { signedIn: boolean }) {
     requestAnimationFrame(() => postingRef.current?.focus());
   }
 
-  function bodyFor(k: Kind, posting: PostingInput) {
+  function bodyFor(k: Kind, posting: PostingInput, msg: MessageInput) {
     if (k === "url") return { kind: k, url };
     if (k === "company_role") return { kind: k, company, role };
     if (k === "posting_text") {
@@ -138,14 +140,16 @@ export default function Scanner({ signedIn }: { signedIn: boolean }) {
     }
     return {
       kind: k,
-      text: message.text,
-      ...(message.senderEmail.trim() ? { senderEmail: message.senderEmail } : {}),
-      ...(message.companyClaimed.trim() ? { companyClaimed: message.companyClaimed } : {}),
-      channel: message.channel,
+      text: msg.text,
+      ...(msg.senderEmail.trim() ? { senderEmail: msg.senderEmail } : {}),
+      ...(msg.companyClaimed.trim() ? { companyClaimed: msg.companyClaimed } : {}),
+      ...(msg.headers.trim() ? { headers: msg.headers } : {}),
+      ...(msg.aiRead ? { aiRead: true } : {}),
+      channel: msg.channel,
     };
   }
 
-  async function run(k: Kind, posting: PostingInput) {
+  async function run(k: Kind, posting: PostingInput, msg: MessageInput = message) {
     setRunning(true);
     setStep(0);
     setError("");
@@ -153,8 +157,8 @@ export default function Scanner({ signedIn }: { signedIn: boolean }) {
     setPasteInstead(null);
     setResult(null);
     try {
-      const data = await api<CheckResult>("POST", "/api/v1/checks", bodyFor(k, posting));
-      setResult({ data, message: k === "message" ? { ...message } : null });
+      const data = await api<CheckResult>("POST", "/api/v1/checks", bodyFor(k, posting, msg));
+      setResult({ data, message: k === "message" ? { ...msg } : null });
     } catch (e) {
       const err = e instanceof ApiCallError ? e : new ApiCallError("Something went wrong.", 0);
       setError(err.message);
@@ -169,6 +173,17 @@ export default function Scanner({ signedIn }: { signedIn: boolean }) {
   function submit(event: FormEvent) {
     event.preventDefault();
     void run(kind, postingInput);
+  }
+
+  /** Prefill the message fields from Claude's reading and check again (counted only now, as typed values). */
+  function useMessageReading(suggested: { companyClaimed: string | null; senderEmail: string | null }) {
+    const next = {
+      ...message,
+      companyClaimed: suggested.companyClaimed ?? message.companyClaimed,
+      senderEmail: suggested.senderEmail ?? message.senderEmail,
+    };
+    setMessage(next);
+    void run("message", postingInput, next);
   }
 
   /** "Yes, that's right": re-check with the company and title as confirmed values (the deterministic path). */
@@ -404,6 +419,40 @@ export default function Scanner({ signedIn }: { signedIn: boolean }) {
                   </select>
                 </div>
               </div>
+              <details className={styles.headersBox}>
+                <summary className={`${ui.label} cursor-pointer`}>Paste the email&rsquo;s headers (optional)</summary>
+                <p id="scan-headers-hint" className={`${ui.small} mt-2`}>
+                  In Gmail: open the message, ⋮ → Show original, copy everything above the message body. We check whether the
+                  sender&rsquo;s domain signed it and where replies would go. Read in memory, never stored.
+                </p>
+                <AutoGrowTextarea
+                  id="scan-headers"
+                  className={`${ui.input} mt-2 w-full px-4 py-3`}
+                  maxLength={50000}
+                  placeholder={"Delivered-To: …\nAuthentication-Results: mx.google.com; dkim=pass header.i=@acme.com; spf=pass …\nFrom: …"}
+                  value={message.headers}
+                  onChange={(e) => setMessage({ ...message, headers: e.target.value })}
+                  {...field("headers")}
+                  aria-describedby={fields.headers ? "headers-error scan-headers-hint" : "scan-headers-hint"}
+                />
+                {fieldError("headers")}
+              </details>
+              <label className={`${ui.body} flex items-start gap-3`}>
+                <input
+                  id="scan-ai-read"
+                  type="checkbox"
+                  className="mt-1"
+                  checked={message.aiRead}
+                  onChange={(e) => setMessage({ ...message, aiRead: e.target.checked })}
+                />
+                <span>
+                  Let Claude read this message to suggest the sender and company.{" "}
+                  <span className={ui.small}>
+                    Sent to Anthropic with email addresses, phone and ID numbers and links masked (names are not masked). Nothing it
+                    reads counts until you use it.
+                  </span>
+                </span>
+              </label>
             </div>
           )}
 
@@ -456,6 +505,7 @@ export default function Scanner({ signedIn }: { signedIn: boolean }) {
             message={result.message}
             signedIn={signedIn}
             onConfirm={confirmReading}
+            onUseMessageReading={useMessageReading}
             onUseMessageTab={() => selectTab("message")}
           />
         )}
