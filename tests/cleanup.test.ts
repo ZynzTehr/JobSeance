@@ -8,7 +8,7 @@ type Call = { op: string; args: unknown };
 
 // Records what runCleanup asks Prisma for; each op returns a marker that the
 // fake $transaction turns into a { count } result.
-function fakeDb(counts = { check: 3, scamReport: 2, flag: 1, aiUsage: 4, aiUserUsage: 5 }) {
+function fakeDb(counts = { check: 3, scamReport: 2, flag: 1, aiUsage: 4, aiUserUsage: 5, boardDiscovery: 6 }) {
   const calls: Call[] = [];
   const op = (model: keyof typeof counts, name: string) => (args: unknown) => {
     calls.push({ op: `${model}.${name}`, args });
@@ -20,6 +20,7 @@ function fakeDb(counts = { check: 3, scamReport: 2, flag: 1, aiUsage: 4, aiUserU
     flag: { deleteMany: op("flag", "deleteMany") },
     aiUsage: { deleteMany: op("aiUsage", "deleteMany") },
     aiUserUsage: { deleteMany: op("aiUserUsage", "deleteMany") },
+    boardDiscovery: { deleteMany: op("boardDiscovery", "deleteMany") },
     $transaction: (ops: { model: keyof typeof counts }[]) => {
       calls.push({ op: "$transaction", args: ops.length });
       return Promise.resolve(ops.map((o) => ({ count: counts[o.model] })));
@@ -64,19 +65,26 @@ describe("retention cleanup", () => {
     expect(RETENTION).toEqual({ checkDays: 30, excerptDays: 90, resolvedFlagDays: 90, aiUsageDays: 90 });
   });
 
-  it("runs all five operations in one array transaction and returns the counts", async () => {
+  it("runs all six operations in one array transaction and returns the counts", async () => {
     const { db, calls } = fakeDb();
     const result = await runCleanup(db, NOW);
-    expect(result).toEqual({ checksDeleted: 3, excerptsCleared: 2, flagsDeleted: 1, aiUsageDeleted: 9 });
+    expect(result).toEqual({ checksDeleted: 3, excerptsCleared: 2, flagsDeleted: 1, aiUsageDeleted: 9, discoveriesDeleted: 6 });
     expect(calls.map((c) => c.op)).toEqual([
       "check.deleteMany",
       "scamReport.updateMany",
       "flag.deleteMany",
       "aiUsage.deleteMany",
       "aiUserUsage.deleteMany",
+      "boardDiscovery.deleteMany",
       "$transaction",
     ]);
-    expect(argsOf(calls, "$transaction")).toBe(5);
+    expect(argsOf(calls, "$transaction")).toBe(6);
+  });
+
+  it("deletes board-search results once they expire", async () => {
+    const { db, calls } = fakeDb();
+    await runCleanup(db, NOW);
+    expect(argsOf(calls, "boardDiscovery.deleteMany")).toEqual({ where: { expiresAt: { lt: NOW } } });
   });
 
   it("deletes AI usage counters (numbers only) after 90 days", async () => {

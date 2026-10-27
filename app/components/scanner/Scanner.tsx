@@ -23,7 +23,13 @@ const TABS: { kind: Kind; label: string; hint: string }[] = [
 // result appears the moment the response lands; the animation never holds it back.
 const STEPS: Record<Kind, string[]> = {
   url: ["Reading the link", "Finding the employer's job board", "Looking for this job ID", "Reading the posting text", "Scoring both risks"],
-  company_role: ["Finding the company", "Opening its job board", "Matching the role title", "Reading community reports", "Scoring both risks"],
+  company_role: [
+    "Finding the company",
+    "Opening its job board",
+    "Matching the role title",
+    "Searching job boards for a company we don't list (up to 30 s)",
+    "Scoring both risks",
+  ],
   posting_text: ["Masking contact details", "Reading the posting with Claude", "Finding the company", "Opening its job board", "Matching the role title", "Scoring both risks"],
   message: ["Reading the sender's domain", "Checking registration age and mail records", "Matching FTC and FBI warning signs", "Checking JobSeance reports", "Scoring scam risk"],
 };

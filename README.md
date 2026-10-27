@@ -32,8 +32,8 @@ Built with Next.js 16.4 (App Router), Prisma 7.10, Neon Postgres, Passport.js an
    | `GOOGLE_*`, `GITHUB_*` | From your OAuth apps; leave empty to hide that sign-in button |
    | `CRON_SECRET`, `USE_FIXTURES` | Optional |
    | `DEMO_USER_EMAIL`, `DEMO_USER_PASSWORD` | Optional; used by the database seed |
-   | `ANTHROPIC_API_KEY` | Optional; turns on AI reading for the Pasted posting tab. Use a dedicated key with a monthly spend limit set in the Anthropic console |
-   | `AI_MODE`, `AI_MODEL`, `AI_DAILY_USD` | Optional: `off` disables AI without removing the key; model override (default `claude-haiku-5-5`); global daily spend cap in USD (default 2) |
+   | `ANTHROPIC_API_KEY` | Optional; turns on AI reading, board searches and page reads. Use a dedicated key with a monthly spend limit set in the Anthropic console |
+   | `AI_MODE`, `AI_MODEL`, `AI_MODEL_LOCATE`, `AI_DAILY_USD` | Optional: `off` disables AI without removing the key; model for reading and board guesses (default `claude-haiku-5-5`); model for web search and page reads (default `claude-sonnet-5-5`); global daily spend cap in USD (default 2) |
 
 3. Start the development server and open http://localhost:3000.
 
@@ -78,6 +78,13 @@ Checks read the employer's own system, never a job site. Greenhouse, Lever and A
   ```bash
   node scripts/make-fixtures.mjs --adapters
   ```
+
+## Companies we don't list (phase 11)
+
+- **Board discovery** (`lib/lookups/discovery.ts`): free probes of likely identifiers on the boards we read, then Claude's guesses (Haiku 5.5, no tools), then one Anthropic web search limited to job-board hosts (Sonnet 5.5, at most 3 searches). A board counts as found only when its own company name matches. Results are cached in `BoardDiscovery` (30 days found, 7 days not found).
+- **Never counted.** Anyone can open a board under a company's name (a Workable account called "Spotify" exists), so a discovered board and its listing are 0-point info rows. An admin adds the company to the directory to make it count.
+- **Presence check and page reading** run only on `Company.careersHosts`, an admin-curated allowlist (seeded for Apple, Microsoft and Meta). Page text comes from the fetch tool's own result block; a field the model reports is shown only if it appears word for word on the page. Phrase hits from a page are shown, not counted.
+- Web searches and page reads are limited to 5 per account per day on top of the 20 AI checks, and each search costs $0.01 plus tokens.
 
 ## Environments
 

@@ -2,11 +2,17 @@
 // The AI only gathers facts; scores come from lib/scoring/* (spec: no LLM verdict).
 
 export const PROMPT_VERSION = "2026-10-27.1";
+/** Prompts for finding boards, presence checks and page reads (phase 11). */
+export const LOCATE_PROMPT_VERSION = "2026-10-27.1";
 
-/** Default models. AI_MODEL overrides extraction; Opus is deliberately not used (cost). */
+/** Default models. AI_MODEL overrides extraction and guesses, AI_MODEL_LOCATE the web tools. Opus is deliberately not used (cost). */
 export const AI_MODELS = {
   extract: "claude-haiku-5-5",
+  guess: "claude-haiku-5-5",
+  // Web search and fetch with direct callers only; Sonnet 5.5 supports the 20260209 tool versions.
+  locate: "claude-sonnet-5-5",
 } as const;
+export type AiStep = keyof typeof AI_MODELS;
 
 /** USD per million tokens, for spend estimates only (Anthropic list prices, Oct 2026). */
 export const PRICE_PER_MTOK: Record<string, { input: number; output: number }> = {
@@ -14,30 +20,38 @@ export const PRICE_PER_MTOK: Record<string, { input: number; output: number }> =
   "claude-sonnet-5-5": { input: 2, output: 10 },
   "claude-opus-5-5": { input: 4, output: 20 },
 };
+/** Web search: $10 per 1,000 searches, in micro-dollars per search. Fetches have no per-use fee. */
+export const SEARCH_MICROS = 10_000;
 
 /** Spend reserved before a call (micro-dollars), refined with real token counts after it. */
-export const RESERVE_MICROS = { extract: 3_000 } as const;
+export const RESERVE_MICROS = { extract: 3_000, guess: 2_000, search: 80_000, presence: 50_000, page: 60_000 } as const;
 
-export const AI_TIMEOUT_MS = { extract: 20_000 } as const;
+export const AI_TIMEOUT_MS = { extract: 20_000, guess: 10_000, search: 30_000, presence: 25_000, page: 25_000 } as const;
 
 export const AI_LIMITS = {
   /** Default global daily cap when AI_DAILY_USD is unset. */
   dailyUsd: 2,
   /** AI-assisted checks per account per UTC day. */
   perUserPerDay: 20,
+  /** Web searches and page reads per account per UTC day (each also counts as an AI call). */
+  toolsPerUserPerDay: 5,
   /** How long the admin pause switch is cached in memory. */
   pauseCacheMs: 60_000,
 } as const;
 
 /** Thinking counts toward max_tokens on Claude 5.5 models, so leave room. */
-export const MAX_TOKENS = { extract: 4096 } as const;
+export const MAX_TOKENS = { extract: 4096, guess: 2048, search: 8000, presence: 6000, page: 6000 } as const;
 
-export function modelFor(step: keyof typeof AI_MODELS, env: Readonly<Record<string, string | undefined>> = process.env): string {
-  return (step === "extract" && env.AI_MODEL?.trim()) || AI_MODELS[step];
+/** Max web searches per call; page reads fetch one page. */
+export const MAX_USES = { search: 3, presence: 2, page: 1 } as const;
+
+export function modelFor(step: AiStep, env: Readonly<Record<string, string | undefined>> = process.env): string {
+  if (step === "locate") return env.AI_MODEL_LOCATE?.trim() || AI_MODELS.locate;
+  return env.AI_MODEL?.trim() || AI_MODELS[step];
 }
 
-/** Estimated cost in micro-dollars from token counts (unknown models priced as Opus). */
-export function costMicros(model: string, inputTokens: number, outputTokens: number): number {
+/** Estimated cost in micro-dollars from token counts (unknown models priced as Opus), plus search fees. */
+export function costMicros(model: string, inputTokens: number, outputTokens: number, searches = 0): number {
   const p = PRICE_PER_MTOK[model] ?? PRICE_PER_MTOK["claude-opus-5-5"];
-  return Math.ceil(inputTokens * p.input + outputTokens * p.output);
+  return Math.ceil(inputTokens * p.input + outputTokens * p.output) + searches * SEARCH_MICROS;
 }

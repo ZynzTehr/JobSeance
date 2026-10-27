@@ -30,15 +30,28 @@ export function resetPauseCache() {
 
 export type Reservation = { ok: true; release: () => Promise<void> } | { ok: false };
 
-/** Reserves `micros` of today's global budget and one call of the account's daily allowance. */
+/**
+ * Reserves `micros` of today's global budget and one call of the account's daily allowance.
+ * A tool call (web search or page read) also takes one of the account's daily tool calls.
+ */
 export async function reserveAiCall(
   db: Db,
-  { userId, micros, now = new Date(), capMicros = dailyCapMicros(), perUser = AI_LIMITS.perUserPerDay }: {
+  {
+    userId,
+    micros,
+    tool = false,
+    now = new Date(),
+    capMicros = dailyCapMicros(),
+    perUser = AI_LIMITS.perUserPerDay,
+    toolsPerUser = AI_LIMITS.toolsPerUserPerDay,
+  }: {
     userId: string;
     micros: number;
+    tool?: boolean;
     now?: Date;
     capMicros?: number;
     perUser?: number;
+    toolsPerUser?: number;
   },
 ): Promise<Reservation> {
   const day = utcDay(now);
@@ -53,7 +66,10 @@ export async function reserveAiCall(
     db.aiUsage.updateMany({ where: { day }, data: { spendMicros: { decrement: micros }, calls: { decrement: 1 } } }).then(() => undefined);
 
   await db.aiUserUsage.upsert({ where: { userId_day: { userId, day } }, update: {}, create: { userId, day } });
-  const user = await db.aiUserUsage.updateMany({ where: { userId, day, calls: { lt: perUser } }, data: { calls: { increment: 1 } } });
+  const user = await db.aiUserUsage.updateMany({
+    where: { userId, day, calls: { lt: perUser }, ...(tool ? { toolCalls: { lt: toolsPerUser } } : {}) },
+    data: { calls: { increment: 1 }, ...(tool ? { toolCalls: { increment: 1 } } : {}) },
+  });
   if (user.count === 0) {
     await refundGlobal();
     return { ok: false };
@@ -62,7 +78,7 @@ export async function reserveAiCall(
     ok: true,
     release: async () => {
       await refundGlobal();
-      await db.aiUserUsage.updateMany({ where: { userId, day }, data: { calls: { decrement: 1 } } });
+      await db.aiUserUsage.updateMany({ where: { userId, day }, data: { calls: { decrement: 1 }, ...(tool ? { toolCalls: { decrement: 1 } } : {}) } });
     },
   };
 }
@@ -76,8 +92,19 @@ export async function settleAiCall(
     inputTokens,
     outputTokens,
     outcome,
+    searches = 0,
+    fetches = 0,
     now = new Date(),
-  }: { reservedMicros: number; actualMicros: number; inputTokens: number; outputTokens: number; outcome: string; now?: Date },
+  }: {
+    reservedMicros: number;
+    actualMicros: number;
+    inputTokens: number;
+    outputTokens: number;
+    outcome: string;
+    searches?: number;
+    fetches?: number;
+    now?: Date;
+  },
 ): Promise<void> {
   await db.aiUsage
     .updateMany({
@@ -86,6 +113,8 @@ export async function settleAiCall(
         spendMicros: { increment: actualMicros - reservedMicros },
         inputTokens: { increment: inputTokens },
         outputTokens: { increment: outputTokens },
+        ...(searches ? { searches: { increment: searches } } : {}),
+        ...(fetches ? { fetches: { increment: fetches } } : {}),
         ...(outcome === "refusal" ? { refusals: { increment: 1 } } : {}),
         ...(outcome === "max_tokens" ? { maxTokensStops: { increment: 1 } } : {}),
         ...(["error", "timeout", "invalid"].includes(outcome) ? { errors: { increment: 1 } } : {}),

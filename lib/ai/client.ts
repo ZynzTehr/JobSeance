@@ -82,3 +82,80 @@ export async function callStructured<S extends z.ZodType>(call: StructuredCall<S
   );
   return result;
 }
+
+export type ToolCallInput = {
+  step: string;
+  model: string;
+  system: string;
+  user: string;
+  /** Server tools only (web_search, web_fetch); there are no client tools to run. */
+  tools: Anthropic.Messages.ToolUnion[];
+  maxTokens: number;
+  timeoutMs: number;
+  signal?: AbortSignal;
+};
+
+export type ToolCallResult = {
+  ok: boolean;
+  reason?: AiFailureReason;
+  /** Every content block from every turn, so callers read engine results, not the model's prose. */
+  content: Anthropic.Messages.ContentBlock[];
+  inputTokens: number;
+  outputTokens: number;
+  searches: number;
+  fetches: number;
+  micros: number;
+};
+
+/**
+ * One request with server tools, resumed once on pause_turn. A refusal, max_tokens stop or
+ * error is a failure: callers then use nothing from it. Logs numbers only.
+ */
+export async function callWithTools(call: ToolCallInput, anthropic: Anthropic = getAnthropic()): Promise<ToolCallResult> {
+  const started = Date.now();
+  const signal = call.signal ? AbortSignal.any([call.signal, AbortSignal.timeout(call.timeoutMs)]) : AbortSignal.timeout(call.timeoutMs);
+  const messages: Anthropic.Messages.MessageParam[] = [{ role: "user", content: call.user }];
+  const content: Anthropic.Messages.ContentBlock[] = [];
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let searches = 0;
+  let fetches = 0;
+  let stop = "none";
+  let err = "";
+  let reason: AiFailureReason | undefined;
+  try {
+    for (let turn = 0; turn < 2; turn++) {
+      const message = await anthropic.messages.create(
+        {
+          model: call.model,
+          max_tokens: call.maxTokens,
+          system: [{ type: "text", text: call.system, cache_control: { type: "ephemeral" } }],
+          messages,
+          tools: call.tools,
+          output_config: { effort: "low" },
+        },
+        { signal, timeout: call.timeoutMs },
+      );
+      inputTokens += message.usage.input_tokens + (message.usage.cache_read_input_tokens ?? 0) + (message.usage.cache_creation_input_tokens ?? 0);
+      outputTokens += message.usage.output_tokens;
+      searches += message.usage.server_tool_use?.web_search_requests ?? 0;
+      fetches += message.usage.server_tool_use?.web_fetch_requests ?? 0;
+      content.push(...message.content);
+      stop = message.stop_reason ?? "none";
+      if (message.stop_reason !== "pause_turn") break;
+      messages.push({ role: "assistant", content: message.content });
+    }
+    if (stop === "refusal") reason = "refusal";
+    else if (stop === "max_tokens") reason = "max_tokens";
+    else if (stop === "pause_turn") reason = "timeout"; // still paused after one resume
+  } catch (error) {
+    const timedOut = signal.aborted || error instanceof Anthropic.APIConnectionTimeoutError || error instanceof Anthropic.APIUserAbortError;
+    err = error instanceof Anthropic.APIError ? `${error.constructor.name}:${error.status ?? ""}` : (error as Error)?.name ?? "Error";
+    reason = timedOut ? "timeout" : error instanceof Anthropic.RateLimitError ? "budget" : "error";
+  }
+  const micros = costMicros(call.model, inputTokens, outputTokens, searches);
+  console.info(
+    `ai ${call.step} model=${call.model} mode=live in=${inputTokens} out=${outputTokens} searches=${searches} fetches=${fetches} ms=${Date.now() - started} stop=${stop} outcome=${reason ?? "ok"}${err ? ` err=${err}` : ""}`,
+  );
+  return { ok: !reason, ...(reason ? { reason } : {}), content, inputTokens, outputTokens, searches, fetches, micros };
+}

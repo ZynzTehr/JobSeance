@@ -16,6 +16,7 @@ const LIMITS = [
   "Accounts are not verified, so one person can create several. Community signals are a weak input, need 3+ distinct users and are capped.",
   "We read Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Workable, Recruitee and amazon.jobs. A LinkedIn or Indeed listing can be checked by pasting its text, but only if the employer uses one of those systems and is in our directory.",
   "Workday's and amazon.jobs' job data is public but undocumented, so either can change or block us without notice; any failure shows \"couldn't verify\". On Workday, SmartRecruiters and amazon.jobs we search for the role rather than reading every job, so a role missing from the search is never counted as \"not found\".",
+  "A board found for a company we don't list may belong to someone else: anyone can open a job board under a company's name. That's why such boards are shown, never counted, until an admin checks them.",
   "Claude can misread a company or title. That's why what it read is shown, and why a title that isn't an exact match counts only after you confirm it.",
   "A forged sender can look official. A matching domain is shown as a fact but never lowers the scam score.",
   "Phrase rules can miss reworded scams and can fire on honest text. Every match is quoted so you can judge it.",

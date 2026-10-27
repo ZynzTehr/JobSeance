@@ -5,7 +5,13 @@ import { fixturesEnabled, type BoardRef } from "@/lib/lookups/boards";
 import { describeDomain, officialDomains, registrableDomain, type DomainReport } from "@/lib/lookups/domains";
 import type { FetchOptions } from "@/lib/lookups/fetch";
 import { parseJobUrl, SEARCH_ATS, type BoardAts } from "@/lib/lookups/job-url";
-import { searchBoardJobs } from "@/lib/lookups/boards";
+import { fetchBoardJobs, searchBoardJobs } from "@/lib/lookups/boards";
+import { discoverBoard, probeBoard, type CachedDiscovery, type DiscoveryDeps } from "@/lib/lookups/discovery";
+import { safeQuery } from "@/lib/ai/locate";
+import { onHosts } from "@/lib/ai/presence";
+import { pageUrlFor, type PageRead } from "@/lib/ai/read-page";
+import { AI_REASON_TEXT, type AiOutcome } from "@/lib/ai/types";
+import { locateRows, pageRows, presenceRows, presenceUsedAi } from "@/lib/checks/locate";
 import { UpstreamError } from "@/lib/lookups/fetch";
 import { boardRef, BoardUnavailableError, getCompanyPostings, lookupPosting, type PostingFacts } from "@/lib/lookups/postings";
 import { currentTransport, offTransport, type AiTransport } from "@/lib/ai/transport";
@@ -13,7 +19,7 @@ import { checkMessageText, messageExtras, type MessageReading } from "@/lib/chec
 import { checkPostingText, postingTextSchema, searchMissDetail, type CompanyBoard, type PostingDeps, type Reading } from "@/lib/checks/posting";
 import { dmarcPolicy } from "@/lib/lookups/mail-auth";
 import { CONFIG_VERSION, DISCLAIMER, HIGH_SCAM_ADVICE, VERIFICATION_CHECKLIST } from "@/lib/scoring/config";
-import { scoreGhost, type BoardStatus, type CommunityReport, type CommunitySummary, type Score, type Signal } from "@/lib/scoring/ghost";
+import { bandFor, clamp, scoreGhost, type BoardStatus, type CommunityReport, type CommunitySummary, type Score, type Signal } from "@/lib/scoring/ghost";
 import { scoreScam, warningCount, type SenderFacts } from "@/lib/scoring/scam";
 import type { Company, Prisma } from "@/app/generated/prisma/client";
 
@@ -110,6 +116,8 @@ export type BoardCheck = {
   ghost: Score & { community: CommunitySummary };
   scam: Score;
   posting: PostingFacts | null;
+  /** Phase 11 info rows (presence check). */
+  gathered?: Signal[];
 };
 
 /** Looks up one job on its board: live, gone (with the cached copy) or couldn't verify. No scoring. */
@@ -220,7 +228,7 @@ export function pickByTitle<T extends { title: string }>(items: T[], role: strin
   return partial.sort((a, b) => a.title.length - b.title.length)[0] ?? null;
 }
 
-async function checkCompanyRole(company: Company, role: string, now: Date): Promise<BoardCheck> {
+async function checkCompanyRole(company: Company, role: string, now: Date, presence?: (company: Company, role: string) => Promise<Signal[]>): Promise<BoardCheck> {
   const community = await communityFor(company.id, now);
   const ref = boardRef(company);
 
@@ -230,7 +238,8 @@ async function checkCompanyRole(company: Company, role: string, now: Date): Prom
     const posting = match
       ? { id: match.id, externalId: match.externalId, title: match.title, location: match.location, url: match.url, postedAt: match.postedAt, internalJobId: match.internalJobId, description: match.description }
       : null;
-    return scoreBoardCheck({ kind: "no_board", companyName: company.name }, posting, null, community, now);
+    const gathered = !match && presence ? await presence(company, role) : [];
+    return { ...scoreBoardCheck({ kind: "no_board", companyName: company.name }, posting, null, community, now), gathered };
   }
 
   const found = await companyBoard(company, now, role);
@@ -354,8 +363,108 @@ async function senderForDomain(domain: string, now: Date) {
   return senderFacts(report, reporters);
 }
 
-export function postingDeps(userId: string, now: Date, ai: AiTransport, signal?: AbortSignal): PostingDeps {
+// ---- Phase 11: employers outside the directory, presence checks, page reads ---------
+
+function discoveryCache(): DiscoveryDeps["cache"] {
+  const db = getDb();
   return {
+    get: async (key) => (await db.boardDiscovery.findUnique({ where: { key } })) as CachedDiscovery | null,
+    put: async (row) => {
+      await db.boardDiscovery.upsert({ where: { key: row.key }, update: { ...row, checkedAt: new Date() }, create: row });
+    },
+  };
+}
+
+/** Finds an unknown employer's board and turns it into info rows (never counted). */
+export function locator(userId: string, now: Date, ai: AiTransport, started: number, signal?: AbortSignal) {
+  return async (employer: string, role: string | null, typed: boolean) => {
+    const d = await discoverBoard(employer, role, {
+      ai,
+      userId,
+      now,
+      signal,
+      probe: (l) => (fixturesEnabled() ? Promise.resolve(null) : probeBoard(l)),
+      cache: discoveryCache(),
+      // A web search takes up to 30 s: only start one with that much of the deadline left.
+      canSearch: () => Date.now() - started <= POSTING_DEADLINE_MS - 30_000,
+    });
+    const rows = await locateRows(d, role, typed, {
+      now,
+      pickByTitle,
+      jobs: (ref, r) => (SEARCH_ATS.has(ref.ats) ? searchBoardJobs(ref, r) : fetchBoardJobs(ref)),
+    });
+    return { rows, ai: d.ai, located: Boolean(d.found || d.unconfirmed.length), aiFailure: d.aiFailure };
+  };
+}
+
+/** Presence check on a directory company's own careers hosts (admin-curated). */
+export function presenceCheck(userId: string, now: Date, ai: AiTransport, signal?: AbortSignal) {
+  return async (company: Company, role: string): Promise<Signal[]> => {
+    const hosts = company.careersHosts;
+    const title = safeQuery(role, 120);
+    if (!hosts.length || !title || !ai.presence) return [];
+    return presenceRows(await ai.presence(title, hosts, { userId, signal }), role, hosts, now);
+  };
+}
+
+const PAGE_NOTE = "From a page read: shown for information and not counted yet.";
+
+/** Page-derived phrase hits are shown, not counted, until page reads are measured. Community reports still count. */
+function pageInfoOnly<T extends Score>(s: T): T {
+  const signals = s.signals.map((x) => (x.points > 0 && x.id !== "G-COMMUNITY" ? { ...x, points: 0, kind: "info" as const, note: PAGE_NOTE } : x));
+  if (s.band === "NOT_ENOUGH_DATA") return { ...s, signals };
+  const score = clamp(signals.reduce((sum, x) => sum + x.points, 0), 0, 100);
+  return { ...s, score, band: bandFor(score), signals };
+}
+
+type PageCheck = BoardCheck & { gathered: Signal[]; company: Company; ai: { used: boolean; model: string | null; mode: "live" | "replay" | null; suggestedKind: null } };
+
+/** A link on a directory company's allowlisted careers host: Anthropic's fetch tool reads the page. Null when the host isn't allowlisted. */
+async function pageCheck(rawUrl: string, userId: string | null, now: Date, aiOverride?: AiTransport): Promise<PageCheck | null> {
+  let host: string;
+  try {
+    host = new URL(rawUrl).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+  const companies = await getDb().company.findMany({ where: { NOT: { careersHosts: { isEmpty: true } } } });
+  const company = companies.find((c) => onHosts(`https://${host}/`, c.careersHosts));
+  const url = company ? pageUrlFor(rawUrl, company.careersHosts) : null;
+  if (!company || !url) return null;
+
+  const transport = userId ? (aiOverride ?? (await currentTransport())) : offTransport;
+  const out: AiOutcome<PageRead> = transport.readPage
+    ? await transport.readPage(url, host, { userId: userId ?? "", signal: AbortSignal.timeout(POSTING_DEADLINE_MS) })
+    : { ok: false, reason: "off" };
+  const text = out.ok ? out.value.pageText : null;
+  const community = await communityFor(company.id, now);
+  const board: BoardStatus = {
+    kind: "couldnt_verify",
+    boardName: "",
+    source: host,
+    detail: `${company.name} doesn't use a job board we read, so we can't check whether this job is still open (nothing counted)`,
+  };
+  const g = scoreGhost({ board, postedAt: null, description: text, community, now });
+  const scam = scoreScam({ text, sender: null, claimed: null, namesEmployer: false, notOnBoard: null, now });
+  const posting: PostingFacts | null =
+    out.ok && out.value.title
+      ? { id: null, externalId: "", title: out.value.title, location: out.value.location, url: out.value.url, postedAt: null, internalJobId: null, description: null }
+      : null;
+  return {
+    ghost: { ...pageInfoOnly(g), community: g.community },
+    scam: pageInfoOnly(scam),
+    posting,
+    gathered: pageRows(out, host, now),
+    company,
+    ai: { used: out.ok, model: out.ok ? out.model : null, mode: out.ok ? out.mode : null, suggestedKind: null },
+  };
+}
+
+export function postingDeps(userId: string, now: Date, ai: AiTransport, signal?: AbortSignal): PostingDeps {
+  const started = Date.now();
+  return {
+    locate: locator(userId, now, ai, started, signal),
+    presence: presenceCheck(userId, now, ai, signal),
     ai,
     userId,
     now,
@@ -422,16 +531,49 @@ export async function runCheck(input: CheckInput, userId: string | null, now = n
   } else {
     let result: BoardCheck;
     if (input.kind === "url") {
-      const resolved = await resolveUrl(input.url);
-      company = resolved.company;
-      const reports = company ? await communityFor(company.id, now) : [];
-      result = await checkBoardJob(resolved.ref, resolved.jobId, company, { now, community: reports });
+      let resolved: Awaited<ReturnType<typeof resolveUrl>> | null = null;
+      let page: PageCheck | null = null;
+      try {
+        resolved = await resolveUrl(input.url);
+      } catch (error) {
+        if (!(error instanceof CheckError) || error.api.code !== "unsupported_url") throw error;
+        page = await pageCheck(input.url, userId, now, opts.ai);
+        // No hint from a board's name: anyone can open a board under a company's name.
+        if (!page) throw error;
+      }
+      if (page) {
+        result = page;
+        company = page.company;
+        gathered = page.gathered;
+        ai = page.ai;
+      } else {
+        company = resolved!.company;
+        const reports = company ? await communityFor(company.id, now) : [];
+        result = await checkBoardJob(resolved!.ref, resolved!.jobId, company, { now, community: reports });
+      }
     } else {
+      const transport = userId ? (opts.ai ?? (await currentTransport())) : offTransport;
+      const signal = AbortSignal.timeout(POSTING_DEADLINE_MS);
       company = await findCompany(input.company);
       if (!company) {
-        throw new CheckError({ status: 404, code: "company_not_found", message: "We don't have that company yet. Try a job link instead." });
+        const located = await locator(userId ?? "", now, transport, Date.now(), signal)(input.company, input.role, true);
+        if (!located.located) {
+          const why = located.aiFailure && located.aiFailure !== "off" ? ` (the AI-assisted search didn't finish: ${AI_REASON_TEXT[located.aiFailure]})` : "";
+          throw new CheckError({
+            status: 404,
+            code: "company_not_found",
+            message: `We don't have that company, and we couldn't find its job board on the systems we read${why}. Try a job link, or paste the posting text.`,
+          });
+        }
+        gathered = located.rows;
+        ai = { used: located.ai.used, model: located.ai.model, mode: located.ai.mode, suggestedKind: null };
+        const board: BoardStatus = { kind: "couldnt_verify", boardName: "", source: "JobSeance company list", detail: "This company isn't in our directory, so no employer board was checked (nothing counted)" };
+        result = scoreBoardCheck(board, null, null, [], now);
+      } else {
+        result = await checkCompanyRole(company, input.role, now, presenceCheck(userId ?? "", now, transport, signal));
+        gathered = result.gathered ?? [];
+        if (presenceUsedAi(gathered)) ai = { used: true, model: null, mode: null, suggestedKind: null };
       }
-      result = await checkCompanyRole(company, input.role, now);
     }
     const { community: summary, ...ghostScore } = result.ghost;
     ghost = ghostScore;
@@ -468,6 +610,7 @@ export async function runCheck(input: CheckInput, userId: string | null, now = n
     scam: { ...scam, warnings: warningCount(scam) },
     ...(community ? { community } : {}),
     ...(input.kind === "posting_text" ? { gathered, reading, ai } : {}),
+    ...((input.kind === "url" || input.kind === "company_role") && gathered.length ? { gathered, ai } : {}),
     ...(input.kind === "message" && (gathered.length || input.aiRead) ? { gathered, messageReading, ai } : {}),
     meta: {
       configVersion: CONFIG_VERSION,

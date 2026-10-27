@@ -120,7 +120,7 @@ describe("parseJobUrl", () => {
 
     it("keeps the plain message for credential and port tricks", () => {
       expect(message("https://boards.greenhouse.io@evil.com/x")).toBe(message("https://user:pw@boards.greenhouse.io/discord/jobs/1"));
-      expect(message("https://boards.greenhouse.io:8443/discord/jobs/8806482002")).toMatch(/^Paste a job link from Greenhouse/);
+      expect(message("https://boards.greenhouse.io:8443/discord/jobs/8806482002")).toMatch(/^Paste a job link from the employer's own job board/);
     });
   });
 
