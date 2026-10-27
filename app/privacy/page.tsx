@@ -81,7 +81,8 @@ export default function PrivacyPage() {
             <li>
               Every check needs an account, so we can moderate and monitor use. Pasted messages and postings are analyzed in
               memory and not stored, unless you choose to share a redacted excerpt with a scam report. A pasted posting is
-              sent, masked, to Anthropic&rsquo;s Claude to read the company and role; recruiter messages never are.
+              sent, masked, to Anthropic&rsquo;s Claude to read the company and role; a recruiter message is sent only if you
+              tick &ldquo;Let Claude read this message&rdquo;. Email headers you paste are read in memory and never sent or stored.
             </li>
             <li>No analytics, no ads, no tracking cookies and no third-party scripts. We never sell or rent your data.</li>
             <li>Your individual reports are never shown publicly. Other people see only totals.</li>
@@ -148,6 +149,16 @@ export default function PrivacyPage() {
             title and location. Names in the text are not masked, so paste the posting only. What Claude read is shown on the
             result and is not stored. We keep the same derived facts as for any check, plus whether an AI step ran, and a daily
             count of AI calls for your account (numbers only) so we can enforce a daily limit.
+          </p>
+
+          <Sub>When you paste email headers or let Claude read a message</Sub>
+          <p>
+            Email headers you paste on the Recruiter message tab are read in memory on our server to check the sender&rsquo;s
+            authentication results and where replies would go. They are never stored, logged or sent to an AI service. We
+            look up only the sender&rsquo;s domain in DNS. If you tick &ldquo;Let Claude read this message&rdquo;, the message
+            is masked as described above and sent to Anthropic&rsquo;s Claude, which suggests the company it claims and the
+            address to check. Those suggestions are shown on the result, never stored, and never change the score unless you
+            use them to check again.
           </p>
 
           <Sub>When you create an account</Sub>

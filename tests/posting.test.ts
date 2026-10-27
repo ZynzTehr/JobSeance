@@ -36,6 +36,7 @@ const reading = (o: Partial<PostingExtract> = {}): PostingExtract => ({
 
 const aiReturning = (value: PostingExtract | null): AiTransport & { extract: ReturnType<typeof vi.fn> } => ({
   extract: vi.fn(async () => (value ? { ok: true as const, value, mode: "replay" as const, model: "claude-haiku-5-5" } : { ok: false as const, reason: "off" as const })),
+  extractMessage: async () => ({ ok: false as const, reason: "off" as const }),
 });
 
 function deps(o: Partial<PostingDeps> = {}): PostingDeps {

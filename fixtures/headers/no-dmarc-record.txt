@@ -1,0 +1,4 @@
+Authentication-Results: mx.example.net;
+	spf=none smtp.mailfrom=recruiter@quietwater.example
+From: recruiter@quietwater.example
+Subject: Hi

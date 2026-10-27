@@ -38,6 +38,8 @@ export type CheckResult = {
   community?: { reports: number; shown: boolean; reason?: string; ghosted?: number; points?: number };
   gathered?: SignalJson[];
   reading?: ReadingJson | null;
+  /** Opt-in Claude reading of a recruiter message: suggestions only, never stored. */
+  messageReading?: { claimedCompany: string | null; contactAddress: string | null; channels: string[]; asks: string[] } | null;
   ai?: { used: boolean; model: string | null; mode: "live" | "replay" | null; suggestedKind: "message" | null } | null;
   meta: {
     configVersion: string;
@@ -47,6 +49,6 @@ export type CheckResult = {
   };
 };
 
-export type MessageInput = { text: string; senderEmail: string; companyClaimed: string; channel: string };
+export type MessageInput = { text: string; senderEmail: string; companyClaimed: string; channel: string; headers: string; aiRead: boolean };
 
 export type PostingInput = { text: string; sourceSite: string; company: string; role: string };

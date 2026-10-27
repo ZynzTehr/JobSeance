@@ -7,9 +7,9 @@ import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { getAnthropic } from "@/lib/ai/client";
 import { modelFor } from "@/lib/ai/config";
-import { cleanExtract, extractCall } from "@/lib/ai/extract";
+import { cleanExtract, extractCall, messageCall } from "@/lib/ai/extract";
 import { redactForAi } from "@/lib/ai/sanitize";
-import { DEMO_POSTING_BRAMBLECLOUD, DEMO_POSTING_DISCORD } from "@/lib/demo-examples";
+import { DEMO_MESSAGE_BRAMBLECLOUD, DEMO_POSTING_BRAMBLECLOUD, DEMO_POSTING_DISCORD } from "@/lib/demo-examples";
 
 if (process.env.USE_FIXTURES === "1") throw new Error("Unset USE_FIXTURES: this script records live answers.");
 if (!process.env.ANTHROPIC_API_KEY) throw new Error("Set ANTHROPIC_API_KEY.");
@@ -30,4 +30,14 @@ for (const demo of demos) {
     JSON.stringify({ model, recordedAt: new Date().toISOString(), value }, null, 2) + "\n",
   );
   console.log(`${demo.file}: ${value.employerName} / ${value.roleTitle} (${result.inputTokens} in, ${result.outputTokens} out)`);
+}
+
+{
+  const result = await messageCall(redactForAi(DEMO_MESSAGE_BRAMBLECLOUD), model);
+  if (!result.ok) throw new Error(`extract-message-demo-bramblecloud.json: ${result.reason}`);
+  await writeFile(
+    path.join(process.cwd(), "fixtures", "ai", "extract-message-demo-bramblecloud.json"),
+    JSON.stringify({ model, recordedAt: new Date().toISOString(), value: result.value }, null, 2) + "\n",
+  );
+  console.log(`extract-message-demo-bramblecloud.json: ${result.value.claimedCompany} (${result.inputTokens} in, ${result.outputTokens} out)`);
 }

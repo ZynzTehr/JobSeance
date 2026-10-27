@@ -2,7 +2,7 @@
 // Weights are expert-set from public benchmarks, not validated. Every check
 // stores CONFIG_VERSION so old results can be explained after a change.
 
-export const CONFIG_VERSION = "2026-10-27.1";
+export const CONFIG_VERSION = "2026-10-27.2";
 
 export const BANDS = { cautionFrom: 25, highFrom: 50 } as const;
 
@@ -71,7 +71,9 @@ export type ScamRuleId =
   | "S-CHAT-ONLY"
   | "S-REPORTED"
   | "S-NO-INTERVIEW"
-  | "S-TOO-GOOD";
+  | "S-TOO-GOOD"
+  | "S-AUTH-FAIL"
+  | "S-REPLY-TO";
 
 export const SCAM_POINTS = {
   "S-PAY-TO-WORK": 30,
@@ -92,6 +94,8 @@ export const SCAM_POINTS = {
   "S-REPORTED": 25, // 3+ reporters
   "S-NO-INTERVIEW": 10,
   "S-TOO-GOOD": 10,
+  "S-AUTH-FAIL": 20, // from pasted headers only
+  "S-REPLY-TO": 15, // from pasted headers only
 } as const satisfies Record<ScamRuleId, number>;
 
 export const DOMAIN_NEW = { newDays: 30, youngDays: 180, youngPoints: 10 } as const;
@@ -118,6 +122,8 @@ export const SCAM_CITES: Record<ScamRuleId, string | undefined> = {
   "S-REPORTED": undefined, // our own data
   "S-NO-INTERVIEW": FTC_JUL_2025,
   "S-TOO-GOOD": FTC_JOB_SCAMS,
+  "S-AUTH-FAIL": "https://www.rfc-editor.org/rfc/rfc7489",
+  "S-REPLY-TO": "https://consumer.ftc.gov/articles/how-recognize-and-avoid-phishing-scams",
 };
 
 const PAYMENT_TARGETS = "gift\\s+cards?|bitcoin|btc|usdt|crypto(?:currency)?|zelle|cash\\s*app|wire\\s+transfer|western\\s+union|moneygram";

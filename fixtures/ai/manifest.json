@@ -9,6 +9,11 @@
       "step": "extract",
       "prefix": "Data Analyst (Remote) Bramblecloud Software We are collecting resumes for future openings",
       "file": "extract-demo-bramblecloud.json"
+    },
+    {
+      "step": "extract_message",
+      "prefix": "Hello from the Bramblecloud Software hiring team. Your interview will be held by chat on WhatsApp.",
+      "file": "extract-message-demo-bramblecloud.json"
     }
   ]
 }

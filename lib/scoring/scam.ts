@@ -10,6 +10,21 @@ import {
 } from "@/lib/scoring/config";
 import { bandFor, clamp, matchPhrases, quoteMatches, type Score, type Signal } from "@/lib/scoring/ghost";
 
+/** Facts read from pasted email headers (lib/lookups/mail-auth.ts), gathered by the caller. */
+export type MailFacts = {
+  malformed: boolean;
+  fromDomain: string | null;
+  replyToDomain: string | null;
+  replyToAts: boolean;
+  results: {
+    spf: { result: string; domain: string | null } | null;
+    dkim: { result: string; domain: string | null }[];
+    dmarc: { result: string; policy: string | null } | null;
+  } | null;
+  /** The From domain's published DMARC policy (from DNS), when the headers didn't record one. */
+  publishedPolicy: "reject" | "quarantine" | "none" | null;
+};
+
 /** Facts about the sender's registrable domain, gathered by the caller. */
 export type SenderFacts = {
   domain: string; // registrable domain only: never the part before the @
@@ -35,10 +50,12 @@ export type ScamInput = {
   namesEmployer: boolean;
   /** Same lookup as G-BOARD, for URL and company + role checks. */
   notOnBoard: { fact: string; source: string } | null;
+  /** Only when the user pasted the email's headers. */
+  mail?: MailFacts | null;
   now: Date;
 };
 
-const LOOKALIKE_REASON: Record<string, string> = {
+export const LOOKALIKE_REASON: Record<string, string> = {
   typo: "is a near-spelling of",
   brand_suffix: "adds a word to",
   other_tld: "uses another ending than",
@@ -115,6 +132,36 @@ export function scoreScam(input: ScamInput): Score {
         "JobSeance user reports",
         many ? SCAM_POINTS["S-REPORTED"] : REPORTED.fewPoints,
       );
+    }
+  }
+
+  const m = input.mail;
+  if (m) {
+    const src = "the email's Authentication-Results header";
+    if (m.malformed || !m.fromDomain) {
+      info("S-AUTH-FAIL", "Couldn't read the pasted headers (they need exactly one From line)", "pasted headers", "couldnt_verify");
+    } else if (!m.results) {
+      info("S-AUTH-FAIL", "The pasted headers have no authentication results to check", "pasted headers", "couldnt_verify");
+    } else {
+      const from = m.fromDomain;
+      const aligned =
+        m.results.dkim.some((d) => d.result === "pass" && d.domain === from) || (m.results.spf?.result === "pass" && m.results.spf.domain === from);
+      const policy = m.results.dmarc?.policy ?? m.publishedPolicy;
+      const dmarc = m.results.dmarc?.result;
+      if (dmarc === "fail") {
+        fire("S-AUTH-FAIL", `Mail authentication failed for ${from} (DMARC fail, as recorded in the headers you pasted)`, src);
+      } else if (dmarc === "pass") {
+        info("S-AUTH-FAIL", `Mail authentication passed for ${from} (DMARC pass, as recorded in the headers you pasted)`, src);
+      } else if (!aligned && (policy === "reject" || policy === "quarantine")) {
+        fire("S-AUTH-FAIL", `No passing SPF or DKIM for ${from}, which asks mail servers to ${policy} such mail`, src);
+      } else if (aligned) {
+        info("S-AUTH-FAIL", `${from} signed or authorized this mail (SPF or DKIM pass, as recorded in the headers you pasted)`, src);
+      } else {
+        info("S-AUTH-FAIL", `${from} publishes no DMARC policy and the mail wasn't authenticated, which proves nothing either way`, src, "couldnt_verify");
+      }
+    }
+    if (!m.malformed && m.fromDomain && m.replyToDomain && m.replyToDomain !== m.fromDomain && !m.replyToAts) {
+      fire("S-REPLY-TO", `Replies would go to ${m.replyToDomain}, not the sender's domain ${m.fromDomain}`, "the email's Reply-To header");
     }
   }
 

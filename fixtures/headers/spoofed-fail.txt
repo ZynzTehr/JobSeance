@@ -1,0 +1,10 @@
+Delivered-To: jobseeker@gmail.example
+Authentication-Results: mx.google.com;
+       dkim=fail header.i=@acme.example;
+       spf=softfail (google.com: domain of transitioning hr@acme.example does not designate 198.51.100.7 as permitted sender) smtp.mailfrom=hr@acme.example;
+       dmarc=fail (p=REJECT sp=REJECT dis=QUARANTINE) header.from=acme.example
+From: "Acme HR" <hr@acme.example>
+Reply-To: <acme.hiring.team@gmail.com>
+Subject: Offer letter
+
+Congratulations

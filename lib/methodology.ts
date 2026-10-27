@@ -66,6 +66,16 @@ const SCAM_TEXT: Record<ScamRuleId, Omit<SignalInfo, "points" | "url">> = {
   "S-REPORTED": { name: "Reported by JobSeance users", when: `1–2 distinct users reported this sender domain (+${REPORTED.fewPoints}) or ${REPORTED.manyFrom}+ (+${SCAM_POINTS["S-REPORTED"]}). Never for free-mail, ATS or official domains.`, source: "JobSeance reports" },
   "S-NO-INTERVIEW": { name: "Offer without an interview, or pressure", when: `An offer with no interview, or "respond within 24 hours".`, source: "FTC, Jul 2025" },
   "S-TOO-GOOD": { name: "Pay that's too good", when: `High pay per day or week with vague duties ("$500/day from home").`, source: "FTC: Job scams" },
+  "S-AUTH-FAIL": {
+    name: "Email failed authentication",
+    when: "Only if you paste the email's headers: the receiving server recorded DMARC fail, or no passing SPF or DKIM for a sender domain that publishes a reject or quarantine policy. A pass is shown as a positive fact.",
+    source: "RFC 7489 (DMARC)",
+  },
+  "S-REPLY-TO": {
+    name: "Replies go to another domain",
+    when: "Only if you paste the email's headers: the Reply-To domain differs from the sender's domain and isn't a known hiring platform.",
+    source: "FTC: Phishing",
+  },
 };
 
 export const SCAM_SIGNALS: Record<string, SignalInfo> = Object.fromEntries(
@@ -81,8 +91,9 @@ export const SCAM_SIGNALS: Record<string, SignalInfo> = Object.fromEntries(
 
 /** Facts gathered for context on pasted postings. 0 points; never part of a score. */
 export const GATHERED_SIGNALS: Record<string, { name: string; when: string }> = {
-  "A-READ": { name: "What we read from the text", when: "Claude read the company and role from your pasted text, or you typed them. The values are shown on the result but never stored." },
+  "A-READ": { name: "What we read from the text", when: "Claude read the company and role from your pasted text (or, if you opted in, suggested fields from a recruiter message), or you typed them. The values are shown on the result but never stored." },
   "A-LINK": { name: "Job link in the text", when: "The pasted text contained a Greenhouse, Lever or Ashby job link, so we checked that exact job." },
+  "A-HEADERS": { name: "Sender from pasted headers", when: "You pasted the email's headers and left the sender blank, so we used the address in the From line." },
   "A-POSTED": { name: "Posting date in the text", when: "The text says when it was posted. Job sites reset that date on repost, so it is never counted; only the board's own date is." },
 };
 
@@ -95,7 +106,8 @@ export const AI_RULES = [
   "We look what Claude read up in our own directory and on the employer's own job board. Points from the board count only when the title matches the board's title exactly, when the text contains the job's own link, or when you confirm the company and title.",
   "Names and titles in a result come from our directory and the job board, not from Claude. What Claude read is shown on the result and never stored.",
   "Email domains in the text are found with a fixed pattern, not by Claude. On pasted postings, a domain's age, look-alike check and company mismatch are shown for information and not counted yet.",
-  "Before anything is sent, our server masks email addresses, phone and ID numbers and links. Names are not masked.",
+  "On the Recruiter message tab, Claude reads the message only if you tick the box, and only to suggest the company it claims and the address to check. Nothing it suggests counts until you use it to check again.",
+  "Before anything is sent, our server masks email addresses, phone and ID numbers and links. Names are not masked. Email headers are never sent.",
   "If the AI step is off, over our daily limit, too slow or declines, the result says so and the step scores 0, like any failed lookup.",
 ] as const;
 
