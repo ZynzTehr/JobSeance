@@ -95,6 +95,19 @@ export const GATHERED_SIGNALS: Record<string, { name: string; when: string }> = 
   "A-LINK": { name: "Job link in the text", when: "The pasted text contained a job link on a system we read (Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Workable, Recruitee or amazon.jobs), so we checked that exact job." },
   "A-HEADERS": { name: "Sender from pasted headers", when: "You pasted the email's headers and left the sender blank, so we used the address in the From line." },
   "A-POSTED": { name: "Posting date in the text", when: "The text says when it was posted. Job sites reset that date on repost, so it is never counted; only the board's own date is." },
+  "A-LOCATE": {
+    name: "Job board found for a company we don't list",
+    when: "We asked the job boards we read whether this company has a board, then asked Claude for likely boards, then ran one web search limited to those job-board sites. A board counts as found only when its own company name matches. Anyone can open a board under any name, so it is never counted until an admin adds the company to our directory.",
+  },
+  "A-LISTING": { name: "Listing on that board", when: "The found board lists this title, with its own date and link. Shown, never counted, for the same reason." },
+  "A-PRESENCE": {
+    name: "Search of the company's careers site",
+    when: "For a company we list that doesn't use a board we read, a web search limited to its careers site (allowlisted by an admin) looks for the title. A search result doesn't show that a job is open, so it's never counted.",
+  },
+  "A-PAGE": {
+    name: "Job page read",
+    when: "You pasted a link on a company's allowlisted careers site, so Anthropic's fetch tool read that page. Every value shown appears word for word on the page. Its date and wording are shown, not counted, until we've measured how reliable page reads are.",
+  },
 };
 
 export const signalName = (id: string) => GHOST_SIGNALS[id]?.name ?? SCAM_SIGNALS[id]?.name ?? GATHERED_SIGNALS[id]?.name ?? id;
@@ -108,6 +121,8 @@ export const AI_RULES = [
   "Email domains in the text are found with a fixed pattern, not by Claude. On pasted postings, a domain's age, look-alike check and company mismatch are shown for information and not counted yet.",
   "On the Recruiter message tab, Claude reads the message only if you tick the box, and only to suggest the company it claims and the address to check. Nothing it suggests counts until you use it to check again.",
   "Before anything is sent, our server masks email addresses, phone and ID numbers and links. Names are not masked. Email headers are never sent.",
+  "For a company we don't list, Claude may suggest where it posts jobs and Anthropic's web search may look on public job-board sites (Sonnet 5.5, at most 3 searches). Every suggestion is checked on the job board itself, and nothing found this way is counted.",
+  "For a company we list that doesn't use a board we read, a web search can look for the title on its own careers site, and Anthropic's fetch tool can read a job link you paste there. Only sites an admin allowlisted are searched or read, and nothing from them is counted yet.",
   "If the AI step is off, over our daily limit, too slow or declines, the result says so and the step scores 0, like any failed lookup.",
 ] as const;
 

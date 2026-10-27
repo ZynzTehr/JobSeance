@@ -128,6 +128,20 @@ describe("pasted posting check", () => {
     expect(r.scam.signals.find((s) => s.id === "S-PAY-TO-WORK")).toMatchObject({ points: 30 });
   });
 
+  it("an employer outside the directory gets discovery rows, and they change no points", async () => {
+    const locate = vi.fn(async () => ({
+      rows: [{ id: "A-LOCATE", points: 0, status: "found" as const, kind: "info" as const, fact: "Found a Lever board", source: "x", checkedAt: now.toISOString() }],
+      ai: { used: true, model: "claude-haiku-5-5", mode: "replay" as const },
+    }));
+    const without = await checkPostingText(input(POSTING, { company: "Nowhere Corp", role: "Analyst" }), deps());
+    const withRows = await checkPostingText(input(POSTING, { company: "Nowhere Corp", role: "Analyst" }), deps({ locate }));
+    expect(locate).toHaveBeenCalledWith("Nowhere Corp", "Analyst", true);
+    expect(withRows.gathered.map((g) => g.id)).toContain("A-LOCATE");
+    expect(withRows.ghost.score).toBe(without.ghost.score);
+    expect(withRows.scam.score).toBe(without.scam.score);
+    expect(withRows.ai.used).toBe(true);
+  });
+
   it("a company outside the directory is couldn't verify and nothing counts", async () => {
     const r = await checkPostingText(input("Analyst at Initech"), deps({ ai: aiReturning(reading({ employerName: "Initech", roleTitle: "Analyst" })) }));
     expect(r.ghost.signals.find((s) => s.id === "G-BOARD")).toMatchObject({ status: "couldnt_verify", points: 0 });

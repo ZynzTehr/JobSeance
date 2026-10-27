@@ -50,6 +50,14 @@ const realCompanies: { name: string; slug: string; domains: string[]; ats: Ats; 
   { name: "Amazon", slug: "amazon", domains: ["amazon.com", "amazon.jobs"], ats: "AMAZON", board: "amazon" },
 ];
 
+// Phase 11: no board we read, but a dedicated careers host an admin allowlisted for the
+// presence check and page reading. Never a shared host like www.google.com.
+const careersCompanies: { name: string; slug: string; domains: string[]; careersHosts: string[] }[] = [
+  { name: "Apple", slug: "apple", domains: ["apple.com"], careersHosts: ["jobs.apple.com"] },
+  { name: "Microsoft", slug: "microsoft", domains: ["microsoft.com"], careersHosts: ["jobs.careers.microsoft.com", "careers.microsoft.com"] },
+  { name: "Meta", slug: "meta", domains: ["meta.com", "fb.com"], careersHosts: ["metacareers.com"] },
+];
+
 const fictionalCompanies = [
   { name: "Bramblecloud Software", slug: "bramblecloud", domain: "bramblecloud.example" },
   { name: "Quietwater Logistics", slug: "quietwater", domain: "quietwater.example" },
@@ -126,6 +134,11 @@ async function main() {
 
       for (const c of realCompanies) {
         const data = { name: c.name, officialDomains: c.domains, ats: c.ats, atsBoard: c.board, atsHost: c.host ?? null, isFictional: false };
+        await tx.company.upsert({ where: { slug: c.slug }, update: data, create: { slug: c.slug, ...data } });
+      }
+
+      for (const c of careersCompanies) {
+        const data = { name: c.name, officialDomains: c.domains, ats: "NONE" as const, atsBoard: null, atsHost: null, careersHosts: c.careersHosts, isFictional: false };
         await tx.company.upsert({ where: { slug: c.slug }, update: data, create: { slug: c.slug, ...data } });
       }
 

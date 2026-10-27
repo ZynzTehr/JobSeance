@@ -82,7 +82,8 @@ export default function PrivacyPage() {
               Every check needs an account, so we can moderate and monitor use. Pasted messages and postings are analyzed in
               memory and not stored, unless you choose to share a redacted excerpt with a scam report. A pasted posting is
               sent, masked, to Anthropic&rsquo;s Claude to read the company and role; a recruiter message is sent only if you
-              tick &ldquo;Let Claude read this message&rdquo;. Email headers you paste are read in memory and never sent or stored.
+              tick &ldquo;Let Claude read this message&rdquo;. For a company we don&rsquo;t list, its name and the role title may be searched
+              on public job-board sites through Anthropic. Email headers you paste are read in memory and never sent or stored.
             </li>
             <li>No analytics, no ads, no tracking cookies and no third-party scripts. We never sell or rent your data.</li>
             <li>Your individual reports are never shown publicly. Other people see only totals.</li>
@@ -149,6 +150,19 @@ export default function PrivacyPage() {
             title and location. Names in the text are not masked, so paste the posting only. What Claude read is shown on the
             result and is not stored. We keep the same derived facts as for any check, plus whether an AI step ran, and a daily
             count of AI calls for your account (numbers only) so we can enforce a daily limit.
+          </p>
+
+          <Sub>When we look for a company&rsquo;s job board or careers page</Sub>
+          <p>
+            If you check a company we don&rsquo;t list, we first ask the public job boards whether a board with that name exists.
+            If none does, Anthropic&rsquo;s Claude may suggest where the company posts jobs, and Anthropic&rsquo;s web search may
+            look for it on public job-board sites. Only the company name and the role title are sent; never your account, your
+            IP address or anything you pasted. What we find is kept for {RETENTION_DAYS.discoveryFound} days ({" "}
+            {RETENTION_DAYS.discoveryNotFound} days if nothing was found) so the next person&rsquo;s check doesn&rsquo;t search
+            again; it holds the company name and the board&rsquo;s public identifier only. For a company we list whose careers
+            site we allowlisted, Anthropic&rsquo;s web search may look for the role title on that site, and a job link you paste on
+            that site is sent without its query string so Anthropic&rsquo;s fetch tool can read the page. Our own server never
+            opens a link you paste.
           </p>
 
           <Sub>When you paste email headers or let Claude read a message</Sub>
@@ -309,6 +323,11 @@ export default function PrivacyPage() {
               {POSTINGS_REFRESH_HOURS === 1 ? "hour" : `${POSTINGS_REFRESH_HOURS} hours`}, and a domain&rsquo;s registration
               date and mail records are reused for {RETENTION_DAYS.domainCache} days before being looked up again. Neither
               contains data about you.
+            </li>
+            <li>
+              <strong>Job-board search results:</strong> a company name and the public board we found for it, kept{" "}
+              {RETENTION_DAYS.discoveryFound} days ({RETENTION_DAYS.discoveryNotFound} days when nothing was found). They
+              contain no data about you.
             </li>
             <li>
               <strong>AI usage counters:</strong> one number per day for the whole site and one per account (how many AI

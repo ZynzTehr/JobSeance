@@ -22,6 +22,7 @@ const SPEC_VARS = [
   "ANTHROPIC_API_KEY",
   "AI_MODE",
   "AI_MODEL",
+  "AI_MODEL_LOCATE",
   "AI_DAILY_USD",
 ];
 

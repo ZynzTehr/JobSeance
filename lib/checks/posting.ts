@@ -4,6 +4,7 @@ import type { AiTransport } from "@/lib/ai/transport";
 import { AI_REASON_TEXT } from "@/lib/ai/types";
 import type { PostingExtract } from "@/lib/ai/extract";
 import { matchRoleOnBoard } from "@/lib/checks/title-match";
+import { presenceUsedAi } from "@/lib/checks/locate";
 import type { BoardRef } from "@/lib/lookups/boards";
 import { parseJobUrl } from "@/lib/lookups/job-url";
 import type { PostingFacts, PostingSummary } from "@/lib/lookups/postings";
@@ -60,6 +61,10 @@ export type PostingDeps = {
   sender(domain: string): Promise<SenderFacts | null>;
   /** Typed-path title match, identical to company_role (exact, then substring). */
   pickByTitle<T extends { title: string }>(items: T[], role: string): T | null;
+  /** Phase 11: info rows about an employer outside the directory (never counted). */
+  locate?(employer: string, role: string | null, typed: boolean): Promise<{ rows: Signal[]; ai: { used: boolean; model: string | null; mode: "live" | "replay" | null } }>;
+  /** Phase 11: presence-check rows for a directory company with careers hosts and no board we read. */
+  presence?(company: Company, role: string): Promise<Signal[]>;
 };
 
 export type Reading = {
@@ -178,6 +183,12 @@ export async function checkPostingText(input: PostingTextInput, deps: PostingDep
         ? "We don't have that company yet, so its job board wasn't checked (nothing counted)"
         : "The company named in the text isn't in our directory, so its job board wasn't checked (nothing counted)",
     };
+    const employer = typed ? input.company : reading?.company;
+    if (employer && deps.locate) {
+      const located = await deps.locate(employer, role, typed);
+      gathered.push(...located.rows);
+      if (located.ai.used && !aiInfo.used) aiInfo = { ...aiInfo, used: true, model: located.ai.model, mode: located.ai.mode };
+    }
   } else if (lookUp && company && !role) {
     board = { kind: "couldnt_verify", boardName: "", source: "JobSeance company list", detail: "No role title found in the text, so the board wasn't searched (nothing counted)" };
   } else if (lookUp && company && role) {
@@ -189,6 +200,11 @@ export async function checkPostingText(input: PostingTextInput, deps: PostingDep
       board = { kind: "no_board", companyName: company.name };
       posting = match;
       counted = Boolean(match);
+      if (!match && company.careersHosts?.length && deps.presence) {
+        const rows = await deps.presence(company, role);
+        gathered.push(...rows);
+        if (presenceUsedAi(rows)) aiInfo = { ...aiInfo, used: true };
+      }
     } else {
       const { exact, closest } = matchRoleOnBoard(found.postings, role);
       const pick = typed ? deps.pickByTitle(found.postings, role) : exact;

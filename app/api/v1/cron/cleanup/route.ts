@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     const counts = await runCleanup(getDb(), ranAt);
     // Counts only: no ids, no personal data.
     console.log(
-      `cleanup: checksDeleted=${counts.checksDeleted} excerptsCleared=${counts.excerptsCleared} flagsDeleted=${counts.flagsDeleted} aiUsageDeleted=${counts.aiUsageDeleted}`,
+      `cleanup: checksDeleted=${counts.checksDeleted} excerptsCleared=${counts.excerptsCleared} flagsDeleted=${counts.flagsDeleted} aiUsageDeleted=${counts.aiUsageDeleted} discoveriesDeleted=${counts.discoveriesDeleted}`,
     );
     return Response.json({ ok: true, ranAt: ranAt.toISOString(), ...counts });
   } catch {

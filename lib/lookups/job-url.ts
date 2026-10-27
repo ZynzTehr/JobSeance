@@ -105,9 +105,11 @@ function lever(path: string, region: LeverRegion): ParsedJobUrl | null {
   return m ? { kind: "board", ats: "LEVER", board: m[1], jobId: m[2].toLowerCase(), region } : null;
 }
 
+export const SUPPORTED_LIST = "Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Workable, Recruitee and amazon.jobs";
+
 const UNSUPPORTED: JobUrlError = {
   error: "unsupported_url",
-  message: "Paste a job link from Greenhouse, Lever or Ashby, or search by company and role.",
+  message: "Paste a job link from the employer's own job board, or search by company and role.",
 };
 
 const unsupported = (message: string): JobUrlError => ({ error: "unsupported_url", message });
@@ -188,11 +190,11 @@ function explain(url: URL, host: string): JobUrlError {
   const other = OTHER_ATS.find(([re]) => re.test(host))?.[1];
   if (other) {
     return unsupported(
-      `${other} job boards aren't supported yet; we can check Greenhouse, Lever and Ashby postings. You can still check a recruiter's message on the Recruiter message tab.`,
+      `${other} job boards aren't supported yet; we read ${SUPPORTED_LIST}. You can still paste the posting text, or check a recruiter's message on the Recruiter message tab.`,
     );
   }
   return unsupported(
-    `We can't read jobs on ${host}. JobSeance checks postings on Greenhouse, Lever and Ashby boards; if the company's Apply button leads to one of those, paste that link.`,
+    `We can't read jobs on ${host}. JobSeance reads ${SUPPORTED_LIST}; if the company's Apply button leads to one of those, paste that link, or paste the posting text instead.`,
   );
 }
 
@@ -242,3 +244,55 @@ export function jobPageUrl(ats: "GREENHOUSE" | "LEVER" | "ASHBY", board: string,
   if (ats === "LEVER") return `https://${region === "eu" ? "jobs.eu.lever.co" : "jobs.lever.co"}/${b}/${id}`;
   return `https://jobs.ashbyhq.com/${b}/${id}`;
 }
+
+/** A board identified from a link: a single job or the board's own front page. */
+export type BoardLink = { ats: Exclude<BoardAts, "AMAZON">; board: string; host?: string };
+
+const ROOT_SLUG = new RegExp(`^/(${SLUG})(?:/.*)?$`);
+
+/**
+ * The board a link belongs to (job page or board front page), or null. Pure: used on
+ * search-result URLs from Anthropic's web search, never fetched as given.
+ */
+export function parseBoardUrl(input: string): BoardLink | null {
+  const job = parseJobUrl(input);
+  if (!("error" in job) && job.kind === "board" && job.ats !== "AMAZON") {
+    return { ats: job.ats, board: job.board, ...(job.host ? { host: job.host } : {}) };
+  }
+  let url: URL;
+  try {
+    url = new URL(input.trim());
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:" || url.username || url.password || url.port) return null;
+  const host = url.hostname.toLowerCase();
+  const path = url.pathname;
+  const first = ROOT_SLUG.exec(path)?.[1];
+  const wd = WORKDAY_HOST.exec(host);
+  if (wd) {
+    const site = /^\/(?:[a-z]{2}(?:-[A-Za-z]{2})?\/)?([A-Za-z0-9_-]{1,100})(?:\/.*)?$/.exec(path)?.[1];
+    return site && site !== "job" ? { ats: "WORKDAY", board: `${wd[1]}/${site}`, host } : null;
+  }
+  const rc = RECRUITEE_HOST.exec(host);
+  if (rc && rc[1] !== "www" && rc[1] !== "api") return { ats: "RECRUITEE", board: rc[1] };
+  if (!first || ["embed", "api", "v1", "jobs", "j", "o"].includes(first.toLowerCase())) return null;
+  if (host === "boards.greenhouse.io" || host === "job-boards.greenhouse.io") return { ats: "GREENHOUSE", board: first.toLowerCase() };
+  if (host === "jobs.lever.co" || host === "jobs.eu.lever.co") return { ats: "LEVER", board: first };
+  if (host === "jobs.ashbyhq.com") return { ats: "ASHBY", board: first };
+  if (host === "jobs.smartrecruiters.com") return /^[A-Za-z0-9_-]{1,100}$/.test(first) ? { ats: "SMARTRECRUITERS", board: first } : null;
+  if (host === "apply.workable.com") return /^[a-z0-9][a-z0-9-]{0,99}$/i.test(first) ? { ats: "WORKABLE", board: first.toLowerCase() } : null;
+  return null;
+}
+
+/** Hosts Anthropic's web search may return results from when looking for an employer's board. */
+export const BOARD_SEARCH_DOMAINS = [
+  "job-boards.greenhouse.io",
+  "boards.greenhouse.io",
+  "jobs.lever.co",
+  "jobs.ashbyhq.com",
+  "jobs.smartrecruiters.com",
+  "apply.workable.com",
+  "recruitee.com",
+  "myworkdayjobs.com",
+] as const;

@@ -4,6 +4,7 @@ generator client {
   provider = "prisma-client"
   output   = "../app/generated/prisma"
 }
+
 datasource db {
   provider = "postgresql"
 }
@@ -12,38 +13,44 @@ enum Role {
   USER
   ADMIN
 }
+
 enum Provider {
   GOOGLE
   GITHUB
 }
+
 enum Ats {
   GREENHOUSE
   LEVER
   ASHBY
-  WORKDAY          // phase 10: public career-site JSON, searched (undocumented)
-  SMARTRECRUITERS  // phase 10: public posting API, searched
-  WORKABLE         // phase 10: public widget API
-  RECRUITEE        // phase 10: public offers API
-  AMAZON           // phase 10: amazon.jobs search (Amazon only)
+  WORKDAY // phase 10: public career-site JSON, searched (undocumented)
+  SMARTRECRUITERS // phase 10: public posting API, searched
+  WORKABLE // phase 10: public widget API
+  RECRUITEE // phase 10: public offers API
+  AMAZON // phase 10: amazon.jobs search (Amazon only)
   NONE
 }
+
 enum PostingState {
   LIVE
   NOT_FOUND
   UNKNOWN
 }
+
 enum InputKind {
   URL
   COMPANY_ROLE
   MESSAGE
-  POSTING_TEXT     // pasted posting read by AI (phase 9)
+  POSTING_TEXT // pasted posting read by AI (phase 9)
 }
+
 enum Band {
   LOW
   CAUTION
   HIGH
   NOT_ENOUGH_DATA
 }
+
 enum Outcome {
   APPLIED
   INTERVIEWING
@@ -54,10 +61,12 @@ enum Outcome {
   HIRED
   WITHDREW
 }
+
 enum Stage {
   APPLIED
   INTERVIEWED
 }
+
 enum Channel {
   EMAIL
   TEXT
@@ -66,24 +75,28 @@ enum Channel {
   LINKEDIN
   OTHER
 }
+
 enum Visibility {
   VISIBLE
   HIDDEN_PENDING_REVIEW
   REMOVED
 }
+
 enum RdapStatus {
   OK
   NOT_REGISTERED
   UNSUPPORTED_TLD
   ERROR
 }
+
 enum FlagTarget {
   OUTCOME_REPORT
   SCAM_REPORT
   CHECK
   COMPANY
-  SITE           // general contact and privacy requests; targetId is "site"
+  SITE // general contact and privacy requests; targetId is "site"
 }
+
 enum FlagStatus {
   OPEN
   UNDER_REVIEW
@@ -92,67 +105,70 @@ enum FlagStatus {
 }
 
 model User {
-  id              String    @id @default(cuid())
-  username        String?   @unique   // trimmed + lowercased, 3–20 of [a-z0-9_]; set on every password account, null = social-only
-  email           String    @unique   // trimmed + lowercased; Google and GitHub always supply one
-  emailVerifiedAt DateTime?           // set only when Google verifies it (no email sending tonight)
-  passwordHash    String?             // null = social-only account
+  id              String          @id @default(cuid())
+  username        String?         @unique // trimmed + lowercased, 3–20 of [a-z0-9_]; set on every password account, null = social-only
+  email           String          @unique // trimmed + lowercased; Google and GitHub always supply one
+  emailVerifiedAt DateTime? // set only when Google verifies it (no email sending tonight)
+  passwordHash    String? // null = social-only account
   name            String?
-  role            Role      @default(USER)
-  tokenVersion    Int       @default(0) // in the JWT as "tv"; bump to revoke all tokens
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  accounts      Account[]
-  checks        Check[]
-  outcomes      OutcomeReport[]
-  scamReports   ScamReport[]
+  role            Role            @default(USER)
+  tokenVersion    Int             @default(0) // in the JWT as "tv"; bump to revoke all tokens
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  accounts        Account[]
+  checks          Check[]
+  outcomes        OutcomeReport[]
+  scamReports     ScamReport[]
 }
 
-model Account {                    // one row per linked social login
-  id                String   @id @default(cuid())
+model Account {
+  id                String    @id @default(cuid())
   userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   provider          Provider
-  providerAccountId String             // Google: OIDC sub; GitHub: numeric id. Never email.
-  email             String?            // informational only, never used for lookup
+  providerAccountId String // Google: OIDC sub; GitHub: numeric id. Never email.
+  email             String? // informational only, never used for lookup
   emailVerified     Boolean?
-  createdAt         DateTime @default(now())
+  createdAt         DateTime  @default(now())
   lastLoginAt       DateTime?
+
   @@unique([provider, providerAccountId])
   @@index([userId])
 }
 
 model Company {
-  id              String   @id @default(cuid())
+  id              String          @id @default(cuid())
   name            String
-  slug            String   @unique
-  officialDomains String[]           // e.g. ["discord.com"]
-  ats             Ats      @default(NONE)
-  atsBoard        String?            // board token / site slug; Workday: "tenant/site"
-  atsHost         String?            // Workday only: "tenant.wd5.myworkdayjobs.com"
-  isFictional     Boolean  @default(false)
+  slug            String          @unique
+  officialDomains String[] // e.g. ["discord.com"]
+  ats             Ats             @default(NONE)
+  atsBoard        String? // board token / site slug; Workday: "tenant/site"
+  atsHost         String? // Workday only: "tenant.wd5.myworkdayjobs.com"
+  careersHosts    String[]        @default([]) // admin-curated employer careers hosts: presence check and page reading only (phase 11)
+  isFictional     Boolean         @default(false)
   postings        Posting[]
   outcomes        OutcomeReport[]
 }
 
-model Posting {                    // trimmed copy of a job-board posting
-  id          String       @id @default(cuid())
-  companyId   String
-  company     Company      @relation(fields: [companyId], references: [id])
-  ats         Ats
-  board       String
-  externalId  String
-  title       String
-  location    String?
-  url         String
-  description   String?          // plain text, max 20,000 chars; phrase rules run on it
-  internalJobId String?          // Greenhouse only; null on a GH post feeds G-EVERGREEN
-  postedAt    DateTime?          // GH first_published, Lever createdAt, Ashby publishedAt
-  firstSeenAt DateTime     @default(now())
-  lastSeenAt  DateTime     @default(now())
-  state       PostingState @default(UNKNOWN)
-  fetchedAt   DateTime     @default(now())
-  outcomes    OutcomeReport[]
+model Posting {
+  id            String          @id @default(cuid())
+  companyId     String
+  company       Company         @relation(fields: [companyId], references: [id])
+  ats           Ats
+  board         String
+  externalId    String
+  title         String
+  location      String?
+  url           String
+  description   String? // plain text, max 20,000 chars; phrase rules run on it
+  internalJobId String? // Greenhouse only; null on a GH post feeds G-EVERGREEN
+  postedAt      DateTime? // GH first_published, Lever createdAt, Ashby publishedAt
+  firstSeenAt   DateTime        @default(now())
+  lastSeenAt    DateTime        @default(now())
+  state         PostingState    @default(UNKNOWN)
+  fetchedAt     DateTime        @default(now())
+  outcomes      OutcomeReport[]
+
   @@unique([ats, board, externalId])
 }
 
@@ -168,9 +184,9 @@ model Check {
   ghostBand     Band
   scamScore     Int?
   scamBand      Band
-  signals       Json               // [{id, points, status, fact, source, cite?, checkedAt}]
+  signals       Json // [{id, points, status, fact, source, cite?, checkedAt}]
   configVersion String
-  aiUsed        Boolean   @default(false)  // an AI step ran for this check (never the text or its output)
+  aiUsed        Boolean   @default(false) // an AI step ran for this check (never the text or its output)
   saved         Boolean   @default(false)
   createdAt     DateTime  @default(now())
 }
@@ -183,16 +199,17 @@ model OutcomeReport {
   company         Company    @relation(fields: [companyId], references: [id])
   postingId       String?
   posting         Posting?   @relation(fields: [postingId], references: [id])
-  roleTitle       String             // trimmed, spaces collapsed, lowercased before the unique check
+  roleTitle       String // trimmed, spaces collapsed, lowercased before the unique check
   appliedAt       DateTime
   lastInterviewAt DateTime?
   lastContactAt   DateTime?
   stageReached    Stage      @default(APPLIED)
   outcome         Outcome    @default(APPLIED)
-  note            String?            // <= 1,000 chars, no names of people
+  note            String? // <= 1,000 chars, no names of people
   visibility      Visibility @default(VISIBLE)
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
+
   @@unique([userId, companyId, roleTitle])
 }
 
@@ -205,12 +222,12 @@ model ScamReport {
   channel         Channel
   ruleIds         String[]
   scamScore       Int
-  redactedExcerpt String?            // only if the user opts in; redacted server-side
+  redactedExcerpt String? // only if the user opts in; redacted server-side
   visibility      Visibility @default(VISIBLE)
   createdAt       DateTime   @default(now())
 }
 
-model DomainLookup {               // RDAP + DNS cache, 7-day TTL
+model DomainLookup {
   domain       String     @id
   registeredAt DateTime?
   status       RdapStatus
@@ -219,11 +236,11 @@ model DomainLookup {               // RDAP + DNS cache, 7-day TTL
   checkedAt    DateTime   @default(now())
 }
 
-model Flag {                       // "Report a problem"
+model Flag {
   id             String     @id @default(cuid())
   targetType     FlagTarget
   targetId       String
-  reason         String             // personal_info | fake | harassment | false_fact | score_wrong | other
+  reason         String // personal_info | fake | harassment | false_fact | score_wrong | other
   details        String
   reporterUserId String?
   reporterEmail  String?
@@ -233,8 +250,8 @@ model Flag {                       // "Report a problem"
   resolvedAt     DateTime?
 }
 
-model AiUsage {                    // global daily AI spend; numbers only, never content
-  day            String   @id      // YYYY-MM-DD (UTC)
+model AiUsage {
+  day            String   @id // YYYY-MM-DD (UTC)
   spendMicros    Int      @default(0) // estimated spend in millionths of a US dollar
   calls          Int      @default(0)
   inputTokens    Int      @default(0)
@@ -242,19 +259,46 @@ model AiUsage {                    // global daily AI spend; numbers only, never
   refusals       Int      @default(0)
   maxTokensStops Int      @default(0)
   errors         Int      @default(0)
+  searches       Int      @default(0) // web searches run through Anthropic's tool (phase 11)
+  fetches        Int      @default(0) // pages read through Anthropic's fetch tool (phase 11)
   updatedAt      DateTime @updatedAt
 }
 
-model AiUserUsage {                // per-account daily AI calls; numbers only
+model AiUserUsage {
   userId    String
-  day       String                 // YYYY-MM-DD (UTC)
+  day       String // YYYY-MM-DD (UTC)
   calls     Int      @default(0)
+  toolCalls Int      @default(0) // web searches and page reads, capped separately (phase 11)
   updatedAt DateTime @updatedAt
+
   @@id([userId, day])
 }
 
-model Setting {                    // small operator switches, e.g. aiPaused = "1"
+model Setting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+enum DiscoveryStatus {
+  FOUND
+  NOT_FOUND
+}
+
+// Where an employer outside the directory posts its jobs (phase 11). Company names and
+// public board identifiers only, never anything about a user. AI never creates a Company:
+// an admin reviews these and adds the company through POST /api/v1/companies.
+model BoardDiscovery {
+  key          String          @id // slug of the employer name
+  employerName String // as searched, max 100 chars
+  status       DiscoveryStatus
+  ats          Ats?
+  board        String?
+  host         String? // Workday only
+  declaredName String? // the system's own name for the board
+  method       String // probe | guess | search
+  checkedAt    DateTime        @default(now())
+  expiresAt    DateTime // found: 30 days, not found: 7 days
+
+  @@index([status, checkedAt])
 }

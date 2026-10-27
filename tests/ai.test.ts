@@ -135,7 +135,7 @@ describe("callStructured", () => {
 /** In-memory stand-in for the three Prisma models the budget uses. */
 function budgetDb(paused = false) {
   const days = new Map<string, Record<string, number>>();
-  const users = new Map<string, number>();
+  const users = new Map<string, Record<string, number>>();
   const num = (v: unknown, cur: number) =>
     typeof v === "object" && v ? cur + ((v as { increment?: number }).increment ?? 0) - ((v as { decrement?: number }).decrement ?? 0) : cur;
   const db = {
@@ -151,13 +151,15 @@ function budgetDb(paused = false) {
     aiUserUsage: {
       upsert: async ({ where }: { where: { userId_day: { userId: string; day: string } } }) => {
         const key = `${where.userId_day.userId}|${where.userId_day.day}`;
-        users.set(key, users.get(key) ?? 0);
+        users.set(key, users.get(key) ?? { calls: 0, toolCalls: 0 });
       },
-      updateMany: async ({ where, data }: { where: { userId: string; day: string; calls?: { lt: number } }; data: { calls: unknown } }) => {
+      updateMany: async ({ where, data }: { where: { userId: string; day: string; calls?: { lt: number }; toolCalls?: { lt: number } }; data: Record<string, unknown> }) => {
         const key = `${where.userId}|${where.day}`;
-        const cur = users.get(key) ?? 0;
-        if (where.calls && !(cur < where.calls.lt)) return { count: 0 };
-        users.set(key, num(data.calls, cur));
+        const row = users.get(key) ?? { calls: 0, toolCalls: 0 };
+        if (where.calls && !(row.calls < where.calls.lt)) return { count: 0 };
+        if (where.toolCalls && !(row.toolCalls < where.toolCalls.lt)) return { count: 0 };
+        for (const [k, v] of Object.entries(data)) row[k] = num(v, row[k] ?? 0);
+        users.set(key, row);
         return { count: 1 };
       },
     },
@@ -189,6 +191,24 @@ describe("AI budget", () => {
     expect((await reserve("u1")).ok).toBe(false);
     expect(days.get("2026-10-27")).toMatchObject({ spendMicros: 20, calls: 2 }); // the refused call was refunded
     expect((await reserve("u2")).ok).toBe(true);
+  });
+
+  it("caps web searches and page reads per account separately from other AI calls", async () => {
+    const { db, users } = budgetDb();
+    const tool = () => reserveAiCall(db, { userId: "u1", micros: 10, tool: true, now: NOW, capMicros: 1_000_000, perUser: 20, toolsPerUser: 2 });
+    expect((await tool()).ok).toBe(true);
+    expect((await tool()).ok).toBe(true);
+    expect((await tool()).ok).toBe(false);
+    // A plain AI call still works for that account.
+    expect((await reserveAiCall(db, { userId: "u1", micros: 10, now: NOW, capMicros: 1_000_000, perUser: 20 })).ok).toBe(true);
+    expect(users.get("u1|2026-10-27")).toEqual({ calls: 3, toolCalls: 2 });
+  });
+
+  it("counts searches and fetches when settling", async () => {
+    const { db, days } = budgetDb();
+    await reserveAiCall(db, { userId: "u1", micros: 80_000, tool: true, now: NOW, capMicros: 1_000_000 });
+    await settleAiCall(db, { reservedMicros: 80_000, actualMicros: 42_000, inputTokens: 9_000, outputTokens: 800, searches: 2, fetches: 0, outcome: "ok", now: NOW });
+    expect(days.get("2026-10-27")).toMatchObject({ spendMicros: 42_000, searches: 2 });
   });
 
   it("replaces the estimate with the real cost after the call", async () => {

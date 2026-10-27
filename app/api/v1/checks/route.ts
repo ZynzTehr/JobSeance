@@ -6,6 +6,8 @@ import { CheckError, checkSchema, runCheck } from "@/lib/checks/run";
 import { savedChecks } from "@/lib/saved-checks";
 
 export const dynamic = "force-dynamic";
+/** AI reading, board searches and page reads share a 45-second deadline per check; this leaves headroom. */
+export const maxDuration = 90;
 
 /** GET /api/v1/checks: my saved checks, newest first. */
 export const GET = handle(async (request: NextRequest) => {
