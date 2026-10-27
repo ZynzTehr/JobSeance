@@ -109,6 +109,13 @@ describe("pasted posting check", () => {
     expect(r.scam.signals.find((s) => s.id === "S-NOT-ON-BOARD")).toMatchObject({ points: 15 });
   });
 
+  it("a typed title missing from a system's own search is couldn't verify, never +25", async () => {
+    const searched = async () => ({ ...board(["Commercial Policy Lead"]), searched: true });
+    const r = await checkPostingText(input(POSTING, { company: "Discord", role: "Commercial Policy Manager" }), deps({ companyBoard: searched }));
+    expect(r.ghost.signals.find((s) => s.id === "G-BOARD")).toMatchObject({ points: 0, status: "couldnt_verify", fact: expect.stringMatching(/turned up in a search/) });
+    expect(r.scam.signals.find((s) => s.id === "S-NOT-ON-BOARD")).toBeUndefined();
+  });
+
   it("typed company and role skip the AI step entirely", async () => {
     const ai = aiReturning(reading());
     await checkPostingText(input(POSTING, { company: "Discord", role: "Commercial Policy Lead" }), deps({ ai }));

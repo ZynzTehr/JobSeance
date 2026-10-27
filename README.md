@@ -66,6 +66,19 @@ Anthropic's Claude (`claude-haiku-5-5`, effort `low`) reads the company, role an
 - `npm test` never calls an AI API: `tests/setup.ts` turns AI off and blocks Anthropic hosts.
 - Recruiter message tab: pasted email headers are parsed in memory (`lib/lookups/mail-auth.ts`) for DKIM/SPF/DMARC (`S-AUTH-FAIL`) and Reply-To (`S-REPLY-TO`); the optional "Let Claude read this message" box only suggests the sender and company fields.
 
+## Job boards and hiring systems
+
+Checks read the employer's own system, never a job site. Greenhouse, Lever and Ashby are read in `lib/lookups/boards.ts`; Workday, SmartRecruiters, Workable, Recruitee and amazon.jobs in `lib/lookups/adapters.ts`.
+
+- A Workday company stores `atsBoard` as `tenant/site` and `atsHost` as the career-site host (for example `nvidia.wd5.myworkdayjobs.com`), both copied from a real job link.
+- Workday, SmartRecruiters and amazon.jobs are searched for the role, not read in full, so a role missing from the search shows "couldn't verify" and is never marked removed.
+- The Workday and amazon.jobs endpoints are public but undocumented. Every block, redirect or error shows "couldn't verify".
+- `USE_FIXTURES=1` reads `fixtures/<system>-<board>.json`. Re-record the phase 10 systems without touching the demo boards:
+
+  ```bash
+  node scripts/make-fixtures.mjs --adapters
+  ```
+
 ## Environments
 
 | Environment | URL | Neon branch | Sign-in |

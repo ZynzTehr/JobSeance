@@ -26,7 +26,7 @@ if (passwordLength < 8 || passwordLength > 64 || Buffer.byteLength(demoPassword)
   throw new Error("DEMO_USER_PASSWORD must be 8-64 characters and at most 72 bytes.");
 }
 
-const realCompanies: { name: string; slug: string; domains: string[]; ats: Ats; board: string }[] = [
+const realCompanies: { name: string; slug: string; domains: string[]; ats: Ats; board: string; host?: string }[] = [
   { name: "Discord", slug: "discord", domains: ["discord.com"], ats: "GREENHOUSE", board: "discord" },
   { name: "Stripe", slug: "stripe", domains: ["stripe.com"], ats: "GREENHOUSE", board: "stripe" },
   { name: "Airbnb", slug: "airbnb", domains: ["airbnb.com"], ats: "GREENHOUSE", board: "airbnb" },
@@ -42,6 +42,12 @@ const realCompanies: { name: string; slug: string; domains: string[]; ats: Ats; 
   { name: "Ramp", slug: "ramp", domains: ["ramp.com"], ats: "ASHBY", board: "ramp" },
   { name: "Notion", slug: "notion", domains: ["notion.so", "makenotion.com"], ats: "ASHBY", board: "notion" },
   { name: "Linear", slug: "linear", domains: ["linear.app"], ats: "ASHBY", board: "linear" },
+  // Phase 10 systems (boards checked live on 2026-10-27).
+  { name: "NVIDIA", slug: "nvidia", domains: ["nvidia.com"], ats: "WORKDAY", board: "nvidia/NVIDIAExternalCareerSite", host: "nvidia.wd5.myworkdayjobs.com" },
+  { name: "Ubisoft", slug: "ubisoft", domains: ["ubisoft.com"], ats: "SMARTRECRUITERS", board: "Ubisoft2" },
+  { name: "Hugging Face", slug: "hugging-face", domains: ["huggingface.co"], ats: "WORKABLE", board: "huggingface" },
+  { name: "bunq", slug: "bunq", domains: ["bunq.com"], ats: "RECRUITEE", board: "bunq" },
+  { name: "Amazon", slug: "amazon", domains: ["amazon.com", "amazon.jobs"], ats: "AMAZON", board: "amazon" },
 ];
 
 const fictionalCompanies = [
@@ -119,7 +125,7 @@ async function main() {
       const demo = demos[0];
 
       for (const c of realCompanies) {
-        const data = { name: c.name, officialDomains: c.domains, ats: c.ats, atsBoard: c.board, isFictional: false };
+        const data = { name: c.name, officialDomains: c.domains, ats: c.ats, atsBoard: c.board, atsHost: c.host ?? null, isFictional: false };
         await tx.company.upsert({ where: { slug: c.slug }, update: data, create: { slug: c.slug, ...data } });
       }
 

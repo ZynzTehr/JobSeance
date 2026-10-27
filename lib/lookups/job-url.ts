@@ -1,11 +1,24 @@
 // Job-URL parsing (spec "Job-URL parsing"). Pure: the server never fetches a pasted URL.
 // Outbound API URLs are built only from the constants below plus encodeURIComponent values.
 
-export type BoardAts = "GREENHOUSE" | "LEVER" | "ASHBY";
+export type BoardAts = "GREENHOUSE" | "LEVER" | "ASHBY" | "WORKDAY" | "SMARTRECRUITERS" | "WORKABLE" | "RECRUITEE" | "AMAZON";
+
+/** Systems too large to download whole: jobs are found with the system's own search (phase 10). */
+export const SEARCH_ATS: ReadonlySet<BoardAts> = new Set(["WORKDAY", "SMARTRECRUITERS", "AMAZON"]);
 export type LeverRegion = "us" | "eu";
 
 export type ParsedJobUrl =
-  | { kind: "board"; ats: BoardAts; board: string; jobId: string; region?: LeverRegion }
+  | {
+      kind: "board";
+      ats: BoardAts;
+      board: string;
+      jobId: string;
+      region?: LeverRegion;
+      /** Workday only: the career-site host. */
+      host?: string;
+      /** Workday only: the job's own path ("/job/…_JR123"), so a missing job can be confirmed by a 404. */
+      jobPath?: string;
+    }
   /** A company-site link like stripe.com/jobs/search?gh_jid=123: resolve the board via the Company table. */
   | { kind: "gh_jid"; hostname: string; jobId: string };
 
@@ -29,6 +42,57 @@ const HOSTS: Record<string, (path: string) => ParsedJobUrl | null> = {
     return m ? { kind: "board", ats: "ASHBY", board: m[1], jobId: m[2].toLowerCase() } : null;
   },
 };
+
+// Phase 10 systems. Workday and Recruitee use per-company hostnames, so they are matched by pattern.
+/** acme.wd5.myworkdayjobs.com: tenant and data-centre number come from the real careers URL. */
+export const WORKDAY_HOST = /^([a-z0-9][a-z0-9-]{0,62})\.(wd\d{1,3})\.myworkday(?:jobs|site)\.com$/;
+const WORKDAY_PATH = /^\/(?:[a-z]{2}(?:-[A-Za-z]{2})?\/)?([A-Za-z0-9_-]{1,100})(\/job\/(?:[^/]{1,200}\/)?[^/]{1,300}_([A-Za-z0-9-]{1,40}))(?:\/apply(?:\/[^/]*)?)?\/?$/;
+/** The characters Workday uses in job paths; anything else (or "..") keeps the path out of requests. */
+export const WORKDAY_JOB_PATH = /^\/job\/[A-Za-z0-9._~%/-]{1,500}$/;
+const SMARTRECRUITERS_PATH = /^\/([A-Za-z0-9_-]{1,100})\/(\d{6,20})(?:-[^/]{0,200})?\/?$/;
+const WORKABLE_PATH = /^\/([a-z0-9][a-z0-9-]{0,99})\/j\/([A-Za-z0-9]{6,12})(?:\/apply)?\/?$/i;
+const RECRUITEE_HOST = /^([a-z0-9][a-z0-9-]{0,62})\.recruitee\.com$/;
+const RECRUITEE_PATH = /^\/o\/([a-z0-9][a-z0-9-]{0,199})(?:\/c\/new)?\/?$/;
+const AMAZON_PATH = /^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?jobs\/(\d{5,12})(?:\/[^/]{0,300})?\/?$/;
+
+HOSTS["jobs.smartrecruiters.com"] = (p) => {
+  const m = SMARTRECRUITERS_PATH.exec(p);
+  // SmartRecruiters company identifiers are case-sensitive.
+  return m ? { kind: "board", ats: "SMARTRECRUITERS", board: m[1], jobId: m[2] } : null;
+};
+HOSTS["apply.workable.com"] = (p) => {
+  const m = WORKABLE_PATH.exec(p);
+  return m ? { kind: "board", ats: "WORKABLE", board: m[1].toLowerCase(), jobId: m[2].toLowerCase() } : null;
+};
+HOSTS["www.amazon.jobs"] = (p) => {
+  const m = AMAZON_PATH.exec(p);
+  return m ? { kind: "board", ats: "AMAZON", board: "amazon", jobId: m[1] } : null;
+};
+HOSTS["amazon.jobs"] = HOSTS["www.amazon.jobs"];
+
+/** Pattern-matched hosts (one hostname per company). */
+function patternHost(host: string, path: string): ParsedJobUrl | null | undefined {
+  const wd = WORKDAY_HOST.exec(host);
+  if (wd) {
+    const m = WORKDAY_PATH.exec(path);
+    if (!m) return null;
+    const jobPath = WORKDAY_JOB_PATH.test(m[2]) && !m[2].includes("..") ? m[2] : undefined;
+    return { kind: "board", ats: "WORKDAY", board: `${wd[1]}/${m[1]}`, host, jobId: m[3].toLowerCase(), ...(jobPath ? { jobPath } : {}) };
+  }
+  const rc = RECRUITEE_HOST.exec(host);
+  if (rc) {
+    const m = RECRUITEE_PATH.exec(path);
+    return m ? { kind: "board", ats: "RECRUITEE", board: rc[1], jobId: m[1] } : null;
+  }
+  return undefined; // not one of these hosts
+}
+
+/** Names of supported systems recognised by hostname, for "that link isn't a single job" messages. */
+function supportedName(host: string): string | null {
+  if (WORKDAY_HOST.test(host)) return "Workday";
+  if (RECRUITEE_HOST.test(host)) return "Recruitee";
+  return { "jobs.smartrecruiters.com": "SmartRecruiters", "apply.workable.com": "Workable", "www.amazon.jobs": "amazon.jobs", "amazon.jobs": "amazon.jobs" }[host] ?? null;
+}
 
 function greenhouse(path: string): ParsedJobUrl | null {
   const m = GREENHOUSE_PATH.exec(path);
@@ -70,16 +134,12 @@ const JOB_SITES: [RegExp, string][] = [
 
 // Applicant tracking systems we can't read yet.
 const OTHER_ATS: [RegExp, string][] = [
-  [/(^|\.)(myworkdayjobs\.com|myworkdaysite\.com|workday\.com)$/, "Workday"],
   [/(^|\.)icims\.com$/, "iCIMS"],
-  [/(^|\.)smartrecruiters\.com$/, "SmartRecruiters"],
   [/(^|\.)taleo\.net$/, "Taleo"],
   [/(^|\.)jobvite\.com$/, "Jobvite"],
   [/(^|\.)bamboohr\.com$/, "BambooHR"],
-  [/(^|\.)workable\.com$/, "Workable"],
   [/(^|\.)successfactors\.(com|eu)$/, "SuccessFactors"],
   [/(^|\.)rippling\.com$/, "Rippling"],
-  [/(^|\.)recruitee\.com$/, "Recruitee"],
   [/(^|\.)breezy\.hr$/, "Breezy"],
   [/(^|\.)applytojob\.com$/, "JazzHR"],
   [/(^|\.)teamtailor\.com$/, "Teamtailor"],
@@ -91,6 +151,8 @@ export type HostClass = { kind: "ats" | "job_site" | "other_ats" | "unknown"; na
 export function classifyHost(hostname: string): HostClass {
   const host = hostname.trim().toLowerCase().replace(/\.$/, "");
   if (ATS_NAME[host]) return { kind: "ats", name: ATS_NAME[host] };
+  const supported = supportedName(host);
+  if (supported) return { kind: "ats", name: supported };
   const site = JOB_SITES.find(([re]) => re.test(host));
   if (site) return { kind: "job_site", name: site[1] };
   const other = OTHER_ATS.find(([re]) => re.test(host));
@@ -105,6 +167,8 @@ const BOARD_ONLY = new RegExp(`^/(${SLUG})(?:/jobs)?/?$`);
  * the URL text alone; the server never fetches a pasted URL.
  */
 function explain(url: URL, host: string): JobUrlError {
+  const system = supportedName(host);
+  if (system) return unsupported(`That ${system} link doesn't point to a single job. Open the job itself and paste its link.`);
   const ats = ATS_NAME[host];
   if (ats) {
     const board = BOARD_ONLY.exec(url.pathname)?.[1];
@@ -155,6 +219,10 @@ export function parseJobUrl(input: string): ParsedJobUrl | JobUrlError {
   if (url.protocol !== "https:") return UNSUPPORTED;
   const host = url.hostname.toLowerCase();
 
+  const patterned = patternHost(host, url.pathname);
+  if (patterned) return patterned;
+  if (patterned === null) return explain(url, host);
+
   const parse = HOSTS[host];
   if (parse) {
     const embed = host.endsWith("greenhouse.io") ? greenhouseEmbed(url) : null;
@@ -166,8 +234,8 @@ export function parseJobUrl(input: string): ParsedJobUrl | JobUrlError {
   return explain(url, host);
 }
 
-/** Public job page for a posting (for links in results). */
-export function jobPageUrl(ats: BoardAts, board: string, jobId: string, region: LeverRegion = "us"): string {
+/** Public job page for a posting on the three original boards (for links in results). */
+export function jobPageUrl(ats: "GREENHOUSE" | "LEVER" | "ASHBY", board: string, jobId: string, region: LeverRegion = "us"): string {
   const b = encodeURIComponent(board);
   const id = encodeURIComponent(jobId);
   if (ats === "GREENHOUSE") return `https://job-boards.greenhouse.io/${b}/jobs/${id}`;

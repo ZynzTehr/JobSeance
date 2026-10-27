@@ -10,6 +10,34 @@ describe("parseJobUrl", () => {
     expect(parseJobUrl(url)).toMatchObject({ kind: "board", ats, board, jobId });
   });
 
+  it.each([
+    [
+      "https://nvidia.wd5.myworkdayjobs.com/en-US/NVIDIAExternalCareerSite/job/US-CA-Santa-Clara/Senior-Engineer_JR2001234?source=x",
+      {
+        ats: "WORKDAY",
+        board: "nvidia/NVIDIAExternalCareerSite",
+        host: "nvidia.wd5.myworkdayjobs.com",
+        jobId: "jr2001234",
+        jobPath: "/job/US-CA-Santa-Clara/Senior-Engineer_JR2001234",
+      },
+    ],
+    ["https://jobs.smartrecruiters.com/Ubisoft2/744000012345678-game-designer", { ats: "SMARTRECRUITERS", board: "Ubisoft2", jobId: "744000012345678" }],
+    ["https://apply.workable.com/huggingface/j/ABC123DEF4/", { ats: "WORKABLE", board: "huggingface", jobId: "abc123def4" }],
+    ["https://bunq.recruitee.com/o/backend-engineer", { ats: "RECRUITEE", board: "bunq", jobId: "backend-engineer" }],
+    ["https://www.amazon.jobs/en/jobs/10587973/site-leader", { ats: "AMAZON", board: "amazon", jobId: "10587973" }],
+  ])("maps %s on the phase 10 systems", (url, expected) => {
+    expect(parseJobUrl(url)).toMatchObject({ kind: "board", ...expected });
+  });
+
+  it.each([
+    "https://nvidia.wd5.myworkdayjobs.com.evil.com/en-US/site/job/x/y_JR1",
+    "https://evil-wd5.myworkdayjobs.com.example/site/job/x/y_JR1",
+    "https://jobs.smartrecruiters.com/../x/123-a",
+    "https://amazon.jobs.evil.com/en/jobs/10587973",
+  ])("rejects look-alike phase 10 link %s", (url) => {
+    expect(parseJobUrl(url)).toHaveProperty("error");
+  });
+
   it("rejects a credentials trick whose real host is evil.com", () => {
     expect(parseJobUrl("https://boards.greenhouse.io@evil.com/x")).toMatchObject({ error: "unsupported_url" });
   });
@@ -79,7 +107,9 @@ describe("parseJobUrl", () => {
       ["https://www.indeed.com/viewjob?jk=abc", /^Indeed links/],
       ["https://uk.indeed.co.uk/viewjob?jk=abc", /^Indeed links/],
       ["https://www.glassdoor.com/job-listing/x", /^Glassdoor links/],
-      ["https://acme.wd5.myworkdayjobs.com/en-US/careers/job/x", /^Workday job boards aren't supported yet/],
+      ["https://acme.wd5.myworkdayjobs.com/en-US/careers/job/x", /^That Workday link doesn't point to a single job/],
+      ["https://jobs.smartrecruiters.com/Ubisoft2", /^That SmartRecruiters link doesn't point to a single job/],
+      ["https://www.amazon.jobs/en/search?base_query=x", /^That amazon\.jobs link doesn't point to a single job/],
       ["https://careers-acme.icims.com/jobs/123/job", /^iCIMS job boards/],
       ["https://careers.doordash.com/jobs/123", /^We can't read jobs on careers\.doordash\.com/],
       ["http://boards.greenhouse.io/discord/jobs/8806482002", /starts with https:\/\//],
@@ -110,7 +140,10 @@ describe("classifyHost", () => {
     ["www.linkedin.com", "job_site", "LinkedIn"],
     ["lnkd.in", "job_site", "LinkedIn"],
     ["uk.indeed.co.uk", "job_site", "Indeed"],
-    ["acme.wd5.myworkdayjobs.com", "other_ats", "Workday"],
+    ["acme.wd5.myworkdayjobs.com", "ats", "Workday"],
+    ["jobs.smartrecruiters.com", "ats", "SmartRecruiters"],
+    ["bunq.recruitee.com", "ats", "Recruitee"],
+    ["www.amazon.jobs", "ats", "amazon.jobs"],
     ["job-boards.greenhouse.io", "ats", "Greenhouse"],
     ["careers.doordash.com", "unknown", null],
   ])("%s is %s", (host, kind, name) => {

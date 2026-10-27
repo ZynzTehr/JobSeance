@@ -1,5 +1,5 @@
 import { getDb } from "@/lib/db";
-import { boardExists, fetchBoardJob, fetchBoardJobs, fixturesEnabled, type BoardJob, type BoardRef } from "@/lib/lookups/boards";
+import { boardExists, fetchBoardJob, fetchBoardList, fixturesEnabled, type BoardJob, type BoardRef } from "@/lib/lookups/boards";
 import type { FetchOptions } from "@/lib/lookups/fetch";
 import type { Company, Posting, PostingState } from "@/app/generated/prisma/client";
 
@@ -24,7 +24,13 @@ export type CompanyPostings = {
   fetchedAt: Date | null;
   source: "live" | "fixture" | "cache" | "stored";
   stale: boolean;
+  /** The system's own count of open jobs when the list is only the newest page (Workday, SmartRecruiters, amazon.jobs). */
+  total?: number | null;
+  partial?: boolean;
 };
+
+/** Last known totals for partial boards, per server instance (best effort, like the rate limiter). */
+const totals = new Map<string, number | null>();
 
 export class BoardUnavailableError extends Error {
   constructor(readonly cause: unknown) {
@@ -42,7 +48,7 @@ const summary = (p: Posting): PostingSummary => ({
 });
 
 export const boardRef = (company: Company): BoardRef | null =>
-  company.ats === "NONE" || !company.atsBoard ? null : { ats: company.ats, board: company.atsBoard };
+  company.ats === "NONE" || !company.atsBoard ? null : { ats: company.ats, board: company.atsBoard, ...(company.atsHost ? { host: company.atsHost } : {}) };
 
 /** Live postings for a company slug, or null if the slug is unknown. */
 export async function getCompanyPostings(slug: string, now = new Date()): Promise<CompanyPostings | null> {
@@ -63,26 +69,34 @@ export async function getCompanyPostings(slug: string, now = new Date()): Promis
 
   const rows = await db.posting.findMany({ where: { ats: ref.ats, board: ref.board } });
   const fetchedAt = latest(rows);
+  const key = `${ref.ats}:${ref.board}`;
+  const extra = (partial: boolean) => (partial ? { partial, total: totals.get(key) ?? null } : {});
+  const partialBoard = !["GREENHOUSE", "LEVER", "ASHBY", "WORKABLE", "RECRUITEE"].includes(ref.ats);
   if (fetchedAt && now.getTime() - fetchedAt.getTime() < POSTINGS_TTL_MS) {
-    return { company: head, postings: liveFirst(rows), fetchedAt, source: "cache", stale: false };
+    return { company: head, postings: liveFirst(rows), fetchedAt, source: "cache", stale: false, ...extra(partialBoard) };
   }
 
-  let jobs: BoardJob[];
+  let list: { jobs: BoardJob[]; total: number | null; partial: boolean };
   try {
-    jobs = await fetchBoardJobs(ref);
+    list = await fetchBoardList(ref);
   } catch (error) {
-    if (rows.length) return { company: head, postings: liveFirst(rows), fetchedAt, source: "cache", stale: true };
+    if (rows.length) return { company: head, postings: liveFirst(rows), fetchedAt, source: "cache", stale: true, ...extra(partialBoard) };
     throw new BoardUnavailableError(error);
   }
 
-  await syncBoard(company, ref, jobs, rows, now);
+  await syncBoard(company, ref, list.jobs, rows, now, list.partial);
+  if (list.partial) totals.set(key, list.total);
   const synced = await db.posting.findMany({ where: { ats: ref.ats, board: ref.board } });
   const source = fixturesEnabled() ? "fixture" : "live";
-  return { company: head, postings: liveFirst(synced), fetchedAt: now, source, stale: false };
+  return { company: head, postings: liveFirst(synced), fetchedAt: now, source, stale: false, ...extra(list.partial) };
 }
 
-/** Inserts new jobs, marks seen jobs LIVE and jobs that left the board NOT_FOUND. */
-async function syncBoard(company: Company, ref: BoardRef, jobs: BoardJob[], existing: Posting[], now: Date) {
+/**
+ * Inserts new jobs, marks seen jobs LIVE and jobs that left the board NOT_FOUND. A partial
+ * list (the newest page of a search system) never marks anything NOT_FOUND: absence from one
+ * page proves nothing.
+ */
+async function syncBoard(company: Company, ref: BoardRef, jobs: BoardJob[], existing: Posting[], now: Date, partial = false) {
   const db = getDb();
   const known = new Set(existing.map((p) => p.externalId));
   const seen = jobs.map((j) => j.externalId);
@@ -112,10 +126,14 @@ async function syncBoard(company: Company, ref: BoardRef, jobs: BoardJob[], exis
       where: { ats: ref.ats, board: ref.board, externalId: { in: seen } },
       data: { state: "LIVE", lastSeenAt: now, fetchedAt: now },
     }),
-    db.posting.updateMany({
-      where: { ats: ref.ats, board: ref.board, externalId: { notIn: seen } },
-      data: { state: "NOT_FOUND", fetchedAt: now },
-    }),
+    ...(partial
+      ? []
+      : [
+          db.posting.updateMany({
+            where: { ats: ref.ats, board: ref.board, externalId: { notIn: seen } },
+            data: { state: "NOT_FOUND" as const, fetchedAt: now },
+          }),
+        ]),
   ]);
 }
 

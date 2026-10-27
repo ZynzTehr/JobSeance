@@ -20,6 +20,11 @@ enum Ats {
   GREENHOUSE
   LEVER
   ASHBY
+  WORKDAY          // phase 10: public career-site JSON, searched (undocumented)
+  SMARTRECRUITERS  // phase 10: public posting API, searched
+  WORKABLE         // phase 10: public widget API
+  RECRUITEE        // phase 10: public offers API
+  AMAZON           // phase 10: amazon.jobs search (Amazon only)
   NONE
 }
 enum PostingState {
@@ -123,7 +128,8 @@ model Company {
   slug            String   @unique
   officialDomains String[]           // e.g. ["discord.com"]
   ats             Ats      @default(NONE)
-  atsBoard        String?            // board token / site slug
+  atsBoard        String?            // board token / site slug; Workday: "tenant/site"
+  atsHost         String?            // Workday only: "tenant.wd5.myworkdayjobs.com"
   isFictional     Boolean  @default(false)
   postings        Posting[]
   outcomes        OutcomeReport[]

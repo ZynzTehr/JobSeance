@@ -24,7 +24,13 @@ export async function postingsWithin(slug: string, ms = BOARD_TIMEOUT_MS): Promi
 export const openRoles = (p: CompanyPostings | null | "unavailable"): OpenRoles =>
   !p || p === "unavailable"
     ? { count: null, fetchedAt: null, stale: false, source: null }
-    : { count: p.postings.filter((x) => x.state === "LIVE").length, fetchedAt: p.fetchedAt, stale: p.stale, source: p.source };
+    : {
+        // Search systems list only the newest page, so use their own total (null when unknown).
+        count: p.partial ? (p.total ?? null) : p.postings.filter((x) => x.state === "LIVE").length,
+        fetchedAt: p.fetchedAt,
+        stale: p.stale,
+        source: p.source,
+      };
 
 export type CompanyCard = {
   slug: string;
@@ -63,10 +69,15 @@ export async function companyCards(now = new Date()): Promise<CompanyCard[]> {
 }
 
 /** Public board URL for a company's ATS board token. */
-export function boardUrl(ats: Ats, board: string | null): string | null {
+export function boardUrl(ats: Ats, board: string | null, host: string | null = null): string | null {
   if (!board) return null;
   if (ats === "GREENHOUSE") return `https://job-boards.greenhouse.io/${board}`;
   if (ats === "LEVER") return `https://jobs.lever.co/${board}`;
   if (ats === "ASHBY") return `https://jobs.ashbyhq.com/${board}`;
+  if (ats === "WORKDAY" && host) return `https://${host}/${board.split("/")[1] ?? ""}`;
+  if (ats === "SMARTRECRUITERS") return `https://jobs.smartrecruiters.com/${board}`;
+  if (ats === "WORKABLE") return `https://apply.workable.com/${board}`;
+  if (ats === "RECRUITEE") return `https://${board}.recruitee.com`;
+  if (ats === "AMAZON") return "https://www.amazon.jobs";
   return null;
 }
