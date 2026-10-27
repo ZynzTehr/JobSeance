@@ -13,7 +13,7 @@ export default async function SiteHeader() {
           <span aria-hidden className={`${styles.mark} inline-block h-3 w-3`} />
           JobSeance
         </Link>
-        <NavLinks signedIn={Boolean(user)} />
+        <NavLinks signedIn={Boolean(user)} admin={user?.role === "ADMIN"} />
       </div>
     </header>
   );
