@@ -8,7 +8,7 @@ type Call = { op: string; args: unknown };
 
 // Records what runCleanup asks Prisma for; each op returns a marker that the
 // fake $transaction turns into a { count } result.
-function fakeDb(counts = { check: 3, scamReport: 2, flag: 1 }) {
+function fakeDb(counts = { check: 3, scamReport: 2, flag: 1, aiUsage: 4, aiUserUsage: 5 }) {
   const calls: Call[] = [];
   const op = (model: keyof typeof counts, name: string) => (args: unknown) => {
     calls.push({ op: `${model}.${name}`, args });
@@ -18,6 +18,8 @@ function fakeDb(counts = { check: 3, scamReport: 2, flag: 1 }) {
     check: { deleteMany: op("check", "deleteMany") },
     scamReport: { updateMany: op("scamReport", "updateMany") },
     flag: { deleteMany: op("flag", "deleteMany") },
+    aiUsage: { deleteMany: op("aiUsage", "deleteMany") },
+    aiUserUsage: { deleteMany: op("aiUserUsage", "deleteMany") },
     $transaction: (ops: { model: keyof typeof counts }[]) => {
       calls.push({ op: "$transaction", args: ops.length });
       return Promise.resolve(ops.map((o) => ({ count: counts[o.model] })));
@@ -59,15 +61,29 @@ describe("cron authorization", () => {
 
 describe("retention cleanup", () => {
   it("uses the documented retention periods", () => {
-    expect(RETENTION).toEqual({ checkDays: 30, excerptDays: 90, resolvedFlagDays: 90 });
+    expect(RETENTION).toEqual({ checkDays: 30, excerptDays: 90, resolvedFlagDays: 90, aiUsageDays: 90 });
   });
 
-  it("runs all three operations in one array transaction and returns the counts", async () => {
+  it("runs all five operations in one array transaction and returns the counts", async () => {
     const { db, calls } = fakeDb();
     const result = await runCleanup(db, NOW);
-    expect(result).toEqual({ checksDeleted: 3, excerptsCleared: 2, flagsDeleted: 1 });
-    expect(calls.map((c) => c.op)).toEqual(["check.deleteMany", "scamReport.updateMany", "flag.deleteMany", "$transaction"]);
-    expect(argsOf(calls, "$transaction")).toBe(3);
+    expect(result).toEqual({ checksDeleted: 3, excerptsCleared: 2, flagsDeleted: 1, aiUsageDeleted: 9 });
+    expect(calls.map((c) => c.op)).toEqual([
+      "check.deleteMany",
+      "scamReport.updateMany",
+      "flag.deleteMany",
+      "aiUsage.deleteMany",
+      "aiUserUsage.deleteMany",
+      "$transaction",
+    ]);
+    expect(argsOf(calls, "$transaction")).toBe(5);
+  });
+
+  it("deletes AI usage counters (numbers only) after 90 days", async () => {
+    const { db, calls } = fakeDb();
+    await runCleanup(db, NOW);
+    expect(argsOf(calls, "aiUsage.deleteMany")).toEqual({ where: { day: { lt: "2026-07-17" } } });
+    expect(argsOf(calls, "aiUserUsage.deleteMany")).toEqual({ where: { day: { lt: "2026-07-17" } } });
   });
 
   it("deletes checks older than 30 days that are anonymous or unsaved", async () => {

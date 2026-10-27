@@ -85,6 +85,19 @@ const OTHER_ATS: [RegExp, string][] = [
   [/(^|\.)teamtailor\.com$/, "Teamtailor"],
 ];
 
+export type HostClass = { kind: "ats" | "job_site" | "other_ats" | "unknown"; name: string | null };
+
+/** What kind of site a hostname is (pure, safe in the browser). Used to offer "paste the posting text instead". */
+export function classifyHost(hostname: string): HostClass {
+  const host = hostname.trim().toLowerCase().replace(/\.$/, "");
+  if (ATS_NAME[host]) return { kind: "ats", name: ATS_NAME[host] };
+  const site = JOB_SITES.find(([re]) => re.test(host));
+  if (site) return { kind: "job_site", name: site[1] };
+  const other = OTHER_ATS.find(([re]) => re.test(host));
+  if (other) return { kind: "other_ats", name: other[1] };
+  return { kind: "unknown", name: null };
+}
+
 const BOARD_ONLY = new RegExp(`^/(${SLUG})(?:/jobs)?/?$`);
 
 /**

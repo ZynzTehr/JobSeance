@@ -14,6 +14,10 @@ export type Signal = {
   source: string;
   cite?: string;
   note?: string;
+  /** "info": a 0-point fact gathered for context (for example by AI), shown with its own icon. */
+  kind?: "info";
+  /** A page that backs the fact, when one exists (https only, validated by the caller). */
+  sourceUrl?: string;
   checkedAt: string;
 };
 
@@ -54,7 +58,7 @@ const isoDate = (d: Date) => d.toISOString().slice(0, 10);
 export type BoardStatus =
   | { kind: "live"; boardName: string; source: string }
   | { kind: "not_found"; boardName: string; source: string; detail: string }
-  | { kind: "couldnt_verify"; boardName: string; source: string }
+  | { kind: "couldnt_verify"; boardName: string; source: string; detail?: string }
   | { kind: "no_board"; companyName: string };
 
 // ---- Community ----------------------------------------------------------------
@@ -135,7 +139,7 @@ export function scoreGhost(input: GhostInput): Score & { community: CommunitySum
       id: "G-BOARD",
       points: 0,
       status: "couldnt_verify",
-      fact: `Couldn't reach ${board.boardName}`,
+      fact: board.detail ?? `Couldn't reach ${board.boardName}`,
       source: board.source,
       checkedAt: at,
     });

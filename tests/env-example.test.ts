@@ -19,6 +19,10 @@ const SPEC_VARS = [
   "DEMO_USER_EMAIL",
   "DEMO_USER_PASSWORD",
   "USE_FIXTURES",
+  "ANTHROPIC_API_KEY",
+  "AI_MODE",
+  "AI_MODEL",
+  "AI_DAILY_USD",
 ];
 
 function parseEnvExample(): Map<string, string> {

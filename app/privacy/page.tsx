@@ -79,8 +79,9 @@ export default function PrivacyPage() {
           </h2>
           <ul className={`${styles.list} ${styles.prose} mt-3 flex flex-col gap-2`}>
             <li>
-              Every check needs an account, so we can moderate and monitor use. Pasted messages are analyzed in memory and
-              not stored, unless you choose to share a redacted excerpt with a scam report.
+              Every check needs an account, so we can moderate and monitor use. Pasted messages and postings are analyzed in
+              memory and not stored, unless you choose to share a redacted excerpt with a scam report. A pasted posting is
+              sent, masked, to Anthropic&rsquo;s Claude to read the company and role; recruiter messages never are.
             </li>
             <li>No analytics, no ads, no tracking cookies and no third-party scripts. We never sell or rent your data.</li>
             <li>Your individual reports are never shown publicly. Other people see only totals.</li>
@@ -139,6 +140,15 @@ export default function PrivacyPage() {
             </li>
             <li>your account ID (every check needs one).</li>
           </List>
+
+          <Sub>When you check a pasted posting</Sub>
+          <p>
+            If you leave the company and role blank, our server masks email addresses, phone numbers, SSN-like and other long
+            numbers, and links in the text, then sends it to Anthropic&rsquo;s Claude API, which reads the company name, role
+            title and location. Names in the text are not masked, so paste the posting only. What Claude read is shown on the
+            result and is not stored. We keep the same derived facts as for any check, plus whether an AI step ran, and a daily
+            count of AI calls for your account (numbers only) so we can enforce a daily limit.
+          </p>
 
           <Sub>When you create an account</Sub>
           <List>
@@ -288,6 +298,10 @@ export default function PrivacyPage() {
               {POSTINGS_REFRESH_HOURS === 1 ? "hour" : `${POSTINGS_REFRESH_HOURS} hours`}, and a domain&rsquo;s registration
               date and mail records are reused for {RETENTION_DAYS.domainCache} days before being looked up again. Neither
               contains data about you.
+            </li>
+            <li>
+              <strong>AI usage counters:</strong> one number per day for the whole site and one per account (how many AI
+              calls), deleted after {RETENTION_DAYS.aiUsage} days. They contain no text.
             </li>
             <li>
               <strong>Rate-limit counters:</strong> in server memory only, dropped within about a minute of their window ending (an hour at most). Vercel keeps its request logs

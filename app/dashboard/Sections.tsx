@@ -10,7 +10,8 @@ import { useInFlight } from "./useInFlight";
 
 export type SavedCheckRow = {
   id: string;
-  inputKind: "URL" | "COMPANY_ROLE" | "MESSAGE";
+  inputKind: "URL" | "COMPANY_ROLE" | "MESSAGE" | "POSTING_TEXT";
+  aiUsed?: boolean;
   ghostScore: number | null;
   ghostBand: BandValue;
   scamScore: number | null;
@@ -35,7 +36,7 @@ export type ScamReportRow = {
 const label = (c: SavedCheckRow) =>
   c.inputKind === "MESSAGE"
     ? `Recruiter message${c.senderDomain ? ` from ${c.senderDomain}` : ""}`
-    : (c.posting?.title ?? (c.inputKind === "URL" ? "Job link check" : "Company + role check"));
+    : (c.posting?.title ?? { URL: "Job link check", COMPANY_ROLE: "Company + role check", POSTING_TEXT: "Pasted posting check" }[c.inputKind]);
 
 function useAction() {
   const router = useRouter();
@@ -85,6 +86,7 @@ export function SavedChecks({ checks }: { checks: SavedCheckRow[] }) {
                 )}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
+                {c.aiUsed && <span className={`${ui.badge} px-2.5 py-0.5`}>AI-assisted</span>}
                 {c.inputKind !== "MESSAGE" && (
                   <span className={`${ui[c.ghostBand]} px-2.5 py-0.5`}>
                     Ghost {BAND_LABEL[c.ghostBand]}

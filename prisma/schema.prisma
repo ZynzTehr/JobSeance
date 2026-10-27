@@ -31,6 +31,7 @@ enum InputKind {
   URL
   COMPANY_ROLE
   MESSAGE
+  POSTING_TEXT     // pasted posting read by AI (phase 9)
 }
 enum Band {
   LOW
@@ -163,6 +164,7 @@ model Check {
   scamBand      Band
   signals       Json               // [{id, points, status, fact, source, cite?, checkedAt}]
   configVersion String
+  aiUsed        Boolean   @default(false)  // an AI step ran for this check (never the text or its output)
   saved         Boolean   @default(false)
   createdAt     DateTime  @default(now())
 }
@@ -223,4 +225,30 @@ model Flag {                       // "Report a problem"
   resolutionNote String?
   createdAt      DateTime   @default(now())
   resolvedAt     DateTime?
+}
+
+model AiUsage {                    // global daily AI spend; numbers only, never content
+  day            String   @id      // YYYY-MM-DD (UTC)
+  spendMicros    Int      @default(0) // estimated spend in millionths of a US dollar
+  calls          Int      @default(0)
+  inputTokens    Int      @default(0)
+  outputTokens   Int      @default(0)
+  refusals       Int      @default(0)
+  maxTokensStops Int      @default(0)
+  errors         Int      @default(0)
+  updatedAt      DateTime @updatedAt
+}
+
+model AiUserUsage {                // per-account daily AI calls; numbers only
+  userId    String
+  day       String                 // YYYY-MM-DD (UTC)
+  calls     Int      @default(0)
+  updatedAt DateTime @updatedAt
+  @@id([userId, day])
+}
+
+model Setting {                    // small operator switches, e.g. aiPaused = "1"
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }

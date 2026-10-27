@@ -1,0 +1,14 @@
+{
+  "entries": [
+    {
+      "step": "extract",
+      "prefix": "Commercial Policy Lead Discord · San Francisco Bay Area (Hybrid) About the job Discord is looking for a Commercial Policy Lead",
+      "file": "extract-demo-discord.json"
+    },
+    {
+      "step": "extract",
+      "prefix": "Data Analyst (Remote) Bramblecloud Software We are collecting resumes for future openings",
+      "file": "extract-demo-bramblecloud.json"
+    }
+  ]
+}

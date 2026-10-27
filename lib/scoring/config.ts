@@ -2,7 +2,7 @@
 // Weights are expert-set from public benchmarks, not validated. Every check
 // stores CONFIG_VERSION so old results can be explained after a change.
 
-export const CONFIG_VERSION = "2026-10-16.1";
+export const CONFIG_VERSION = "2026-10-27.1";
 
 export const BANDS = { cautionFrom: 25, highFrom: 50 } as const;
 

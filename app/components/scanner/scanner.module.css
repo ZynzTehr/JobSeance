@@ -191,6 +191,33 @@
   box-shadow: 0 0 0 1px #6fbf9a66 inset;
 }
 
+.signal[data-state="info"] .signalIcon {
+  background: #8fd3e81a;
+  color: #b7e4f2;
+  box-shadow: 0 0 0 1px #8fd3e855 inset;
+  font-family: var(--font-heading);
+  font-style: italic;
+}
+
+/* The source line can hold a long page title or URL; the card itself clips overflow. */
+.sourceLine {
+  overflow-wrap: anywhere;
+}
+
+/* What Claude read from a pasted posting: set apart from the evidence, never next to a band. */
+.reading {
+  border: 1px solid #8fd3e840;
+  border-radius: 16px;
+  background: #8fd3e80a;
+}
+
+.readingValue {
+  color: var(--vellum);
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
 .signal[data-state="unverified"] .signalIcon {
   background: transparent;
   color: var(--mist);

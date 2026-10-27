@@ -16,10 +16,11 @@ export const PRIVACY_REASON_LABEL = "Privacy or data request";
 export const MIN_AGE = 18;
 
 export const RETENTION_DAYS = {
-  checks: 30, // anonymous or unsaved checks, from createdAt (lib/cleanup.ts)
+  checks: 30, // unsaved checks, from createdAt (lib/cleanup.ts)
   excerpt: 90, // ScamReport.redactedExcerpt, from the report's createdAt
   resolvedFlags: 90, // UPHELD or REJECTED flags, from resolvedAt
   domainCache: 7, // DomainLookup (lib/lookups/domains.ts DOMAIN_TTL_MS)
+  aiUsage: 90, // AiUsage / AiUserUsage daily counters (numbers only)
 } as const;
 
 /** Job-board postings are refreshed at most once an hour (lib/lookups/postings.ts POSTINGS_TTL_MS). */
@@ -68,6 +69,13 @@ export const PROCESSORS: Processor[] = [
     receives:
       "The fact that you are signing in to JobSeance. GitHub sends us your GitHub account ID, your verified primary email address, and your name or username.",
     when: "Only if you choose to sign in with GitHub",
+  },
+  {
+    name: "Anthropic (Claude API)",
+    role: "AI model that reads a pasted job posting to find the company name, role title and location. It never computes a score.",
+    receives:
+      "Only on the Pasted posting tab, and only when you don't type the company and role yourself: the text you pasted, after our server masks email addresses, phone numbers, SSN-like and other long numbers, and links. Names in the text are not masked. Never your IP address, your account, the link you copied it from, or text from the other tabs. Anthropic states that it does not use API data to train its models.",
+    when: "Only for Pasted posting checks, while AI reading is on and under its daily limit",
   },
   {
     name: "Greenhouse, Lever and Ashby",

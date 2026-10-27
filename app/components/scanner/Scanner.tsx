@@ -1,18 +1,21 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { DEMO_POSTING_DISCORD } from "@/lib/demo-examples";
+import { classifyHost } from "@/lib/lookups/job-url";
 import { api, ApiCallError, CHANNEL_LABEL, type ChannelValue } from "@/lib/ui";
 import AutoGrowTextarea from "../AutoGrowTextarea";
 import ui from "../ui.module.css";
 import ResultCard from "./ResultCard";
 import styles from "./scanner.module.css";
-import type { CheckResult, MessageInput } from "./types";
+import type { CheckResult, MessageInput, PostingInput } from "./types";
 
-type Kind = "url" | "company_role" | "message";
+type Kind = "url" | "company_role" | "posting_text" | "message";
 
 const TABS: { kind: Kind; label: string; hint: string }[] = [
   { kind: "url", label: "Job link", hint: "A Greenhouse, Lever or Ashby job URL" },
   { kind: "company_role", label: "Company + role", hint: "Look a role up on the company's own board" },
+  { kind: "posting_text", label: "Pasted posting", hint: "Copied from LinkedIn, Indeed or anywhere: Claude reads the company and role, we check the employer's own board" },
   { kind: "message", label: "Recruiter message", hint: "Paste an email or text you received" },
 ];
 
@@ -21,12 +24,17 @@ const TABS: { kind: Kind; label: string; hint: string }[] = [
 const STEPS: Record<Kind, string[]> = {
   url: ["Reading the link", "Finding the employer's job board", "Looking for this job ID", "Reading the posting text", "Scoring both risks"],
   company_role: ["Finding the company", "Opening its job board", "Matching the role title", "Reading community reports", "Scoring both risks"],
+  posting_text: ["Masking contact details", "Reading the posting with Claude", "Finding the company", "Opening its job board", "Matching the role title", "Scoring both risks"],
   message: ["Reading the sender's domain", "Checking registration age and mail records", "Matching FTC and FBI warning signs", "Checking JobSeance reports", "Scoring scam risk"],
 };
+
+/** How long each step shows before the next one (ms). The AI step gets longer. */
+const STEP_MS: Partial<Record<Kind, number[]>> = { posting_text: [500, 2600, 650, 650, 650, 650] };
 
 const EXAMPLES = {
   url: { url: "https://job-boards.greenhouse.io/discord/jobs/8806482002" },
   company_role: { company: "bramblecloud", role: "Data Analyst" },
+  posting_text: { text: DEMO_POSTING_DISCORD, sourceSite: "LinkedIn", company: "", role: "" },
   message: {
     senderEmail: "talent@bramblecloud-careers.example",
     companyClaimed: "Bramblecloud Software",
@@ -35,24 +43,42 @@ const EXAMPLES = {
   },
 };
 
+const EMPTY_POSTING: PostingInput = { text: "", sourceSite: "", company: "", role: "" };
+
+/** The site a pasted link came from (a label only; the link itself is never sent anywhere). */
+function siteOf(url: string): { label: string; jobSite: boolean } | null {
+  try {
+    const host = new URL(url.trim()).hostname;
+    const c = classifyHost(host);
+    return c.kind === "job_site" || c.kind === "other_ats" || c.kind === "unknown" ? { label: c.name ?? "", jobSite: true } : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function Scanner({ signedIn }: { signedIn: boolean }) {
   const [kind, setKind] = useState<Kind>("url");
   const [url, setUrl] = useState("");
   const [company, setCompany] = useState("");
   const [role, setRole] = useState("");
+  const [postingInput, setPostingInput] = useState<PostingInput>(EMPTY_POSTING);
   const [message, setMessage] = useState<MessageInput>({ text: "", senderEmail: "", companyClaimed: "", channel: "EMAIL" });
   const [running, setRunning] = useState(false);
   const [step, setStep] = useState(0);
   const [error, setError] = useState("");
+  const [pasteInstead, setPasteInstead] = useState<string | null>(null);
   const [fields, setFields] = useState<Record<string, string>>({});
   const [result, setResult] = useState<{ data: CheckResult; message: MessageInput | null } | null>(null);
   const resultRef = useRef<HTMLDivElement>(null);
+  const postingRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (!running) return;
-    const timer = setInterval(() => setStep((s) => Math.min(s + 1, STEPS[kind].length - 1)), 650);
-    return () => clearInterval(timer);
-  }, [running, kind]);
+    const last = STEPS[kind].length - 1;
+    if (step >= last) return;
+    const timer = setTimeout(() => setStep((s) => Math.min(s + 1, last)), STEP_MS[kind]?.[step] ?? 650);
+    return () => clearTimeout(timer);
+  }, [running, kind, step]);
 
   useEffect(() => {
     if (!result) return;
@@ -66,6 +92,7 @@ export default function Scanner({ signedIn }: { signedIn: boolean }) {
     setKind(next);
     setError("");
     setFields({});
+    setPasteInstead(null);
   }
 
   // ARIA tabs pattern: arrows, Home and End move between tabs; only the selected tab is in the Tab order.
@@ -86,38 +113,69 @@ export default function Scanner({ signedIn }: { signedIn: boolean }) {
     else if (kind === "company_role") {
       setCompany(EXAMPLES.company_role.company);
       setRole(EXAMPLES.company_role.role);
-    } else setMessage(EXAMPLES.message);
+    } else if (kind === "posting_text") setPostingInput(EXAMPLES.posting_text);
+    else setMessage(EXAMPLES.message);
   }
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    const body =
-      kind === "url"
-        ? { kind, url }
-        : kind === "company_role"
-          ? { kind, company, role }
-          : {
-              kind,
-              text: message.text,
-              ...(message.senderEmail.trim() ? { senderEmail: message.senderEmail } : {}),
-              ...(message.companyClaimed.trim() ? { companyClaimed: message.companyClaimed } : {}),
-              channel: message.channel,
-            };
+  /** From a job-site link error: switch to the posting tab, keep only the site's name. */
+  function usePastedText() {
+    const site = siteOf(url);
+    setPostingInput({ ...EMPTY_POSTING, sourceSite: site?.label ?? "" });
+    selectTab("posting_text");
+    requestAnimationFrame(() => postingRef.current?.focus());
+  }
+
+  function bodyFor(k: Kind, posting: PostingInput) {
+    if (k === "url") return { kind: k, url };
+    if (k === "company_role") return { kind: k, company, role };
+    if (k === "posting_text") {
+      return {
+        kind: k,
+        text: posting.text,
+        ...(posting.sourceSite.trim() ? { sourceSite: posting.sourceSite.trim() } : {}),
+        ...(posting.company.trim() && posting.role.trim() ? { company: posting.company.trim(), role: posting.role.trim() } : {}),
+      };
+    }
+    return {
+      kind: k,
+      text: message.text,
+      ...(message.senderEmail.trim() ? { senderEmail: message.senderEmail } : {}),
+      ...(message.companyClaimed.trim() ? { companyClaimed: message.companyClaimed } : {}),
+      channel: message.channel,
+    };
+  }
+
+  async function run(k: Kind, posting: PostingInput) {
     setRunning(true);
     setStep(0);
     setError("");
     setFields({});
+    setPasteInstead(null);
     setResult(null);
     try {
-      const data = await api<CheckResult>("POST", "/api/v1/checks", body);
-      setResult({ data, message: kind === "message" ? { ...message } : null });
+      const data = await api<CheckResult>("POST", "/api/v1/checks", bodyFor(k, posting));
+      setResult({ data, message: k === "message" ? { ...message } : null });
     } catch (e) {
       const err = e instanceof ApiCallError ? e : new ApiCallError("Something went wrong.", 0);
       setError(err.message);
       setFields(err.fields);
+      const site = k === "url" && err.status === 422 ? siteOf(url) : null;
+      if (site?.jobSite) setPasteInstead(site.label || "this site");
     } finally {
       setRunning(false);
     }
+  }
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    void run(kind, postingInput);
+  }
+
+  /** "Yes, that's right": re-check with the company and title as confirmed values (the deterministic path). */
+  function confirmReading(reading: { company: string; title: string }) {
+    const next = { ...postingInput, company: reading.company, role: reading.title };
+    setPostingInput(next);
+    void run("posting_text", next);
   }
 
   const field = (name: string) => (fields[name] ? { "aria-invalid": true as const, "aria-describedby": `${name}-error` } : {});
@@ -134,7 +192,7 @@ export default function Scanner({ signedIn }: { signedIn: boolean }) {
         <div
           role="tablist"
           aria-label="What are you checking?"
-          className={`${styles.tabs} grid grid-cols-3 gap-1 p-1`}
+          className={`${styles.tabs} grid grid-cols-2 gap-1 p-1 sm:grid-cols-4`}
           onKeyDown={onTabKey}
         >
           {TABS.map((t) => (
@@ -217,6 +275,65 @@ export default function Scanner({ signedIn }: { signedIn: boolean }) {
             </div>
           )}
 
+          {kind === "posting_text" && (
+            <div className="flex flex-col gap-4">
+              <div>
+                <label htmlFor="scan-posting" className={ui.label}>
+                  Posting text
+                </label>
+                <AutoGrowTextarea
+                  ref={postingRef}
+                  id="scan-posting"
+                  className={`${ui.input} mt-2 w-full px-4 py-3`}
+                  required
+                  maxLength={20000}
+                  placeholder="Paste the whole posting: title, company, location and description."
+                  value={postingInput.text}
+                  onChange={(e) => setPostingInput({ ...postingInput, text: e.target.value })}
+                  {...field("text")}
+                  aria-describedby={fields.text ? "text-error scan-posting-hint" : "scan-posting-hint"}
+                />
+                <p id="scan-posting-hint" className={`${ui.small} mt-1.5`}>
+                  Sent to Anthropic&rsquo;s Claude with email addresses, phone and ID numbers and links masked (names are not
+                  masked). We never store the text.
+                </p>
+                {fieldError("text")}
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="scan-posting-company" className={ui.label}>
+                    Company <span className={ui.small}>(optional)</span>
+                  </label>
+                  <input
+                    id="scan-posting-company"
+                    className={`${ui.input} mt-2 w-full px-4 py-3`}
+                    maxLength={100}
+                    placeholder="Claude reads it if blank"
+                    value={postingInput.company}
+                    onChange={(e) => setPostingInput({ ...postingInput, company: e.target.value })}
+                    {...field("company")}
+                  />
+                  {fieldError("company")}
+                </div>
+                <div>
+                  <label htmlFor="scan-posting-role" className={ui.label}>
+                    Role title <span className={ui.small}>(optional)</span>
+                  </label>
+                  <input
+                    id="scan-posting-role"
+                    className={`${ui.input} mt-2 w-full px-4 py-3`}
+                    maxLength={200}
+                    placeholder="Fill both to skip the AI step"
+                    value={postingInput.role}
+                    onChange={(e) => setPostingInput({ ...postingInput, role: e.target.value })}
+                    {...field("role")}
+                  />
+                  {fieldError("role")}
+                </div>
+              </div>
+            </div>
+          )}
+
           {kind === "message" && (
             <div className="flex flex-col gap-4">
               <div>
@@ -294,11 +411,20 @@ export default function Scanner({ signedIn }: { signedIn: boolean }) {
             <button id="scan-submit" type="submit" className={`${ui.primary} px-7 py-3`} disabled={running}>
               {running ? "Checking…" : "Check it"}
             </button>
-            <p className={ui.small}>Lookups run on our server with 5-second timeouts.</p>
+            <p className={ui.small}>
+              {kind === "posting_text" ? "Lookups run on our server; the Claude step can take a few seconds." : "Lookups run on our server with 5-second timeouts."}
+            </p>
           </div>
           <p className={ui.statusError} role="alert">
             {error}
           </p>
+          {pasteInstead && (
+            <div className="-mt-3">
+              <button type="button" id="scan-paste-instead" className={`${ui.secondary} px-5 py-2.5`} onClick={usePastedText}>
+                Paste the posting text instead
+              </button>
+            </div>
+          )}
         </form>
 
         {/* Always mounted, so screen readers hear each step as its text changes. */}
@@ -324,7 +450,15 @@ export default function Scanner({ signedIn }: { signedIn: boolean }) {
       </section>
 
       <div ref={resultRef} className={styles.resultAnchor}>
-        {result && <ResultCard result={result.data} message={result.message} signedIn={signedIn} />}
+        {result && (
+          <ResultCard
+            result={result.data}
+            message={result.message}
+            signedIn={signedIn}
+            onConfirm={confirmReading}
+            onUseMessageTab={() => selectTab("message")}
+          />
+        )}
       </div>
     </div>
   );

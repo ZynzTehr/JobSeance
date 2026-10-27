@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import ui from "../components/ui.module.css";
-import { BAND_RANGES, GHOST_SIGNALS, SCAM_SIGNALS, type SignalInfo } from "@/lib/methodology";
+import { AI_RULES, BAND_RANGES, GATHERED_SIGNALS, GHOST_SIGNALS, SCAM_SIGNALS, type SignalInfo } from "@/lib/methodology";
 import { CONFIG_VERSION, DISCLAIMER } from "@/lib/scoring/config";
 import { BAND_LABEL } from "@/lib/ui";
 import styles from "./methodology.module.css";
@@ -14,7 +14,8 @@ const LIMITS = [
   "Weights are expert-set from public guidance and benchmarks, not validated against labeled outcomes. Treat a score as a prompt to verify, not a verdict.",
   "Some companies keep long-lived postings on purpose (Palantir's median Lever posting is about 475 days old), so age alone overstates ghost risk for them.",
   "Accounts are not verified, so one person can create several. Community signals are a weak input, need 3+ distinct users and are capped.",
-  "We only read Greenhouse, Lever and Ashby boards. Workday, LinkedIn and Indeed listings can't be checked against an official board yet.",
+  "We read Greenhouse, Lever and Ashby boards. A LinkedIn or Indeed listing can be checked by pasting its text, but only if the employer uses one of those boards and is in our directory.",
+  "Claude can misread a company or title. That's why what it read is shown, and why a title that isn't an exact match counts only after you confirm it.",
   "A forged sender can look official. A matching domain is shown as a fact but never lowers the scam score.",
   "Phrase rules can miss reworded scams and can fire on honest text. Every match is quoted so you can judge it.",
   "A failed lookup (timeout, unknown board, registry without RDAP) scores 0 and shows \"couldn't verify\". Missing data never counts against a posting.",
@@ -89,6 +90,30 @@ export default function MethodologyPage() {
           <p className={`${ui.muted} mt-4`}>
             Bands describe a posting or a message, never a company. Company pages show facts and community counts only.
           </p>
+        </section>
+
+        <section aria-labelledby="ai" className={`${ui.card} mt-10 p-6`}>
+          <h2 id="ai" className={ui.h2}>
+            How AI helps, and what it never does
+          </h2>
+          <ul className={`${styles.limits} mt-4 flex flex-col gap-3`}>
+            {AI_RULES.map((rule) => (
+              <li key={rule} className={ui.body}>
+                {rule}
+              </li>
+            ))}
+          </ul>
+          <h3 className={`${ui.h3} mt-6`}>Facts gathered (0 points)</h3>
+          <dl className="mt-3 flex flex-col gap-3">
+            {Object.entries(GATHERED_SIGNALS).map(([id, s]) => (
+              <div key={id}>
+                <dt className={ui.body}>
+                  <strong>{s.name}</strong> <code className={ui.inlineCode}>{id}</code>
+                </dt>
+                <dd className={`${ui.muted} m-0`}>{s.when}</dd>
+              </div>
+            ))}
+          </dl>
         </section>
 
         <section aria-labelledby="ghost" className="mt-12">
