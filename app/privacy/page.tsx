@@ -330,6 +330,12 @@ export default function PrivacyPage() {
               contain no data about you.
             </li>
             <li>
+              <strong>AI quality measurements:</strong> when a check already sent your masked text to Claude, we may ask Claude
+              which sentences match our warning signs, to measure how well that works before ever showing it. We keep only the
+              rule, the sentence&rsquo;s number and a score, never the text, for {RETENTION_DAYS.aiShadow} days. It never changes
+              your result.
+            </li>
+            <li>
               <strong>AI usage counters:</strong> one number per day for the whole site and one per account (how many AI
               calls), deleted after {RETENTION_DAYS.aiUsage} days. They contain no text.
             </li>

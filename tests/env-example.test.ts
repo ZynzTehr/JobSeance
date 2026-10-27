@@ -26,6 +26,8 @@ const SPEC_VARS = [
   "AI_MODEL",
   "AI_MODEL_LOCATE",
   "AI_DAILY_USD",
+  "CUES_PROVIDER",
+  "TYPESAFE_API_KEY",
 ];
 
 function parseEnvExample(): Map<string, string> {

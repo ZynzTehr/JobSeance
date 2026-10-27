@@ -23,6 +23,7 @@ export const RETENTION_DAYS = {
   aiUsage: 90, // AiUsage / AiUserUsage daily counters (numbers only)
   discoveryFound: 30, // BoardDiscovery rows for a board found (lib/lookups/discovery.ts FOUND_DAYS)
   discoveryNotFound: 7, // BoardDiscovery rows after a search found nothing (NOT_FOUND_DAYS)
+  aiShadow: 30, // AiShadow rows (lib/cleanup.ts shadowDays): rule ids, sentence numbers, scores
 } as const;
 
 /** Job-board postings are refreshed at most once an hour (lib/lookups/postings.ts POSTINGS_TTL_MS). */

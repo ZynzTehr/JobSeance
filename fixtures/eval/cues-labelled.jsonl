@@ -1,0 +1,108 @@
+{"id":"s-pay-to-work-1","kind":"paraphrase","text":"Before your first shift you'll need to cover the $85 onboarding cost, which is refunded after 90 days.","labels":["S-PAY-TO-WORK"]}
+{"id":"s-pay-to-work-2","kind":"paraphrase","text":"New team members purchase their own work kit from our approved supplier; the link is below.","labels":["S-PAY-TO-WORK"]}
+{"id":"s-pay-to-work-3","kind":"paraphrase","text":"To unlock your account, a one-time activation payment of $49 is required.","labels":["S-PAY-TO-WORK"]}
+{"id":"s-pay-to-work-4","kind":"paraphrase","text":"Please settle the certification charge so we can schedule your orientation.","labels":["S-PAY-TO-WORK"]}
+{"id":"s-pay-to-work-5","kind":"paraphrase","text":"Your place in the program is held once the enrollment deposit clears.","labels":["S-PAY-TO-WORK"]}
+{"id":"s-pay-to-work-6","kind":"paraphrase","text":"We'll ship your laptop as soon as you send the $300 for the software license.","labels":["S-PAY-TO-WORK"]}
+{"id":"s-fake-check-1","kind":"paraphrase","text":"We'll mail you a cheque for your home-office setup; cash it and pass the leftover to our equipment vendor.","labels":["S-FAKE-CHECK"]}
+{"id":"s-fake-check-2","kind":"paraphrase","text":"Put the payment into your account through the banking app, keep your share and transfer the rest to our supplier.","labels":["S-FAKE-CHECK"]}
+{"id":"s-fake-check-3","kind":"paraphrase","text":"The client paid you too much by accident, so please return the difference today.","labels":["S-FAKE-CHECK"]}
+{"id":"s-fake-check-4","kind":"paraphrase","text":"After the funds land, forward $1,800 to the vendor listed in the attachment.","labels":["S-FAKE-CHECK"]}
+{"id":"s-fake-check-5","kind":"paraphrase","text":"Snap a photo of the check to deposit it, then buy the supplies with part of it and send the balance back.","labels":["S-FAKE-CHECK"]}
+{"id":"s-fake-check-6","kind":"paraphrase","text":"Our accountant will send funds to your bank; move most of it on to the address we give you.","labels":["S-FAKE-CHECK"]}
+{"id":"s-task-scam-1","kind":"paraphrase","text":"Earn for every app review you submit, with higher rates once you reach the gold tier.","labels":["S-TASK-SCAM"]}
+{"id":"s-task-scam-2","kind":"paraphrase","text":"Each set of 40 product clicks pays a commission, and finishing a set unlocks the next one.","labels":["S-TASK-SCAM"]}
+{"id":"s-task-scam-3","kind":"paraphrase","text":"Your job is to optimize merchant listings by giving them five-star ratings from our dashboard.","labels":["S-TASK-SCAM"]}
+{"id":"s-task-scam-4","kind":"paraphrase","text":"Complete daily order tasks to raise your level and multiply your earnings.","labels":["S-TASK-SCAM"]}
+{"id":"s-task-scam-5","kind":"paraphrase","text":"You'll be paid per video you like and share during the training week.","labels":["S-TASK-SCAM"]}
+{"id":"s-task-scam-6","kind":"paraphrase","text":"Recharge your work account to receive the bonus tasks for VIP members.","labels":["S-TASK-SCAM"]}
+{"id":"s-pii-early-1","kind":"paraphrase","text":"To start your file, reply with your social security number and date of birth.","labels":["S-PII-EARLY"]}
+{"id":"s-pii-early-2","kind":"paraphrase","text":"Send a photo of both sides of your driving licence so HR can open your profile.","labels":["S-PII-EARLY"]}
+{"id":"s-pii-early-3","kind":"paraphrase","text":"Kindly share your bank routing and account numbers now so payroll is ready before the call.","labels":["S-PII-EARLY"]}
+{"id":"s-pii-early-4","kind":"paraphrase","text":"Please attach a scan of your passport and your credit card for identity confirmation before we talk.","labels":["S-PII-EARLY"]}
+{"id":"s-pii-early-5","kind":"paraphrase","text":"We need your SIN and a void cheque to move you to the interview stage.","labels":["S-PII-EARLY"]}
+{"id":"s-pii-early-6","kind":"paraphrase","text":"Fill in the form with your card number and its security code to verify you're a real applicant.","labels":["S-PII-EARLY"]}
+{"id":"s-reship-1","kind":"paraphrase","text":"You will receive parcels at home, repackage them and send them to the addresses we provide.","labels":["S-RESHIP"]}
+{"id":"s-reship-2","kind":"paraphrase","text":"We'll deliver company computers to your address; keep them powered on and connected for our remote team.","labels":["S-RESHIP"]}
+{"id":"s-reship-3","kind":"paraphrase","text":"Accept deliveries for our clients and ship them abroad with the labels we email you.","labels":["S-RESHIP"]}
+{"id":"s-reship-4","kind":"paraphrase","text":"The role involves logging in to the job interview in place of our candidate and answering as them.","labels":["S-RESHIP"]}
+{"id":"s-reship-5","kind":"paraphrase","text":"Store and relabel incoming boxes, then drop them at the courier each afternoon.","labels":["S-RESHIP"]}
+{"id":"s-reship-6","kind":"paraphrase","text":"Host a few laptops for our engineers overseas; we pay you monthly for keeping them online.","labels":["S-RESHIP"]}
+{"id":"s-payment-method-1","kind":"paraphrase","text":"Purchase three Apple cards and send us the codes on the back.","labels":["S-PAYMENT-METHOD"]}
+{"id":"s-payment-method-2","kind":"paraphrase","text":"Your salary is paid in stablecoins to a wallet you set up today.","labels":["S-PAYMENT-METHOD"]}
+{"id":"s-payment-method-3","kind":"paraphrase","text":"Send the fee by bank wire to the account in Hong Kong.","labels":["S-PAYMENT-METHOD"]}
+{"id":"s-payment-method-4","kind":"paraphrase","text":"We only accept payment through Venmo or a prepaid Visa.","labels":["S-PAYMENT-METHOD"]}
+{"id":"s-payment-method-5","kind":"paraphrase","text":"Transfer the amount in BTC to the address below to complete the setup.","labels":["S-PAYMENT-METHOD"]}
+{"id":"s-payment-method-6","kind":"paraphrase","text":"Buy Steam vouchers worth $200 and email the numbers to the coordinator.","labels":["S-PAYMENT-METHOD"]}
+{"id":"s-run-code-1","kind":"paraphrase","text":"Before the call, pull our repository and start the app locally so we can see the error you get.","labels":["S-RUN-CODE"]}
+{"id":"s-run-code-2","kind":"paraphrase","text":"Download the attached project, install its packages and open it in your editor to begin the assessment.","labels":["S-RUN-CODE"]}
+{"id":"s-run-code-3","kind":"paraphrase","text":"Run the setup script from our GitHub link; it configures the test environment.","labels":["S-RUN-CODE"]}
+{"id":"s-run-code-4","kind":"paraphrase","text":"Please execute the build in the zip file and share a screenshot of the output.","labels":["S-RUN-CODE"]}
+{"id":"s-run-code-5","kind":"paraphrase","text":"Open the folder in VS Code and accept the workspace tasks when prompted.","labels":["S-RUN-CODE"]}
+{"id":"s-run-code-6","kind":"paraphrase","text":"Install the dependencies with your package manager and launch the server to start the interview task.","labels":["S-RUN-CODE"]}
+{"id":"s-chat-only-1","kind":"paraphrase","text":"Add our hiring manager on Signal for the next step; all interviews are done there.","labels":["S-CHAT-ONLY"]}
+{"id":"s-chat-only-2","kind":"paraphrase","text":"Message the number below on WhatsApp to continue your application.","labels":["S-CHAT-ONLY"]}
+{"id":"s-chat-only-3","kind":"paraphrase","text":"The interview will be a text conversation on Telegram, no video needed.","labels":["S-CHAT-ONLY"]}
+{"id":"s-chat-only-4","kind":"paraphrase","text":"Please move this conversation to Google Chat, where the team lead will interview you.","labels":["S-CHAT-ONLY"]}
+{"id":"s-chat-only-5","kind":"paraphrase","text":"Reach me by SMS only; we don't do phone or video calls.","labels":["S-CHAT-ONLY"]}
+{"id":"s-chat-only-6","kind":"paraphrase","text":"Download Wire and contact our recruiter there to start onboarding.","labels":["S-CHAT-ONLY"]}
+{"id":"s-no-interview-1","kind":"paraphrase","text":"Congratulations, you've been selected for the role without a formal interview.","labels":["S-NO-INTERVIEW"]}
+{"id":"s-no-interview-2","kind":"paraphrase","text":"This offer expires tonight, so confirm within the next few hours.","labels":["S-NO-INTERVIEW"]}
+{"id":"s-no-interview-3","kind":"paraphrase","text":"We reviewed your profile and are hiring you directly; no calls are necessary.","labels":["S-NO-INTERVIEW"]}
+{"id":"s-no-interview-4","kind":"paraphrase","text":"Sign the attached contract by noon or the position goes to another candidate.","labels":["S-NO-INTERVIEW"]}
+{"id":"s-no-interview-5","kind":"paraphrase","text":"You're hired! Training starts tomorrow and there is no need for an interview.","labels":["S-NO-INTERVIEW"]}
+{"id":"s-no-interview-6","kind":"paraphrase","text":"Reply YES in the next 2 hours to secure your spot.","labels":["S-NO-INTERVIEW"]}
+{"id":"s-too-good-1","kind":"paraphrase","text":"Make $4,000 a week answering a few emails from your couch.","labels":["S-TOO-GOOD"]}
+{"id":"s-too-good-2","kind":"paraphrase","text":"No experience needed and pay starts at $90 per hour for simple data entry.","labels":["S-TOO-GOOD"]}
+{"id":"s-too-good-3","kind":"paraphrase","text":"Earn six figures part-time with just 2 hours of work a day.","labels":["S-TOO-GOOD"]}
+{"id":"s-too-good-4","kind":"paraphrase","text":"Get $650 daily for easy online tasks you can do from your phone.","labels":["S-TOO-GOOD"]}
+{"id":"s-too-good-5","kind":"paraphrase","text":"Weekly pay of $3,500 for light admin work, flexible hours, no skills required.","labels":["S-TOO-GOOD"]}
+{"id":"s-too-good-6","kind":"paraphrase","text":"Our assistants take home $1,200 a day for checking a spreadsheet.","labels":["S-TOO-GOOD"]}
+{"id":"g-evergreen-1","kind":"paraphrase","text":"We're building a bench of talented engineers for roles that will open later this year.","labels":["G-EVERGREEN"]}
+{"id":"g-evergreen-2","kind":"paraphrase","text":"Apply here to be considered when future openings become available.","labels":["G-EVERGREEN"]}
+{"id":"g-evergreen-3","kind":"paraphrase","text":"This listing collects applications for upcoming positions across the team.","labels":["G-EVERGREEN"]}
+{"id":"g-evergreen-4","kind":"paraphrase","text":"Join our candidate pool and we'll reach out when something fits.","labels":["G-EVERGREEN"]}
+{"id":"g-evergreen-5","kind":"paraphrase","text":"There isn't a specific opening right now, but we're always meeting great designers.","labels":["G-EVERGREEN"]}
+{"id":"g-evergreen-6","kind":"paraphrase","text":"Submit your profile to be part of our hiring pipeline for next quarter.","labels":["G-EVERGREEN"]}
+{"id":"g-no-vacancy-1","kind":"paraphrase","text":"Please note this posting does not represent a currently open position.","labels":["G-NO-VACANCY"]}
+{"id":"g-no-vacancy-2","kind":"paraphrase","text":"This role may not be filled; we post it to gauge interest in the market.","labels":["G-NO-VACANCY"]}
+{"id":"g-no-vacancy-3","kind":"paraphrase","text":"There is presently no vacancy for this title.","labels":["G-NO-VACANCY"]}
+{"id":"g-no-vacancy-4","kind":"paraphrase","text":"We are not actively hiring for this job at the moment.","labels":["G-NO-VACANCY"]}
+{"id":"g-no-vacancy-5","kind":"paraphrase","text":"The advertisement is for future planning and no position exists today.","labels":["G-NO-VACANCY"]}
+{"id":"g-no-vacancy-6","kind":"paraphrase","text":"This position is not currently available, but we keep the listing up.","labels":["G-NO-VACANCY"]}
+{"id":"negative-1","kind":"notice","text":"We will never ask you to pay for equipment, training or a background check.","labels":[]}
+{"id":"negative-2","kind":"notice","text":"Our recruiters never request gift cards, cryptocurrency or wire transfers.","labels":[]}
+{"id":"negative-3","kind":"notice","text":"If anyone asks you to deposit a check and send money back, it isn't us; report it.","labels":[]}
+{"id":"negative-4","kind":"notice","text":"We don't conduct interviews over WhatsApp or Telegram; all interviews happen by video with our team.","labels":[]}
+{"id":"negative-5","kind":"notice","text":"Legitimate offers from us always follow at least two interviews.","labels":[]}
+{"id":"negative-6","kind":"notice","text":"We will not ask for your social security number until after you accept a written offer.","labels":[]}
+{"id":"negative-7","kind":"notice","text":"Be careful: scammers sometimes pretend to be our hiring team and ask for fees.","labels":[]}
+{"id":"negative-8","kind":"notice","text":"Never run code from someone you haven't verified; our take-home tests are hosted on our own site.","labels":[]}
+{"id":"negative-9","kind":"notice","text":"Our company doesn't ship laptops to new hires before their start date paperwork is complete.","labels":[]}
+{"id":"negative-10","kind":"notice","text":"Report suspicious messages claiming to be from us to our security team.","labels":[]}
+{"id":"negative-11","kind":"notice","text":"We will not offer you a job by text message.","labels":[]}
+{"id":"negative-12","kind":"notice","text":"Please ignore anyone promising high pay for little work in our name.","labels":[]}
+{"id":"negative-13","kind":"notice","text":"Fraudsters may offer jobs that pay per task or per review; we never do.","labels":[]}
+{"id":"negative-14","kind":"notice","text":"Requests to buy your own equipment from a vendor are a sign of fraud.","labels":[]}
+{"id":"negative-15","kind":"notice","text":"We do not use Signal or Google Chat for recruiting.","labels":[]}
+{"id":"negative-16","kind":"notice","text":"Our job offers never expire within hours; take the time you need.","labels":[]}
+{"id":"negative-17","kind":"notice","text":"We never hold applications in a talent pool without telling you which role you applied for.","labels":[]}
+{"id":"negative-18","kind":"notice","text":"Each posting on this page is an open position we are actively filling.","labels":[]}
+{"id":"negative-19","kind":"notice","text":"Do not share bank details with anyone before you have a signed offer letter.","labels":[]}
+{"id":"negative-20","kind":"notice","text":"Real recruiters at our company use an @ourcompany domain email address.","labels":[]}
+{"id":"negative-21","kind":"notice","text":"The background check is free and paid for by us.","labels":[]}
+{"id":"negative-22","kind":"plain","text":"Remote employees receive a home-office stipend after their first month.","labels":[]}
+{"id":"negative-23","kind":"plain","text":"You'll complete a short take-home exercise in your own environment, with no installs required.","labels":[]}
+{"id":"negative-24","kind":"plain","text":"Payroll is deposited every two weeks by direct deposit.","labels":[]}
+{"id":"negative-25","kind":"plain","text":"The base salary range for this role is $120,000 to $150,000.","labels":[]}
+{"id":"negative-26","kind":"plain","text":"You will join a team of eight engineers working on payments infrastructure.","labels":[]}
+{"id":"negative-27","kind":"plain","text":"The interview process has a recruiter call, a technical interview and a team chat.","labels":[]}
+{"id":"negative-28","kind":"plain","text":"We offer health, dental and vision insurance from day one.","labels":[]}
+{"id":"negative-29","kind":"plain","text":"This is a full-time, hybrid role based in our Austin office.","labels":[]}
+{"id":"negative-30","kind":"plain","text":"Please submit your resume and a short cover letter.","labels":[]}
+{"id":"negative-31","kind":"plain","text":"Experience with Python and SQL is required.","labels":[]}
+{"id":"negative-32","kind":"plain","text":"We review applications on a rolling basis and reply within two weeks.","labels":[]}
+{"id":"negative-33","kind":"plain","text":"Our warehouse team receives and ships customer orders on weekdays.","labels":[]}
+{"id":"negative-34","kind":"plain","text":"You'll be expected to respond to customer tickets within 24 hours.","labels":[]}
+{"id":"negative-35","kind":"plain","text":"Commission is paid quarterly on closed enterprise deals.","labels":[]}
+{"id":"negative-36","kind":"plain","text":"The role reports to the head of data and is open now.","labels":[]}

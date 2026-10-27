@@ -204,6 +204,13 @@ describe("AI budget", () => {
     expect(users.get("u1|2026-10-27")).toEqual({ calls: 3, toolCalls: 2 });
   });
 
+  it("background calls use the global budget only, never an account's allowance", async () => {
+    const { db, users, days } = budgetDb();
+    expect((await reserveAiCall(db, { userId: "shadow", micros: 10, skipUser: true, now: NOW, capMicros: 1_000_000, perUser: 0 })).ok).toBe(true);
+    expect(users.size).toBe(0);
+    expect(days.get("2026-10-27")).toMatchObject({ spendMicros: 10, calls: 1 });
+  });
+
   it("counts searches and fetches when settling", async () => {
     const { db, days } = budgetDb();
     await reserveAiCall(db, { userId: "u1", micros: 80_000, tool: true, now: NOW, capMicros: 1_000_000 });
