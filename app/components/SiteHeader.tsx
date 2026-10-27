@@ -3,7 +3,7 @@ import { currentUser } from "@/lib/session-user";
 import NavLinks from "./NavLinks";
 import styles from "./site.module.css";
 
-/** Site-wide header. Server component: shows Dashboard when signed in, Log in otherwise. */
+/** Site-wide header. Server component: member links and Log out when signed in, Log in otherwise. */
 export default async function SiteHeader() {
   const user = await currentUser();
   return (
@@ -29,7 +29,6 @@ export function SiteFooter() {
         </p>
         <nav aria-label="Footer" className="flex flex-wrap gap-x-5 gap-y-2">
           <Link href="/methodology">Methodology</Link>
-          <Link href="/api-docs">API</Link>
           <Link href="/companies">Companies</Link>
           <Link href="/privacy">Privacy</Link>
           <Link href="/terms">Terms</Link>

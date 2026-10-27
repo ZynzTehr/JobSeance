@@ -56,7 +56,7 @@ export function startOAuth(provider: Provider) {
   };
 }
 
-/** GET /api/auth/<provider>/callback: link or create the user, set our JWT cookie, go to /dashboard. */
+/** GET /api/auth/<provider>/callback: link or create the user, set our JWT cookie, go to the scanner. */
 export function finishOAuth(provider: Provider) {
   return (req: NextApiRequest, res: NextApiResponse) => {
     if (!oauthEnabled(provider)) return res.redirect(302, loginRedirect("oauth_unavailable"));
@@ -71,7 +71,7 @@ export function finishOAuth(provider: Provider) {
         if (!outcome) return res.redirect(302, loginRedirect("oauth_failed"));
         if (!outcome.ok) return res.redirect(302, loginRedirect(outcome.code));
         res.setHeader("Set-Cookie", sessionCookie(signToken(outcome.user)));
-        res.redirect(302, "/dashboard");
+        res.redirect(302, "/scan");
       })(req, res);
     });
   };
