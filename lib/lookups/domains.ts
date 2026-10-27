@@ -213,12 +213,28 @@ export type DomainFacts = {
   checkedAt: Date;
 };
 
-/** RDAP + MX for a registrable domain. Reads DomainLookup first; never caches ERROR. */
-export async function lookupDomain(domain: string, now = new Date(), opts?: FetchOptions): Promise<DomainFacts> {
-  const db = getDb();
+/** True for reserved TLDs (RFC 2606/6761), which only ever come from seeded demo data. */
+export const isReservedDomain = (domain: string) => RESERVED_TLDS.has(domain.slice(domain.lastIndexOf(".") + 1));
+
+type DomainLookupDb = Pick<ReturnType<typeof getDb>, "domainLookup">;
+
+/**
+ * RDAP + MX for a registrable domain. Reads DomainLookup first; never caches ERROR.
+ * Reserved demo domains (.example) never expire and are never looked up or overwritten:
+ * the seeded row is their only source, so the fictional demo keeps working after 7 days.
+ */
+export async function lookupDomain(
+  domain: string,
+  now = new Date(),
+  opts?: FetchOptions,
+  db: DomainLookupDb = getDb(),
+): Promise<DomainFacts> {
   const cached = await db.domainLookup.findUnique({ where: { domain } });
-  if (cached && now.getTime() - cached.checkedAt.getTime() < DOMAIN_TTL_MS) {
+  if (cached && (isReservedDomain(domain) || now.getTime() - cached.checkedAt.getTime() < DOMAIN_TTL_MS)) {
     return { ...cached, source: "cache" };
+  }
+  if (isReservedDomain(domain)) {
+    return { domain, registeredAt: null, status: "UNSUPPORTED_TLD", hasMx: false, nullMx: false, checkedAt: now, source: null };
   }
 
   const [rdap, mx] = await Promise.all([rdapLookup(domain, opts), mxLookup(domain, opts)]);

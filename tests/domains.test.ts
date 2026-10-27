@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   findLookalike,
+  lookupDomain,
   isAtsSender,
   isDisposable,
   isFreeMail,
@@ -154,5 +155,41 @@ describe("parseMx", () => {
     expect(parseMx({ Status: 0 })).toEqual({ hasMx: false, nullMx: false });
     expect(parseMx({ Status: 3 })).toEqual({ hasMx: false, nullMx: false });
     expect(parseMx({ Status: 2 })).toEqual({ hasMx: null, nullMx: null });
+  });
+});
+
+// ---- Reserved demo domains (seeded rows must outlive the 7-day cache, 2026-10-27) ----
+
+describe("lookupDomain for reserved demo domains", () => {
+  const now = new Date("2026-10-27T12:00:00Z");
+  const fakeDb = (row: unknown) => {
+    const upsert = vi.fn();
+    return { db: { domainLookup: { findUnique: vi.fn(async () => row), upsert } } as never, upsert };
+  };
+
+  it("keeps a seeded .example row however old it is, without the network or a write", async () => {
+    const seeded = {
+      domain: "bramblecloud-careers.example",
+      registeredAt: new Date("2026-10-09T12:00:00Z"),
+      status: "OK" as const,
+      hasMx: true,
+      nullMx: false,
+      checkedAt: new Date("2026-10-15T12:00:00Z"),
+    };
+    const { db, upsert } = fakeDb(seeded);
+    const fetchImpl = vi.fn();
+    const facts = await lookupDomain("bramblecloud-careers.example", now, { fetchImpl }, db);
+    expect(facts).toMatchObject({ status: "OK", source: "cache", registeredAt: seeded.registeredAt });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it("answers an unseeded .example domain locally and stores nothing", async () => {
+    const { db, upsert } = fakeDb(null);
+    const fetchImpl = vi.fn();
+    const facts = await lookupDomain("nobody.example", now, { fetchImpl }, db);
+    expect(facts).toMatchObject({ status: "UNSUPPORTED_TLD", source: null, hasMx: false });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(upsert).not.toHaveBeenCalled();
   });
 });
