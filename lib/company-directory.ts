@@ -8,6 +8,9 @@ import { aggregate, type AggregateRow, type CommunityAggregate } from "@/lib/rep
 
 export type OpenRoles = { count: number | null; fetchedAt: Date | null; stale: boolean; source: CompanyPostings["source"] | null };
 
+/** A real company on its own careers site (Apple, Meta, Microsoft): no board we read, so its open roles can't be counted. */
+export const ownSiteOnly = (c: { ats: Ats; isFictional: boolean }) => c.ats === "NONE" && !c.isFictional;
+
 const BOARD_TIMEOUT_MS = 4000;
 
 /** Live postings with a time limit, so one slow job board can't hold up the page. */

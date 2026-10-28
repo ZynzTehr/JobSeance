@@ -211,7 +211,9 @@ export async function lookupPosting(
   const key = { ats_board_externalId: { ats: ref.ats, board: ref.board, externalId } };
 
   const cached = db ? await db.posting.findUnique({ where: key }) : null;
-  if (cached && cached.description !== null && now.getTime() - cached.fetchedAt.getTime() < POSTINGS_TTL_MS) {
+  // Only a LIVE copy short-circuits. A board sync (a company page or the daily sweep) stamps
+  // fetchedAt on jobs it marks removed, so a fresh NOT_FOUND or UNKNOWN row is checked live again.
+  if (cached && cached.state === "LIVE" && cached.description !== null && now.getTime() - cached.fetchedAt.getTime() < POSTINGS_TTL_MS) {
     return { found: true, posting: facts(cached, cached.id), source: "cache" };
   }
 

@@ -161,7 +161,7 @@ export default function AnimatedAuthForm({
     setStatus("");
     try {
       await onAuthenticate(values);
-      setStatus("Signed in. Taking you to your dashboard…");
+      setStatus("Signed in. Taking you to the scanner…");
     } catch (error) {
       setStatus(
         error instanceof Error && error.message ? error.message : "We couldn’t complete your request. Please try again.",
