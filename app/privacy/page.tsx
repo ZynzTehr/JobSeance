@@ -14,6 +14,7 @@ import {
   PRIVACY_REASON_LABEL,
   PROCESSORS,
   RETENTION_DAYS,
+  SEARCH_MEMORY_HOURS,
   SESSION_HOURS,
 } from "@/lib/legal";
 
@@ -83,7 +84,7 @@ export default function PrivacyPage() {
               memory and not stored, unless you choose to share a redacted excerpt with a scam report. A pasted posting is
               sent, masked, to Anthropic&rsquo;s Claude to read the company and role; a recruiter message is sent only if you
               tick &ldquo;Let Claude read this message&rdquo;. For a company we don&rsquo;t list, its name and the role title may be searched
-              on public job-board sites through Anthropic. Email headers you paste are read in memory and never sent or stored.
+              on public job-board and hiring-system sites through Anthropic. Email headers you paste are read in memory and never sent or stored.
             </li>
             <li>No analytics, no ads, no tracking cookies and no third-party scripts. We never sell or rent your data.</li>
             <li>Your individual reports are never shown publicly. Other people see only totals.</li>
@@ -156,14 +157,16 @@ export default function PrivacyPage() {
           <p>
             If you check a company we don&rsquo;t list, we first ask the public job boards whether a board with that name exists.
             If none does, Anthropic&rsquo;s Claude may suggest where the company posts jobs, and Anthropic&rsquo;s web search may
-            look for it on public job-board sites. Only the company name and the role title are sent; never your account, your
+            look for it on public job-board and hiring-system sites. Only the company name and the role title are sent; never your account, your
             IP address or anything you pasted. What we find is kept for {RETENTION_DAYS.discoveryFound} days ({" "}
             {RETENTION_DAYS.discoveryNotFound} days if a search found nothing, half a day if only our quick board check ran) so
             the next person&rsquo;s check doesn&rsquo;t search again. It holds a short key made from the company name and, when
             a board was found, that board&rsquo;s own name and public identifier; never the text you typed. For a company we list
             whose careers site we allowlisted, Anthropic&rsquo;s web search may look for the role title on that site, and a job
             link you paste on that site is sent without tracking parameters (a job id in the link is kept) so Anthropic&rsquo;s
-            fetch tool can read the page. Our own server never opens a link you paste, with one exception: for a Workday job link,
+            fetch tool can read the page. The answers to these searches (result titles, links and dates for a company and role
+            title) stay in our server&rsquo;s memory for up to {SEARCH_MEMORY_HOURS} hours so a repeat check doesn&rsquo;t search
+            again; they&rsquo;re never written to our database. Our own server never opens a link you paste, with one exception: for a Workday job link,
             we ask that Workday site for the job at the same address, to tell a removed job from a search miss.
           </p>
 

@@ -315,8 +315,9 @@ export default function Scanner({ signedIn }: { signedIn: boolean }) {
                   aria-describedby={fields.text ? "text-error scan-posting-hint" : "scan-posting-hint"}
                 />
                 <p id="scan-posting-hint" className={`${ui.small} mt-1.5`}>
-                  Sent to Anthropic&rsquo;s Claude with email addresses, phone and ID numbers and links masked (names are not
-                  masked). We never store the text.
+                  Copying from LinkedIn? Include the job title above &ldquo;About the job&rdquo;. Sent to Anthropic&rsquo;s
+                  Claude with email addresses, phone and ID numbers and links masked (names are not masked). We never store
+                  the text.
                 </p>
                 {fieldError("text")}
               </div>

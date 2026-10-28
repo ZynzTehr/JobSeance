@@ -3,12 +3,12 @@ import { aiMode, type ToolCallResult } from "@/lib/ai/client";
 import { LOCATE_PROMPT_VERSION, modelFor, PROMPT_VERSION, reserveMicros, type AiStep, type CallKind } from "@/lib/ai/config";
 import { aiPaused, reserveAiCall, settleAiCall } from "@/lib/ai/budget";
 import { cleanExtract, extractCall, MessageExtract, messageCall, PostingExtract } from "@/lib/ai/extract";
-import { BoardGuesses, boardsFromHits, guessCall, searchCall, searchFailed, searchHits, validGuesses, type SearchHit } from "@/lib/ai/locate";
+import { BoardGuesses, boardSearch, guessCall, otherHits, searchCall, searchFailed, searchHits, validGuesses, type BoardSearch, type SearchHit } from "@/lib/ai/locate";
 import { presenceCall, presenceHits } from "@/lib/ai/presence";
 import { pageFrom, readPageCall, type PageRead } from "@/lib/ai/read-page";
 import { fixtureKey, readFixture } from "@/lib/ai/replay";
 import type { AiFailureReason, AiOutcome } from "@/lib/ai/types";
-import type { BoardLink } from "@/lib/lookups/job-url";
+import { OTHER_SYSTEM_DOMAINS, type BoardLink } from "@/lib/lookups/job-url";
 import { getDb } from "@/lib/db";
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -24,8 +24,10 @@ export type AiTransport = {
   extractMessage(redactedText: string, ctx: Ctx): Promise<AiOutcome<MessageExtract>>;
   /** Phase 11: candidate boards for an employer from the model's knowledge (verified by the caller). */
   guessBoards?(employer: string, ctx: Ctx): Promise<AiOutcome<BoardLink[]>>;
-  /** Phase 11: candidate boards from a web search limited to the hiring systems' hosts. */
-  searchBoards?(employer: string, role: string | null, ctx: Ctx): Promise<AiOutcome<BoardLink[]>>;
+  /** Phase 11: candidate boards from a web search limited to hiring-system hosts, plus results on systems we can't read. */
+  searchBoards?(employer: string, role: string | null, ctx: Ctx): Promise<AiOutcome<BoardSearch>>;
+  /** The same search on the systems we can't read only, for an employer whose board search is cached. */
+  searchSystems?(employer: string, role: string | null, ctx: Ctx): Promise<AiOutcome<SearchHit[]>>;
   /** Phase 11: search results for a title on a directory company's own careers hosts. */
   presence?(title: string, hosts: string[], ctx: Ctx): Promise<AiOutcome<SearchHit[]>>;
   /** Phase 11: one job page on an allowlisted careers host, read by Anthropic's fetch tool. */
@@ -39,6 +41,7 @@ export const offTransport: AiTransport = {
   extractMessage: off,
   guessBoards: off,
   searchBoards: off,
+  searchSystems: off,
   presence: off,
   readPage: off,
 };
@@ -69,7 +72,8 @@ export function replayTransport(env: Env = process.env): AiTransport {
     extract: (text) => replay("extract", PROMPT_VERSION, modelFor("extract", env), text, PostingExtract, cleanExtract),
     extractMessage: (text) => replay("extract_message", PROMPT_VERSION, modelFor("extract", env), text, MessageExtract, (v) => v),
     guessBoards: (employer) => replay("guess", LOCATE_PROMPT_VERSION, guess, employer, BoardGuesses, validGuesses),
-    searchBoards: (employer, role) => replay("search", LOCATE_PROMPT_VERSION, locate, `${employer}\n${role ?? ""}`, Hits, (v) => boardsFromHits(v.hits)),
+    searchBoards: (employer, role) => replay("search", LOCATE_PROMPT_VERSION, locate, `${employer}\n${role ?? ""}`, Hits, (v) => boardSearch(v.hits)),
+    searchSystems: (employer, role) => replay("systems", LOCATE_PROMPT_VERSION, locate, `${employer}\n${role ?? ""}`, Hits, (v) => otherHits(v.hits)),
     presence: (title, hosts) => replay("presence", LOCATE_PROMPT_VERSION, locate, `${title}\n${hosts.join(",")}`, Hits, (v) => v.hits),
     readPage: (url) => replay("page", LOCATE_PROMPT_VERSION, locate, url, Page, (v) => v),
   };
@@ -126,7 +130,11 @@ export function liveTransport(env: Env = process.env, db = getDb()): AiTransport
       metered({ userId, step: "guess", kind: "guess", tool: false }, (m) => guessCall(employer, m, signal), (r) => value(validGuesses(okValue<BoardGuesses>(r)))),
     searchBoards: (employer, role, { userId, signal }) =>
       metered({ userId, step: "locate", kind: "search", tool: true }, (m) => searchCall(employer, role, m, signal), (r: ToolCallResult) =>
-        searchFailed(r.content) ? { ok: false as const, reason: "error" as const } : value(boardsFromHits(searchHits(r.content))),
+        searchFailed(r.content) ? { ok: false as const, reason: "error" as const } : value(boardSearch(searchHits(r.content))),
+      ),
+    searchSystems: (employer, role, { userId, signal }) =>
+      metered({ userId, step: "locate", kind: "search", tool: true }, (m) => searchCall(employer, role, m, signal, undefined, OTHER_SYSTEM_DOMAINS), (r: ToolCallResult) =>
+        searchFailed(r.content) ? { ok: false as const, reason: "error" as const } : value(otherHits(searchHits(r.content))),
       ),
     presence: (title, hosts, { userId, signal }) =>
       metered({ userId, step: "locate", kind: "presence", tool: true }, (m) => presenceCall(title, hosts, m, signal), (r: ToolCallResult) =>

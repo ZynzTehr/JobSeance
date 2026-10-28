@@ -99,7 +99,12 @@ export const GATHERED_SIGNALS: Record<string, { name: string; when: string }> = 
     name: "Job board found for a company we don't list",
     when: "We asked the job boards we read whether this company has a board, then asked Claude for likely boards, then ran one web search limited to those job-board sites. A board counts as found only when its own company name matches. Anyone can open a board under any name, so it is never counted, and it is named but never linked, until an admin adds the company to our directory. An admin can also dismiss a board that isn't the employer's.",
   },
-  "A-LISTING": { name: "Listing on that board", when: "The found board lists this title, with its own date and link. Shown, never counted, for the same reason." },
+  "A-LISTING": { name: "Listing on that board", when: "The found board (or the search of a hiring system we can't read) lists this title, with its own date. Shown, never counted, for the same reason." },
+  "A-SYSTEM": {
+    name: "Hiring system we can't read",
+    when: "When no board we read confirms a listing for the role (no board found, or one that doesn't list it), the web search also looks on common hiring systems we can't read yet (iCIMS, Taleo, UKG, ADP, Oracle, SuccessFactors and others). If results there name the company, we say which system it uses and look for the title in those results. The system and account come from the search results' own links. Anyone can open an account under any name, so it is named, never linked or counted.",
+  },
+  "A-TITLE": { name: "No job title in the text", when: "Claude found no job title in what you pasted (LinkedIn's \"About the job\" section leaves it out), so nothing could be matched. Claude doesn't guess one: add the title and check again." },
   "A-PRESENCE": {
     name: "Search of the company's careers site",
     when: "For a company we list that doesn't use a board we read, a web search limited to its careers site (allowlisted by an admin) looks for the title. A search result doesn't show that a job is open, so it's never counted.",
@@ -121,7 +126,7 @@ export const AI_RULES = [
   "Email domains in the text are found with a fixed pattern, not by Claude. On pasted postings, a domain's age, look-alike check and company mismatch are shown for information and not counted yet.",
   "On the Recruiter message tab, Claude reads the message only if you tick the box, and only to suggest the company it claims and the address to check. Nothing it suggests counts until you use it to check again.",
   "Before anything is sent, our server masks email addresses, phone and ID numbers and links. Names are not masked. Email headers are never sent.",
-  "For a company we don't list, Claude may suggest where it posts jobs and Anthropic's web search may look on public job-board sites (Sonnet 5.5, at most 3 searches). Every suggestion is checked on the job board itself, and nothing found this way is counted.",
+  "For a company we don't list, Claude may suggest where it posts jobs and Anthropic's web search may look on public job-board and hiring-system sites (Sonnet 5.5, at most 3 searches). Every suggested board is checked on the job board itself; a hiring system we can't read is only named. Nothing found this way is counted.",
   "For a company we list that doesn't use a board we read, a web search can look for the title on its own careers site, and Anthropic's fetch tool can read a job link you paste there. Only sites an admin allowlisted are searched or read, and nothing from them is counted yet.",
   "We're measuring whether Claude can spot reworded warning signs our phrase lists miss. In that test it only marks sentence numbers, and nothing it marks is shown or counted.",
   "If the AI step is off, over our daily limit, too slow or declines, the result says so and the step scores 0, like any failed lookup.",

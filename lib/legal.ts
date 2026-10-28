@@ -2,8 +2,8 @@
 // constants only: imported by server components, so no hooks here.
 // Retention numbers must match lib/cleanup.ts (RETENTION) and lib/lookups/*.
 
-export const EFFECTIVE_DATE = "October 27, 2026";
-export const EFFECTIVE_DATE_ISO = "2026-10-27";
+export const EFFECTIVE_DATE = "October 28, 2026";
+export const EFFECTIVE_DATE_ISO = "2026-10-28";
 
 export const SITE_NAME = "JobSeance";
 export const SITE_URL = "https://job-seance.vercel.app";
@@ -25,6 +25,9 @@ export const RETENTION_DAYS = {
   discoveryNotFound: 7, // BoardDiscovery rows after a search found nothing (NOT_FOUND_DAYS)
   aiShadow: 30, // AiShadow rows (lib/cleanup.ts shadowDays): rule ids, sentence numbers, scores
 } as const;
+
+/** Web-search answers (presence checks, hiring-system searches) kept in server memory only (lib/checks/run.ts). */
+export const SEARCH_MEMORY_HOURS = 6;
 
 /** Job-board postings are refreshed at most once an hour (lib/lookups/postings.ts POSTINGS_TTL_MS). */
 export const POSTINGS_REFRESH_HOURS = 1;
@@ -77,7 +80,7 @@ export const PROCESSORS: Processor[] = [
     name: "Anthropic (Claude API)",
     role: "AI model that reads a pasted job posting (company, role, location) or, if you opt in, a recruiter message (company it claims, contact domain, what it asks); suggests and searches for the job board of a company we don't list; searches or reads a job page on a careers site we allowlisted. It never computes a score.",
     receives:
-      "On the Pasted posting tab when you don't type the company and role yourself, and on the Recruiter message tab only if you tick \"Let Claude read this message\": the text you pasted, after our server masks email addresses, phone numbers, SSN-like and other long numbers, and links. Names in the text are not masked. For a company we don't list: only the company name and role title, searched on public job-board sites (Anthropic's web search). For a company we list whose careers site we allowlisted: the role title, searched on that site, or a job link you paste on that site, without tracking parameters (a job id in the link is kept), so Anthropic's fetch tool can read the page. Never your IP address, your account, the link you copied a posting from, or the email headers you paste. Anthropic states that it does not use API data to train its models.",
+      "On the Pasted posting tab when you don't type the company and role yourself, and on the Recruiter message tab only if you tick \"Let Claude read this message\": the text you pasted, after our server masks email addresses, phone numbers, SSN-like and other long numbers, and links. Names in the text are not masked. For a company we don't list: only the company name and role title, searched on public job-board and hiring-system sites (Anthropic's web search). For a company we list whose careers site we allowlisted: the role title, searched on that site, or a job link you paste on that site, without tracking parameters (a job id in the link is kept), so Anthropic's fetch tool can read the page. Never your IP address, your account, the link you copied a posting from, or the email headers you paste. Anthropic states that it does not use API data to train its models.",
     when: "Only for those checks, while AI is on and under its daily limits (at most 5 web-search or page-read calls per account per day; a search call runs at most 3 searches)",
   },
   {

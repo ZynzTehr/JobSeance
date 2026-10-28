@@ -1,4 +1,4 @@
-import { safeQuery } from "@/lib/ai/locate";
+import { safeQuery, type SearchHit } from "@/lib/ai/locate";
 import type { AiTransport } from "@/lib/ai/transport";
 import type { AiFailureReason } from "@/lib/ai/types";
 import { boardExists } from "@/lib/lookups/boards";
@@ -9,7 +9,8 @@ import type { BoardLink } from "@/lib/lookups/job-url";
 // 1. A saved answer (found: 30 days, not found: 7 days).
 // 2. Free probes of likely identifiers on the systems we read.
 // 3. Claude's guesses (cheap, no tools), each probed.
-// 4. One web search limited to the systems' hosts, its result links probed.
+// 4. One web search limited to the systems' hosts, its result links probed. The same search
+//    covers hiring systems we can't read, so the result can at least name the one in use.
 // A board counts as the employer's only when the system's own company name matches the
 // name searched for. Boards that exist but state no name (Lever, Ashby, Workday) are shown
 // as unconfirmed and never counted. AI never writes the directory.
@@ -27,6 +28,38 @@ const fold = (s: string) =>
 export function sameCompany(a: string, b: string): boolean {
   const x = fold(a).replace(/[^a-z0-9]/g, "");
   return x.length >= 2 && x === fold(b).replace(/[^a-z0-9]/g, "");
+}
+
+/** "Reyes Family of Businesses", "Acme Group of Companies": the brand phrase around the name. */
+const BRAND_FAMILY = /\s+(family|group) of (businesses|companies|brands)$/;
+/** Words that may follow a company's name and still mean that company ("Acme Holdings", "Acme, L.L.C."). */
+const CORP_WORD = new Set(["holdings", "holding", "inc", "incorporated", "llc", "l", "c", "ltd", "limited", "group", "corp", "corporation", "company", "co", "careers", "jobs", "job", "us", "usa", "hq", "global", "family"]);
+const CORP_TAIL = /^(holdings?|inc|llc|ltd|group|corp|co|careers|jobs|us|usa|hq|global)*$/;
+
+/**
+ * Whether a hiring-system account or a search result's title names this employer:
+ * "careers-reyesholdings" or "Developer | Reyes Holdings, L.L.C" for "Reyes Holdings".
+ * The name must be followed by nothing or a corporate word, so "Reyes TX Inc" isn't "Reyes".
+ * It only decides what a 0-point fact may mention; it never counts anything.
+ */
+export function mentionsEmployer(account: string | null, title: string, employer: string): boolean {
+  const words = fold(employer).replace(BRAND_FAMILY, "").replace(/[^a-z0-9]+/g, " ").trim().split(" ").filter(Boolean);
+  const compact = words.join("");
+  if (compact.length < 3) return false;
+  const acc = account ? fold(account).replace(/[^a-z0-9]/g, "") : "";
+  if (acc) {
+    // The whole name plus corporate words, or the name's leading words ("reyes" for Reyes Holdings).
+    if (acc.startsWith(compact) && CORP_TAIL.test(acc.slice(compact.length))) return true;
+    if (acc.length >= 4 && words.some((_, i) => words.slice(0, i + 1).join("") === acc)) return true;
+  }
+  const tokens = fold(title).replace(/[^a-z0-9]+/g, " ").trim().split(" ");
+  for (let i = 0; i + words.length <= tokens.length; i++) {
+    if (words.every((w, j) => tokens[i + j] === w)) {
+      const next = tokens[i + words.length];
+      if (next === undefined || CORP_WORD.has(next)) return true;
+    }
+  }
+  return false;
 }
 
 export const discoveryKey = (name: string) =>
@@ -115,6 +148,8 @@ export type Discovery = {
   ai: { used: boolean; model: string | null; mode: "live" | "replay" | null };
   /** Why an AI step didn't run or failed, when that left the search incomplete. */
   aiFailure: AiFailureReason | null;
+  /** Results on hiring systems we can't read, from the same search; null when no search ran (e.g. a cached answer). */
+  others: SearchHit[] | null;
 };
 
 const FOUND_DAYS = 30;
@@ -127,7 +162,7 @@ const days = (now: Date, n: number) => new Date(now.getTime() + n * 86_400_000);
 const linkKey = (l: BoardLink) => `${l.ats}:${l.board.toLowerCase()}:${l.host ?? ""}`;
 
 export async function discoverBoard(employerInput: string, role: string | null, deps: DiscoveryDeps): Promise<Discovery> {
-  const result: Discovery = { found: null, unconfirmed: [], ai: { used: false, model: null, mode: null }, aiFailure: null };
+  const result: Discovery = { found: null, unconfirmed: [], ai: { used: false, model: null, mode: null }, aiFailure: null, others: null };
   const employer = safeQuery(employerInput, 60);
   const key = employer ? discoveryKey(employer) : "";
   if (!employer || key.length < 2) return result;
@@ -175,7 +210,8 @@ export async function discoverBoard(employerInput: string, role: string | null, 
       noteAi(out);
       if (out.ok) {
         searched = true;
-        result.found = await check(out.value, "search");
+        result.others = out.value.others;
+        result.found = await check(out.value.boards, "search");
       }
     }
   }

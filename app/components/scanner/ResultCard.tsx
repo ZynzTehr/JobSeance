@@ -128,6 +128,8 @@ export default function ResultCard({ result, message, signedIn, onConfirm, onUse
   const [reported, setReported] = useState(false);
   const [busy, setBusy] = useState<"save" | "report" | null>(null);
   const [status, setStatus] = useState({ text: "", error: false });
+  // The title the user adds when Claude found none (LinkedIn's "About the job" section leaves it out).
+  const [addedTitle, setAddedTitle] = useState("");
 
   const ghostSummary = isMessage
     ? "Not checked: a pasted message has no job-board listing to look up."
@@ -234,6 +236,33 @@ export default function ResultCard({ result, message, signedIn, onConfirm, onUse
                 That&rsquo;s right, check it with these
               </button>
             </div>
+          )}
+          {onConfirm && result.reading.company && !result.reading.title && (
+            <form
+              className="flex flex-col gap-2 sm:flex-row sm:items-end"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (addedTitle.trim()) onConfirm({ company: result.reading!.company!, title: addedTitle.trim() });
+              }}
+            >
+              <div className="flex-1">
+                <label htmlFor="result-add-title" className={ui.label}>
+                  Job title
+                </label>
+                <input
+                  id="result-add-title"
+                  className={`${ui.input} mt-2 w-full px-4 py-2.5`}
+                  maxLength={200}
+                  required
+                  placeholder="On LinkedIn, it's above “About the job”"
+                  value={addedTitle}
+                  onChange={(e) => setAddedTitle(e.target.value)}
+                />
+              </div>
+              <button type="submit" className={`${ui.secondary} px-5 py-2.5`}>
+                Check again with this title
+              </button>
+            </form>
           )}
         </section>
       )}

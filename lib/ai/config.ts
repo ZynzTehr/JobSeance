@@ -3,7 +3,7 @@
 
 export const PROMPT_VERSION = "2026-10-27.1";
 /** Prompts for finding boards, presence checks and page reads (phase 11). */
-export const LOCATE_PROMPT_VERSION = "2026-10-27.1";
+export const LOCATE_PROMPT_VERSION = "2026-10-28.1";
 /** Prompt for the shadow-mode warning-sign cues (phase 13). */
 export const CUES_PROMPT_VERSION = "2026-10-27.1";
 

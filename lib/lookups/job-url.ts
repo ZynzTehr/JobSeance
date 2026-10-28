@@ -152,6 +152,13 @@ const OTHER_ATS: [RegExp, string][] = [
   [/(^|\.)breezy\.hr$/, "Breezy"],
   [/(^|\.)applytojob\.com$/, "JazzHR"],
   [/(^|\.)teamtailor\.com$/, "Teamtailor"],
+  [/(^|\.)ultipro\.com$/, "UKG Pro"],
+  [/^(workforcenow|myjobs|recruiting)\.adp\.com$/, "ADP"],
+  [/\.fa\.[a-z0-9-]+\.oraclecloud\.com$/, "Oracle Recruiting"],
+  [/^recruiting\.paylocity\.com$/, "Paylocity"],
+  [/^jobs\.dayforcehcm\.com$/, "Dayforce"],
+  [/(^|\.)paycomonline\.net$/, "Paycom"],
+  [/\.jobs\.personio\.(de|com)$/, "Personio"],
 ];
 
 export type HostClass = { kind: "ats" | "job_site" | "other_ats" | "unknown"; name: string | null };
@@ -309,6 +316,81 @@ export const BOARD_SEARCH_DOMAINS = [
   "recruitee.com",
   "myworkdayjobs.com",
 ] as const;
+
+/** Hosts of the hiring systems in OTHER_ATS, for the same search: we can name them, not read them. */
+export const OTHER_SYSTEM_DOMAINS = [
+  "icims.com",
+  "taleo.net",
+  "jobvite.com",
+  "bamboohr.com",
+  "successfactors.com",
+  "successfactors.eu",
+  "rippling.com",
+  "breezy.hr",
+  "applytojob.com",
+  "teamtailor.com",
+  "ultipro.com",
+  "adp.com",
+  "oraclecloud.com",
+  "paylocity.com",
+  "dayforcehcm.com",
+  "paycomonline.net",
+  "personio.de",
+  "personio.com",
+] as const;
+
+/** Host labels and path parts that name the system or a page, not the employer's account. */
+const GENERIC_ACCOUNT = /^(www|jobs?|careers?|recruiting\d*|ats|apply|workforcenow|myjobs|portal|en|en-us|us|job|search|candidate)$/;
+
+/**
+ * A hiring system we can't read, and the employer's account on it as the link spells it
+ * (careers-acme.icims.com → iCIMS, "acme"). Null for other hosts. Read from the URL text only.
+ */
+export function otherSystemOf(raw: string): { name: string; account: string | null } | null {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    return null;
+  }
+  if (u.protocol !== "https:" && u.protocol !== "http:") return null;
+  const host = u.hostname.toLowerCase().replace(/\.$/, "");
+  const name = OTHER_ATS.find(([re]) => re.test(host))?.[1];
+  if (!name) return null;
+  const label = host.split(".")[0].replace(/^[a-z]*careers?-|^jobs-/, "");
+  const segments = u.pathname.split("/").filter(Boolean);
+  let account: string | null;
+  switch (name) {
+    case "Jobvite":
+    case "Rippling":
+      account = segments[0] ?? null;
+      break;
+    case "Dayforce":
+      account = segments[1] ?? null; // /en-US/acme/...
+      break;
+    case "Paylocity":
+      account = segments[4] ?? null; // /recruiting/jobs/All/{id}/{Company-Name}
+      break;
+    case "SuccessFactors":
+      account = u.searchParams.get("company");
+      break;
+    case "UKG Pro":
+    case "ADP":
+    case "Oracle Recruiting":
+    case "Paycom":
+      account = null; // opaque codes, not names
+      break;
+    default:
+      account = label;
+  }
+  let clean = "";
+  try {
+    clean = account ? decodeURIComponent(account).trim().slice(0, 60) : "";
+  } catch {
+    // A malformed escape: no account rather than a garbled one.
+  }
+  return { name, account: clean && /^[\p{L}\p{N} ._-]+$/u.test(clean) && !GENERIC_ACCOUNT.test(clean.toLowerCase()) ? clean : null };
+}
 
 /**
  * A Workday ref with the job's own path taken from a job link the system itself returned, so a

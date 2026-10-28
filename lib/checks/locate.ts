@@ -4,8 +4,8 @@ import type { SearchHit } from "@/lib/ai/locate";
 import { AI_REASON_TEXT, type AiOutcome } from "@/lib/ai/types";
 import { matchRoleOnBoard } from "@/lib/checks/title-match";
 import type { BoardJob, BoardRef } from "@/lib/lookups/boards";
-import type { Discovery, DiscoveryMethod } from "@/lib/lookups/discovery";
-import { classifyHost, SEARCH_ATS, type BoardLink } from "@/lib/lookups/job-url";
+import { mentionsEmployer, type Discovery, type DiscoveryMethod } from "@/lib/lookups/discovery";
+import { classifyHost, otherSystemOf, SEARCH_ATS, type BoardLink } from "@/lib/lookups/job-url";
 import type { Signal } from "@/lib/scoring/ghost";
 import { ATS_LABEL } from "@/lib/ui";
 
@@ -114,6 +114,66 @@ export async function locateRows(d: Discovery, role: string | null, typed: boole
           ? `; the AI-assisted search didn't finish: ${AI_REASON_TEXT[d.aiFailure]}`
           : "";
     row("A-LOCATE", `We couldn't find this company's job board on the systems we read${why}`, METHOD_SOURCE.probe, "couldnt_verify");
+  }
+  return rows;
+}
+
+/**
+ * Rows for an employer outside the directory whose jobs are on a hiring system we can't read
+ * (iCIMS, Taleo, UKG and so on). The system and account come from the search engine's result
+ * links, the listing title from its result titles; nothing is linked or counted, since an
+ * account on a hiring system can be opened under any company's name. `employer` only decides
+ * which results are about this company and never appears in a fact.
+ */
+/** " in Chicago, IL" before a separator or the end of a result title. */
+const IN_PLACE = /\s+in\s+[^|,–—·•]{2,40},\s*[A-Z]{2}\b[^|–—·•]*?(?=\s+[-|–—·•]\s+|$)/;
+
+export function systemRows(
+  out: AiOutcome<SearchHit[]>,
+  employer: string,
+  role: string | null,
+  typed: boolean,
+  deps: Pick<LocateDeps, "now" | "pickByTitle">,
+): Signal[] {
+  if (!out.ok && out.reason === "off") return [];
+  const at = deps.now.toISOString();
+  const source = "Anthropic web search via Claude, limited to hiring-system sites";
+  const rows: Signal[] = [];
+  const row = (id: string, fact: string, status: Signal["status"] = "found") =>
+    rows.push({ id, points: 0, status, fact, source, checkedAt: at, ...(status === "found" ? { kind: "info" as const } : {}) });
+
+  if (!out.ok) {
+    row("A-SYSTEM", `Couldn't search other hiring systems for this company: ${AI_REASON_TEXT[out.reason]}`, "couldnt_verify");
+    return rows;
+  }
+  const ours = out.value.flatMap((h) => {
+    const sys = otherSystemOf(h.url);
+    return sys && mentionsEmployer(sys.account, h.title, employer) ? [{ ...h, sys }] : [];
+  });
+  if (!ours.length) {
+    row("A-SYSTEM", "This company's jobs didn't turn up on other common hiring systems either (iCIMS, Taleo, UKG, ADP and others). Not conclusive", "couldnt_verify");
+    return rows;
+  }
+  // The system with the most results about this employer.
+  const counts = new Map<string, number>();
+  for (const h of ours) counts.set(h.sys.name, (counts.get(h.sys.name) ?? 0) + 1);
+  const name = [...counts].sort((a, b) => b[1] - a[1])[0][0];
+  const onIt = ours.filter((h) => h.sys.name === name);
+  const account = onIt.find((h) => h.sys.account)?.sys.account;
+  row(
+    "A-SYSTEM",
+    `This company's jobs appear on ${name}${account ? ` (account "${account}")` : ""}, a hiring system we can't read yet, so we can't check whether a job there is still open. We can't confirm the account is the employer's own: apply through the employer's own website`,
+  );
+  if (role) {
+    // Hiring-system result titles often name the place: "Developer in Chicago, IL | Careers at Acme".
+    const titled = onIt.map((h) => ({ ...h, title: h.title.replace(IN_PLACE, ""), shown: h.title }));
+    const match = typed ? deps.pickByTitle(titled, role) : matchRoleOnBoard(titled, role).exact;
+    if (match) {
+      const dated = match.pageAge ? ` (search result dated ${match.pageAge.slice(0, 40)})` : "";
+      row("A-LISTING", `A listing titled "${match.shown.slice(0, 160)}" appears in a search of ${name}${dated}. A search result isn't proof the job is open, so nothing counted`);
+    } else {
+      row("A-LISTING", `No listing with this title turned up in a search of ${name} (not conclusive)`, "couldnt_verify");
+    }
   }
   return rows;
 }

@@ -11,7 +11,7 @@ import { DISCOVERY_PER_HOUR, locator, pageInfoOnly } from "@/lib/checks/run";
 import { offTransport } from "@/lib/ai/transport";
 import { adapterJob, amazonDate, workdayRequisition } from "@/lib/lookups/adapters";
 import { normalizeBoard } from "@/lib/lookups/boards";
-import { BOARD_SEARCH_DOMAINS, parseJobUrl, withJobPath } from "@/lib/lookups/job-url";
+import { BOARD_SEARCH_DOMAINS, OTHER_SYSTEM_DOMAINS, parseJobUrl, withJobPath } from "@/lib/lookups/job-url";
 import { PARTIAL_STALE_DAYS, syncBoard } from "@/lib/lookups/postings";
 import { rateLimit } from "@/lib/http";
 import { companyCreate } from "@/lib/schemas";
@@ -121,10 +121,18 @@ describe("web tool requests stay inside their allowlists", () => {
     expect(tools(create)).toEqual([expect.objectContaining({ type: "web_search_20260209", allowed_domains: ["jobs.apple.com"], max_uses: 2 })]);
   });
 
-  it("board searches look on job-board sites only, at most three times", async () => {
+  it("board searches look on hiring-system sites only, at most three times", async () => {
     const { anthropic, create } = client();
     await searchCall("Acme", null, "claude-sonnet-5-5", undefined, anthropic);
-    expect(tools(create)).toEqual([expect.objectContaining({ type: "web_search_20260209", allowed_domains: [...BOARD_SEARCH_DOMAINS], max_uses: 3 })]);
+    expect(tools(create)).toEqual([
+      expect.objectContaining({ type: "web_search_20260209", allowed_domains: [...BOARD_SEARCH_DOMAINS, ...OTHER_SYSTEM_DOMAINS], max_uses: 3 }),
+    ]);
+  });
+
+  it("the other-systems search is narrowed to those systems' sites", async () => {
+    const { anthropic, create } = client();
+    await searchCall("Acme", null, "claude-sonnet-5-5", undefined, anthropic, OTHER_SYSTEM_DOMAINS);
+    expect(tools(create)).toEqual([expect.objectContaining({ allowed_domains: [...OTHER_SYSTEM_DOMAINS], max_uses: 3 })]);
   });
 });
 
