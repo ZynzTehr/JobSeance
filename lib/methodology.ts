@@ -128,9 +128,13 @@ export const AI_RULES = [
   "Before anything is sent, our server masks email addresses, phone and ID numbers and links. Names are not masked. Email headers are never sent.",
   "For a company we don't list, Claude may suggest where it posts jobs and Anthropic's web search may look on public job-board and hiring-system sites (Sonnet 5.5, at most 3 searches). Every suggested board is checked on the job board itself; a hiring system we can't read is only named. Nothing found this way is counted.",
   "For a company we list that doesn't use a board we read, a web search can look for the title on its own careers site, and Anthropic's fetch tool can read a job link you paste there. Only sites an admin allowlisted are searched or read, and nothing from them is counted yet.",
-  "We're measuring whether Claude can spot reworded warning signs our phrase lists miss. In that test it only marks sentence numbers, and nothing it marks is shown or counted.",
+  "We measured whether Claude can spot reworded warning signs our phrase lists miss. In two runs on 108 hand-written sentences (October 28, 2026) it found 57–69% of the reworded ones with 95–98% precision, against 6% for the phrase rules, and flagged nothing in 63 real postings. It only marks sentence numbers, and nothing it marks is shown or counted yet.",
   "If the AI step is off, over our daily limit, too slow or declines, the result says so and the step scores 0, like any failed lookup.",
 ] as const;
+
+/** Shown under the scam signals: how the phrase rules treat an employer's own anti-fraud notice. */
+export const PHRASE_RULES_NOTE =
+  "A phrase inside an employer's own anti-fraud notice doesn't count: \"we never ask for your Social Security number\", \"if anyone asks you to deposit a check, it isn't us\". A turn back to instructions ends the notice, so \"we don't require an interview, just send your SSN\" still fires. Every match is quoted so you can judge it.";
 
 export const BAND_RANGES = [
   { band: "LOW", range: `0–${BANDS.cautionFrom - 1}` },

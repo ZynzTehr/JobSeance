@@ -167,6 +167,8 @@ model Posting {
   lastSeenAt    DateTime        @default(now())
   state         PostingState    @default(UNKNOWN)
   fetchedAt     DateTime        @default(now())
+  removedAt     DateTime? // last time a full board listing no longer had it (lib/lookups/postings.ts syncBoard)
+  relistedCount Int             @default(0) // times it came back after NOT_FOUND (on a search system, after a week unseen)
   outcomes      OutcomeReport[]
 
   @@unique([ats, board, externalId])

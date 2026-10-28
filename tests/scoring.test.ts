@@ -209,6 +209,52 @@ describe("scam rules: sender domains", () => {
   });
 });
 
+describe("anti-fraud notices (scoring 2026-10-28.2)", () => {
+  type Labelled = { id: string; kind: string; text: string; labels: string[] };
+  const honest = readFileSync("fixtures/eval/cues-labelled.jsonl", "utf8")
+    .trim()
+    .split("\n")
+    .map((l) => JSON.parse(l) as Labelled)
+    .filter((r) => !r.labels.length);
+  const fired = (text: string) => [
+    ...scam({ text }).signals.filter((s) => s.points > 0).map((s) => s.id),
+    ...scoreGhost({ board: live, postedAt: daysAgo(10), description: text, community: [], now }).signals.filter((s) => s.points > 0).map((s) => s.id),
+  ];
+
+  it("no phrase rule fires on the honest sentences in the labelled set", () => {
+    expect(honest.filter((r) => r.kind === "notice").length).toBeGreaterThanOrEqual(21);
+    expect(honest.flatMap((r) => fired(r.text).map((id) => `${r.id}: ${id}`))).toEqual([]);
+  });
+
+  it.each([
+    "If anyone asks you to deposit a check and send money back, it isn't us; report it.",
+    "We don't conduct interviews over WhatsApp or Telegram; all interviews happen by video with our team.",
+    "We will never contact you on WhatsApp or Telegram about a job.",
+    "Do not share bank details with anyone before you have a signed offer letter.",
+    "Do not share your personal bank details with a recruiter you haven't verified.",
+    "Scammers who ask for your Social Security number are not from us.",
+    "Nobody at our company will ask for your bank account number before you start.",
+    "We never pay in gift cards or Bitcoin, and we have never paid anyone in USDT.",
+    "We never hold applications in a talent pool without telling you which role you applied for.",
+  ])("an honest notice doesn't fire: %s", (text) => {
+    expect(fired(text)).toEqual([]);
+  });
+
+  it.each([
+    ["S-PAY-TO-WORK", "We cannot process your application until you pay the registration fee."],
+    ["S-PAY-TO-WORK", "We won't hold your spot unless the training fee is paid today."],
+    ["S-PAYMENT-METHOD", "If anyone asks why, purchase the gift cards for your boss."],
+    ["S-CHAT-ONLY", "We don't conduct interviews, just add me on WhatsApp to get started."],
+    ["S-PII-EARLY", "We never ask for payment, only your bank account number for direct deposit."],
+    ["S-PII-EARLY", "Don't share this with anyone and send your bank account number to HR."],
+    ["S-PII-EARLY", "Don't hesitate, send your social security number right away."],
+    ["S-FAKE-CHECK", "Do not hesitate to deposit the check and send the remaining funds to our vendor."],
+    ["G-EVERGREEN", "We never ask for fees. Join our talent pool today!"],
+  ])("%s still fires once the notice ends: %s", (id, text) => {
+    expect(fired(text)).toContain(id);
+  });
+});
+
 describe("scam rules: phrases", () => {
   it.each([
     ["S-TASK-SCAM", "Complete 40 app optimization tasks a day and earn commission per task."],

@@ -147,7 +147,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs typecheck, lint and unit tests 
 | Preview (one per pull request) | Vercel preview URL | `dev` | Username + password only |
 | Production | https://job-seance.vercel.app | `main` | Username + password; Google and GitHub once their client IDs are set |
 
-Set each variable per environment in Vercel. On previews, leave `APP_URL` unset; the app falls back to `https://$VERCEL_URL`. Same-origin checks also trust Vercel's `VERCEL_PROJECT_PRODUCTION_URL`, so production accepts its own domain even if `APP_URL` is unset. Set `CRON_SECRET` in Production so the daily cleanup can run. Set `ANTHROPIC_API_KEY` in Preview and Production to turn AI reading on; without it the Pasted posting tab still works and shows "couldn't verify" for the AI step.
+Set each variable per environment in Vercel. On previews, leave `APP_URL` unset; the app falls back to `https://$VERCEL_URL`. Same-origin checks also trust Vercel's `VERCEL_PROJECT_PRODUCTION_URL`, so production accepts its own domain even if `APP_URL` is unset. Set `CRON_SECRET` in Production so the daily cleanup and board sweep can run. Set `ANTHROPIC_API_KEY` in Preview and Production to turn AI reading on; without it the Pasted posting tab still works and shows "couldn't verify" for the AI step.
 
 ## Postman
 
