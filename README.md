@@ -50,6 +50,7 @@ Built with Next.js 16.4 (App Router), Prisma 7.10, Neon Postgres, Passport.js an
 | `npm run build` | Build for production |
 | `npm test` | Run the unit tests (Vitest); they never call the network or the database |
 | `npm run lint` | Run ESLint |
+| `npm run test:e2e` | Run the Playwright end-to-end tests (see below) |
 
 ## AI reading (Pasted posting tab)
 
@@ -127,6 +128,16 @@ Our phrase rules catch exact wording ("training fee"); scammers reword it ("cove
 
   It writes `docs/eval/cues-shadow-report.md`. Showing cues as "AI noticed (not counted)" needs at least 90% precision and at most 2 extra hits per 1,000 real postings. Counting points needs 97% precision and a scoring-version change.
 - On the labelled set, today's phrase rules catch 4 of the 72 reworded signs. They also fire on 4 of the anti-fraud notices, for example "We don't conduct interviews over WhatsApp".
+
+## End-to-end tests and CI
+
+`npm run test:e2e` builds the app, serves it on port 3100 with recorded job boards and AI answers (`USE_FIXTURES=1`), and runs 13 browser tests in Chromium. They cover sign-up, login, signed-out redirects, the four kinds of check, saved checks, the dashboard, scam reports, Report a problem, account deletion and the admin page.
+
+- They use the dev database from `.env`; never point them at production. Each run signs up throwaway accounts and deletes them again.
+- The admin test runs only when `ADMIN_USER_PASSWORD` is set.
+- First run on a machine: `npx playwright install chromium`.
+
+GitHub Actions (`.github/workflows/ci.yml`) runs typecheck, lint and unit tests on every pull request. It needs no secrets. It doesn't build or run the end-to-end tests, so run `npm run build` and `npm run test:e2e` before merging.
 
 ## Environments
 
