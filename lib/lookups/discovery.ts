@@ -31,9 +31,9 @@ export function sameCompany(a: string, b: string): boolean {
 }
 
 /** "Reyes Family of Businesses", "Acme Group of Companies": the brand phrase around the name. */
-const BRAND_FAMILY = /\s+(family|group) of (businesses|companies|brands)$/;
+const BRAND_FAMILY = /\s+((family|group) of (businesses|companies|brands)|companies|enterprises)$/;
 /** Words that may follow a company's name and still mean that company ("Acme Holdings", "Acme, L.L.C."). */
-const CORP_WORD = new Set(["holdings", "holding", "inc", "incorporated", "llc", "l", "c", "ltd", "limited", "group", "corp", "corporation", "company", "co", "careers", "jobs", "job", "us", "usa", "hq", "global", "family"]);
+const CORP_WORD = new Set(["holdings", "holding", "inc", "incorporated", "llc", "l", "c", "ltd", "limited", "group", "corp", "corporation", "company", "co", "careers", "jobs", "job", "us", "usa", "hq", "global", "family", "companies", "enterprises"]);
 const CORP_TAIL = /^(holdings?|inc|llc|ltd|group|corp|co|careers|jobs|us|usa|hq|global)*$/;
 
 /**

@@ -35,6 +35,8 @@ describe("otherSystemOf", () => {
     ["https://workforcenow.adp.com/mascsr/default/mdf/recruitment/recruitment.html?cid=x", "ADP", null],
     ["https://ehxx.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX/job/1", "Oracle Recruiting", null],
     ["https://careers.icims.com/jobs", "iCIMS", null],
+    ["https://easyapply-sheetz.icims.com/jobs/1/x/job", "iCIMS", "sheetz"],
+    ["https://internal-reyesholdings.icims.com/jobs/1/x/job", "iCIMS", "reyesholdings"],
   ])("%s → %s (%s)", (url, name, account) => {
     expect(otherSystemOf(url)).toEqual({ name, account });
   });
@@ -66,7 +68,16 @@ describe("mentionsEmployer", () => {
     expect(mentionsEmployer("martinbrower", "Driver | Martin Brower", "Reyes Family of Businesses")).toBe(false);
   });
 
+  it("\"Companies\" and \"Enterprises\" are read like Inc", () => {
+    expect(mentionsEmployer("lowes", "", "Lowe's Companies, Inc.")).toBe(true);
+    expect(mentionsEmployer(null, "Careers at Lowe's Companies", "Lowe's")).toBe(true);
+  });
+
   it("a different company that starts with the same name is not this one", () => {
+    // Seen live: Lowes Foods for Lowe's; Gallagher Manufacturing for Gallagher; Delta Dental of Iowa for Delta Dental.
+    expect(mentionsEmployer("lowesfoods", "Lowes Foods", "Lowe's Companies")).toBe(false);
+    expect(mentionsEmployer("Gallagher-Manufacturing-Inc", "Gallagher Manufacturing Inc - Warehouse Associate", "Gallagher")).toBe(false);
+    expect(mentionsEmployer("Delta-Dental-of-Iowa", "Delta Dental of Iowa - Outreach", "Delta Dental")).toBe(false);
     // Seen live: Paylocity's "Reyes-TX-Inc" for "Reyes Family of Businesses".
     expect(mentionsEmployer("Reyes-TX-Inc", "Careers | Reyes TX Inc", "Reyes Family of Businesses")).toBe(false);
     expect(mentionsEmployer("acmefoodsdallas", "", "Acme Foods")).toBe(false);

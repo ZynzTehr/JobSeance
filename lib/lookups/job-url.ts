@@ -357,7 +357,8 @@ export function otherSystemOf(raw: string): { name: string; account: string | nu
   const host = u.hostname.toLowerCase().replace(/\.$/, "");
   const name = OTHER_ATS.find(([re]) => re.test(host))?.[1];
   if (!name) return null;
-  const label = host.split(".")[0].replace(/^[a-z]*careers?-|^jobs-/, "");
+  // careers-acme, uscareers-acme, easyapply-acme, internal-acme, jobs-acme → acme
+  const label = host.split(".")[0].replace(/^[a-z]*(careers?|apply|jobs?|hire|hiring|recruiting|internal)-/, "");
   const segments = u.pathname.split("/").filter(Boolean);
   let account: string | null;
   switch (name) {
