@@ -20,6 +20,7 @@ const LIMITS = [
   "Claude can misread a company or title. That's why what it read is shown, and why a title that isn't an exact match counts only after you confirm it.",
   "A forged sender can look official. A matching domain is shown as a fact but never lowers the scam score.",
   "A scammer can copy a real job. The board check then truthfully shows the job as live, so judge the sender and what they ask for, and apply only through the employer's own site.",
+  "A live answer from a job board is reused for up to an hour, so a job removed within the last hour can still show as live.",
   "Phrase rules can miss reworded scams, and an anti-fraud notice worded in a way we don't recognize can still fire. Every match is quoted so you can judge it.",
   "We can't yet tell a reposted job from a new one. Since October 28, 2026 every listed company's board is refreshed daily and each job's removals and returns are recorded, so a repost signal can be tested before it counts.",
   "A failed lookup (timeout, unknown board, registry without RDAP) scores 0 and shows \"couldn't verify\". Missing data never counts against a posting.",

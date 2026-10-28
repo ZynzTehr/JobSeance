@@ -324,9 +324,10 @@ export default function PrivacyPage() {
               resolve them.
             </li>
             <li>
-              <strong>Cached public facts:</strong> job-board postings are refreshed at most once every{" "}
-              {POSTINGS_REFRESH_HOURS === 1 ? "hour" : `${POSTINGS_REFRESH_HOURS} hours`}, and every listed company&rsquo;s
-              board once a day, so each posting records when it was first seen, last seen, removed and relisted. A
+              <strong>Cached public facts:</strong> a job-board posting we last saw live is reused for up to{" "}
+              {POSTINGS_REFRESH_HOURS === 1 ? "an hour" : `${POSTINGS_REFRESH_HOURS} hours`} (one we last saw removed is
+              checked again each time), and every listed company&rsquo;s board is refreshed once a day, so each posting
+              records when it was first seen, last seen, removed and relisted. A
               domain&rsquo;s registration date and mail records are reused for {RETENTION_DAYS.domainCache} days before being
               looked up again. Neither contains data about you.
             </li>

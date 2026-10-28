@@ -212,7 +212,7 @@ export async function lookupPosting(
 
   const cached = db ? await db.posting.findUnique({ where: key }) : null;
   // Only a LIVE copy short-circuits. A board sync (a company page or the daily sweep) stamps
-  // fetchedAt on jobs it marks removed, so a fresh NOT_FOUND or UNKNOWN row is checked live again.
+  // fetchedAt on jobs it marks removed, so a fresh NOT_FOUND row is checked live again.
   if (cached && cached.state === "LIVE" && cached.description !== null && now.getTime() - cached.fetchedAt.getTime() < POSTINGS_TTL_MS) {
     return { found: true, posting: facts(cached, cached.id), source: "cache" };
   }
@@ -242,10 +242,17 @@ export async function lookupPosting(
     lastSeenAt: now,
     fetchedAt: now,
   };
+  // Found again after it was proven gone: a repost. One conditional update counts it and sets LIVE,
+  // so a lookup racing another lookup (or the sweep) on the same job finds no NOT_FOUND row left.
+  if (cached?.state === "NOT_FOUND") {
+    await db.posting.updateMany({
+      where: { ats: ref.ats, board: ref.board, externalId, state: "NOT_FOUND" },
+      data: { ...fields, relistedCount: { increment: 1 } },
+    });
+  }
   const row = await db.posting.upsert({
     where: key,
-    // Found again after it was proven gone: a repost.
-    update: { ...fields, ...(cached?.state === "NOT_FOUND" ? { relistedCount: { increment: 1 } } : {}) },
+    update: fields,
     create: { ...fields, companyId: company.id, ats: ref.ats, board: ref.board, externalId, firstSeenAt: now },
   });
   return { found: true, posting: facts(row, row.id), source: "live" };
