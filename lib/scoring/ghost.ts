@@ -1,4 +1,4 @@
-import { BANDS, EVERGREEN_PHRASES, GHOST, NO_VACANCY_PHRASES, type Phrase } from "@/lib/scoring/config";
+import { ANTI_FRAUD_NOTICE, BANDS, EVERGREEN_PHRASES, GHOST, NO_VACANCY_PHRASES, type Phrase } from "@/lib/scoring/config";
 
 // Pure scoring: no I/O. Callers gather the facts; these functions turn them
 // into points, a band and an evidence list.
@@ -162,9 +162,9 @@ export function scoreGhost(input: GhostInput): Score & { community: CommunitySum
     signals.push({ id: "G-AGE", points, status: "found", fact: `Listed ${days} days (first published ${isoDate(postedAt)})`, source, checkedAt: at });
   }
 
-  // G-NO-VACANCY replaces G-EVERGREEN
-  const noVacancy = matchPhrases(description, NO_VACANCY_PHRASES);
-  const evergreen = matchPhrases(description, EVERGREEN_PHRASES);
+  // G-NO-VACANCY replaces G-EVERGREEN. "We never hold applications in a talent pool" is a notice, not pipeline wording.
+  const noVacancy = matchPhrases(description, NO_VACANCY_PHRASES, ANTI_FRAUD_NOTICE);
+  const evergreen = matchPhrases(description, EVERGREEN_PHRASES, ANTI_FRAUD_NOTICE);
   if (noVacancy.length) {
     signals.push({ id: "G-NO-VACANCY", points: GHOST.noVacancy, status: "found", fact: quoteMatches(noVacancy), source: "posting text", checkedAt: at });
   } else if (evergreen.length) {

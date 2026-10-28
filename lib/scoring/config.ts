@@ -2,7 +2,7 @@
 // Weights are expert-set from public benchmarks, not validated. Every check
 // stores CONFIG_VERSION so old results can be explained after a change.
 
-export const CONFIG_VERSION = "2026-10-28.1";
+export const CONFIG_VERSION = "2026-10-28.2";
 
 export const BANDS = { cautionFrom: 25, highFrom: 50 } as const;
 
@@ -131,17 +131,32 @@ const PAY_VERBS = "pay|paid|payment|send|sent|buy|purchase|transfer|deposit";
 
 /**
  * An employer's own anti-fraud notice ("our recruiters will never ask for your
- * Social Security number") must not count as the scam it warns about. A scam
- * phrase is skipped when the same sentence, just before it, is still inside a
- * "never/not/won't/don't … ask/request/require/need" clause. A turn back to
- * instructions ends that clause, so "We don't require an interview, just send
- * your SSN" and "Don't worry, all we need is your SSN" still fire.
+ * Social Security number", "if anyone asks you to deposit a check, it isn't us")
+ * must not count as the scam it warns about. A phrase is skipped when the same
+ * sentence, just before it, is still inside such a clause: "never/not/won't/
+ * don't/nobody … ask/require/conduct/share/pay…", a negation right before the
+ * phrase ("we never pay in gift cards"), or a warning about a third party
+ * ("anyone who asks you for…", "scammers who request…"). A turn back to
+ * instructions ends the clause, so "We don't require an interview, just send
+ * your SSN", "Don't worry, all we need is your SSN" and "We can't start until
+ * you pay the training fee" still fire. The pipeline-wording rules use it too.
  */
-const NOTICE_NEG = "(?:never|not|won['’]?t|don['’]?t|doesn['’]?t|cannot|can['’]?t)";
-const NOTICE_ASK = "(?:ask|request|require|need|solicit)(?:s|ed)?";
-// A turn back to instructions ends the notice: "…, just send", "all we need is", "please add me".
-const NOTICE_BREAK = "[;:]|\\b(?:just|but|only|simply|instead|however|kindly|please|all|is|are|will|we|so|then)\\b|,\\s*(?:you|we|i|they|he|she|this|the|our|my)\\b";
-export const ANTI_FRAUD_NOTICE = new RegExp(`\\b${NOTICE_NEG}\\s+(?:\\w+\\s+){0,2}?${NOTICE_ASK}\\b(?:(?!${NOTICE_BREAK})[\\s\\S]){0,120}$`, "i");
+const NOTICE_NEG = "(?:never|not|won['’]?t|don['’]?t|doesn['’]?t|cannot|can['’]?t|nobody|no\\s+one)";
+const NOTICE_VERB =
+  "(?:ask|request|require|need|solicit|conduct|hold|use|offer|contact|communicate|interview|recruit|hire|share|give|provide|disclose|send|ship|mail|pay|paid|charge|collect|accept|process)(?:s|es|ed|d|ing)?";
+const NOTICE_WARNING =
+  "(?:anyone|anybody|scammers?|fraudsters?|impost[eo]rs?|criminals?|a\\s+third\\s+party|third\\s+parties)\\s+(?:who\\s+|that\\s+)?(?:\\w+\\s+){0,2}?(?:asks?|asking|asked|requests?|requesting|requested|requires?|requiring|required|tells?|telling|told|instructs?|instructing|instructed|pressures?|pressuring|pressured|offers?|offering|offered)\\s+(?:you\\s+|for\\s+|that\\s+)";
+// A turn back to instructions ends the notice: "…, just send", "all we need is", "please add me",
+// "until you pay", "…and send your".
+const NOTICE_BREAK =
+  "[;:]|\\b(?:just|but|only|simply|instead|however|kindly|please|all|is|are|will|we|so|then|once|until|unless|without|after|if|except)\\b|,\\s*(?:you|we|i|they|he|she|this|the|our|my)\\b|\\band\\s+(?:send|pay|buy|purchase|deposit|text|message|add|download|install|reply|forward|provide|submit|share|transfer|wire)\\s+(?:me|us|your|the|an?|it|them|\\$)";
+export const ANTI_FRAUD_NOTICE = new RegExp(
+  [
+    `(?:\\b${NOTICE_NEG}\\s+(?:\\w+\\s+){0,4}?${NOTICE_VERB}\\b|\\b${NOTICE_WARNING})(?:(?!${NOTICE_BREAK})[\\s\\S]){0,120}$`,
+    `\\b${NOTICE_NEG}\\s+(?!(?:hesitate|delay|wait|forget|worry)\\b)(?:\\w+\\s+){0,2}$`,
+  ].join("|"),
+  "i",
+);
 
 /**
  * Phrase rules. A signal's fact quotes only the matching entry's label, never

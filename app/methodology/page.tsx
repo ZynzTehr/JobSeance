@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import ui from "../components/ui.module.css";
-import { AI_RULES, BAND_RANGES, GATHERED_SIGNALS, GHOST_SIGNALS, SCAM_SIGNALS, type SignalInfo } from "@/lib/methodology";
+import { AI_RULES, BAND_RANGES, GATHERED_SIGNALS, GHOST_SIGNALS, PHRASE_RULES_NOTE, SCAM_SIGNALS, type SignalInfo } from "@/lib/methodology";
 import { CONFIG_VERSION, DISCLAIMER } from "@/lib/scoring/config";
 import { BAND_LABEL } from "@/lib/ui";
 import styles from "./methodology.module.css";
@@ -19,7 +19,8 @@ const LIMITS = [
   "A board found for a company we don't list may belong to someone else: anyone can open a job board under a company's name. That's why such boards are shown, never counted, until an admin checks them.",
   "Claude can misread a company or title. That's why what it read is shown, and why a title that isn't an exact match counts only after you confirm it.",
   "A forged sender can look official. A matching domain is shown as a fact but never lowers the scam score.",
-  "Phrase rules can miss reworded scams and can fire on honest text. Every match is quoted so you can judge it.",
+  "Phrase rules can miss reworded scams, and an anti-fraud notice worded in a way we don't recognize can still fire. Every match is quoted so you can judge it.",
+  "We can't yet tell a reposted job from a new one. Since October 28, 2026 every listed company's board is refreshed daily and each job's removals and returns are recorded, so a repost signal can be tested before it counts.",
   "A failed lookup (timeout, unknown board, registry without RDAP) scores 0 and shows \"couldn't verify\". Missing data never counts against a posting.",
 ];
 
@@ -146,6 +147,7 @@ export default function MethodologyPage() {
             Capped at 100. We analyze pasted text in memory and never store it.
           </p>
           <SignalTable caption="Scam signals" signals={SCAM_SIGNALS} />
+          <p className={`${ui.muted} mt-3 max-w-[64ch]`}>{PHRASE_RULES_NOTE}</p>
         </section>
 
         <section aria-labelledby="limits" className={`${ui.card} mt-12 p-6`}>

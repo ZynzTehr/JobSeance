@@ -88,7 +88,7 @@ export const PROCESSORS: Processor[] = [
     role: "Employers' public job boards and hiring systems we read to check a posting",
     receives:
       "Only the company's identifier on that system (its board token, or for Workday its career-site address) and, for a single job, the job ID. On Workday, SmartRecruiters and amazon.jobs, also the role title, to search for it. Never anything about you.",
-    when: "When a check needs that company's board and our copy is more than an hour old",
+    when: "When a check needs that company's board and our copy is more than an hour old, and once a day for every company we list, so our copy records when a job leaves its board and when it comes back",
   },
   {
     name: "RDAP registries",

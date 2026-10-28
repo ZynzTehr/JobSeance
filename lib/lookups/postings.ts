@@ -4,8 +4,9 @@ import type { FetchOptions } from "@/lib/lookups/fetch";
 import type { Company, Posting, PostingState } from "@/app/generated/prisma/client";
 
 // Board postings cached in the Posting table. A board is fresh for 1 hour after
-// its last fetch; after that the next request refetches and syncs it in four
-// queries (no per-row upserts: each round trip is slow over the Neon driver).
+// its last fetch; after that the next request refetches and syncs it in a few
+// bulk queries (no per-row upserts: each round trip is slow over the Neon driver).
+// The daily sweep (lib/lookups/sweep.ts) refreshes every listed board the same way.
 
 export const POSTINGS_TTL_MS = 60 * 60 * 1000;
 
@@ -94,11 +95,15 @@ export async function getCompanyPostings(slug: string, now = new Date()): Promis
 /** On search systems, a stored job not seen on the newest page for this long is no longer listed as open. */
 export const PARTIAL_STALE_DAYS = 7;
 
+export type SyncCounts = { added: number; relisted: number; removed: number };
+
 /**
  * Inserts new jobs, marks seen jobs LIVE and jobs that left the board NOT_FOUND. A partial
  * list (the newest page of a search system) never marks anything NOT_FOUND: absence from one
  * page proves nothing. Instead, jobs it hasn't shown for a week drop from LIVE to UNKNOWN, so a
  * removed job isn't listed as open forever; a lookup by id still checks it directly.
+ * Repost history: a job seen again after it was gone gets relistedCount +1, and a job that
+ * leaves a full board gets removedAt, so a later signal can tell a relisted job from a new one.
  */
 export async function syncBoard(
   company: Pick<Company, "id">,
@@ -108,12 +113,13 @@ export async function syncBoard(
   now: Date,
   partial = false,
   db: Pick<ReturnType<typeof getDb>, "$transaction" | "posting"> = getDb(),
-) {
+): Promise<SyncCounts> {
   const known = new Set(existing.map((p) => p.externalId));
   const seen = jobs.map((j) => j.externalId);
   const fresh = jobs.filter((j) => !known.has(j.externalId));
+  const unseenLive = { ats: ref.ats, board: ref.board, state: "LIVE" as const, externalId: { notIn: seen } };
 
-  await db.$transaction([
+  const ops = [
     db.posting.createMany({
       data: fresh.map((j) => ({
         companyId: company.id,
@@ -133,20 +139,33 @@ export async function syncBoard(
       })),
       skipDuplicates: true,
     }),
+    // Back on the board after it was removed (or, on a search system, after a week unseen): a repost.
+    db.posting.updateMany({
+      where: { ats: ref.ats, board: ref.board, externalId: { in: seen }, state: { not: "LIVE" as const } },
+      data: { relistedCount: { increment: 1 } },
+    }),
     db.posting.updateMany({
       where: { ats: ref.ats, board: ref.board, externalId: { in: seen } },
       data: { state: "LIVE", lastSeenAt: now, fetchedAt: now },
     }),
     partial
       ? db.posting.updateMany({
-          where: { ats: ref.ats, board: ref.board, state: "LIVE", externalId: { notIn: seen }, lastSeenAt: { lt: new Date(now.getTime() - PARTIAL_STALE_DAYS * 86_400_000) } },
+          where: { ...unseenLive, lastSeenAt: { lt: new Date(now.getTime() - PARTIAL_STALE_DAYS * 86_400_000) } },
           data: { state: "UNKNOWN" as const },
         })
-      : db.posting.updateMany({
-          where: { ats: ref.ats, board: ref.board, externalId: { notIn: seen } },
-          data: { state: "NOT_FOUND" as const, fetchedAt: now },
-        }),
-  ]);
+      : db.posting.updateMany({ where: unseenLive, data: { removedAt: now } }),
+    ...(partial
+      ? []
+      : [
+          db.posting.updateMany({
+            where: { ats: ref.ats, board: ref.board, externalId: { notIn: seen } },
+            data: { state: "NOT_FOUND" as const, fetchedAt: now },
+          }),
+        ]),
+  ];
+  const results = await db.$transaction(ops);
+  const count = (i: number) => results[i]?.count ?? 0;
+  return { added: count(0), relisted: count(1), removed: partial ? 0 : count(3) };
 }
 
 /** The posting facts scoring needs, from a cached row or a fresh fetch. */
@@ -223,7 +242,8 @@ export async function lookupPosting(
   };
   const row = await db.posting.upsert({
     where: key,
-    update: fields,
+    // Found again after it was proven gone: a repost.
+    update: { ...fields, ...(cached?.state === "NOT_FOUND" ? { relistedCount: { increment: 1 } } : {}) },
     create: { ...fields, companyId: company.id, ats: ref.ats, board: ref.board, externalId, firstSeenAt: now },
   });
   return { found: true, posting: facts(row, row.id), source: "live" };
