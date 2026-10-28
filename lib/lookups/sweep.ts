@@ -14,6 +14,9 @@ export type SweepCounts = { boards: number; synced: number; failed: number; adde
 /** Real companies with a board we read; fictional companies keep whatever the seed stored. */
 export const SWEEP_COMPANIES = { isFictional: false, ats: { not: "NONE" as const }, atsBoard: { not: null } };
 
+/** Nobody is waiting on a sweep, so a big board (Palantir's Lever feed is 6 MB) gets longer than a check's 5 s. */
+export const SWEEP_TIMEOUT_MS = 25_000;
+
 /** Refetches and syncs each board in turn and returns counts only. A board that fails only costs its own slot. */
 export async function runSweep(db: Db, now = new Date(), fetchList: typeof fetchBoardList = fetchBoardList): Promise<SweepCounts> {
   const companies = await db.company.findMany({ where: SWEEP_COMPANIES, orderBy: { slug: "asc" } });
@@ -23,7 +26,7 @@ export async function runSweep(db: Db, now = new Date(), fetchList: typeof fetch
     if (!ref) continue;
     counts.boards++;
     try {
-      const list = await fetchList(ref);
+      const list = await fetchList(ref, { timeoutMs: SWEEP_TIMEOUT_MS });
       const existing = await db.posting.findMany({ where: { ats: ref.ats, board: ref.board }, select: { externalId: true } });
       const synced = await syncBoard(company, ref, list.jobs, existing, now, list.partial, db);
       counts.synced++;

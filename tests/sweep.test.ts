@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { syncBoard } from "@/lib/lookups/postings";
-import { runSweep, SWEEP_COMPANIES } from "@/lib/lookups/sweep";
+import { runSweep, SWEEP_COMPANIES, SWEEP_TIMEOUT_MS } from "@/lib/lookups/sweep";
 
 // The daily board sweep and the repost history it maintains, against a fake Prisma client.
 
@@ -37,15 +37,17 @@ describe("daily board sweep", () => {
   it("refreshes every real board, counts a board that is down and keeps going", async () => {
     const { db, ops, calls } = fakeDb([discord, down, nvidia]);
     const fetched: string[] = [];
-    const fetchList = async (ref: { ats: string; board: string; host?: string }) => {
-      fetched.push(`${ref.ats}:${ref.board}${ref.host ? `@${ref.host}` : ""}`);
+    const fetchList = async (ref: { ats: string; board: string; host?: string }, opts?: { timeoutMs?: number }) => {
+      fetched.push(`${ref.ats}:${ref.board}${ref.host ? `@${ref.host}` : ""} ${opts?.timeoutMs}ms`);
       if (ref.board === "down") throw new Error("503 from the board: never logged");
       return { jobs: [job("j1")], total: 1, partial: ref.ats === "WORKDAY" };
     };
     const counts = await runSweep(db, NOW, fetchList as never);
     expect(SWEEP_COMPANIES).toEqual({ isFictional: false, ats: { not: "NONE" }, atsBoard: { not: null } });
     expect(calls[0]).toEqual({ op: "company.findMany", args: { where: SWEEP_COMPANIES, orderBy: { slug: "asc" } } });
-    expect(fetched).toEqual(["GREENHOUSE:discord", "LEVER:down", "WORKDAY:nvidia/Site@nvidia.wd5.myworkdayjobs.com"]);
+    // A sweep waits longer than a check does: a 6 MB board must not fail every day.
+    expect(SWEEP_TIMEOUT_MS).toBeGreaterThan(5000);
+    expect(fetched).toEqual([`GREENHOUSE:discord ${SWEEP_TIMEOUT_MS}ms`, `LEVER:down ${SWEEP_TIMEOUT_MS}ms`, `WORKDAY:nvidia/Site@nvidia.wd5.myworkdayjobs.com ${SWEEP_TIMEOUT_MS}ms`]);
     expect(counts).toEqual({ boards: 3, synced: 2, failed: 1, added: 2, relisted: 4, removed: 1 });
     // The Workday board is a search page: nothing on it is marked removed.
     const removed = ops.filter((o) => o.op === "updateMany" && o.args.data && "removedAt" in o.args.data);

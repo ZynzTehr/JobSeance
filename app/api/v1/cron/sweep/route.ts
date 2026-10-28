@@ -5,8 +5,8 @@ import { runSweep } from "@/lib/lookups/sweep";
 
 // Always run at request time: this route refetches job boards.
 export const dynamic = "force-dynamic";
-// About twenty boards, one at a time, each with its own fetch timeout.
-export const maxDuration = 120;
+// About twenty boards, one at a time, each with its own 25 s fetch timeout (lib/lookups/sweep.ts).
+export const maxDuration = 300;
 
 // Called daily by Vercel Cron (vercel.json), which sends
 // `Authorization: Bearer ${CRON_SECRET}`.
