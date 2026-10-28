@@ -46,3 +46,8 @@ next-env.d.ts
 
 # Presentation notes (local only)
 presentation-companies.md
+
+# Playwright
+/test-results/
+/playwright-report/
+/e2e/.auth/
