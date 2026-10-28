@@ -57,7 +57,7 @@ export type MessageCheck = {
   senderDomain: string | null;
   gathered: Signal[];
   reading: MessageReading | null;
-  ai: { used: boolean; model: string | null; mode: "live" | "replay" | null; suggestedKind: null };
+  ai: { used: boolean; model: string | null; mode: "live" | "replay" | null; suggestedKind: null; textSent?: boolean };
 };
 
 const REPLY_RULES = new Set(["S-DISPOSABLE", "S-LOOKALIKE", "S-DOMAIN-NEW", "S-DEAD-DOMAIN", "S-FREEMAIL", "S-REPORTED"]);
@@ -95,10 +95,10 @@ export async function checkMessageText(input: MessageInput, deps: MessageDeps): 
     } else {
       const g = groundMessage(out.value, input.text);
       const address = g.contactDomain
-        ? ([...input.text.matchAll(/[\w.+-]+@([\w-]+(?:\.[\w-]+)+)/g)].find((m) => m[1].toLowerCase() === g.contactDomain)?.[0] ?? null)
+        ? ([...input.text.matchAll(/[\w.+-]{1,64}@([\w-]{1,63}(?:\.[\w-]{1,63}){1,10})/g)].find((m) => m[1].toLowerCase() === g.contactDomain)?.[0] ?? null)
         : null;
       reading = { claimedCompany: g.claimedCompany, contactAddress: address, channels: g.channels, asks: g.asks };
-      ai = { used: true, model: out.model, mode: out.mode, suggestedKind: null };
+      ai = { used: true, model: out.model, mode: out.mode, suggestedKind: null, textSent: true };
       info(
         "A-READ",
         "Claude read the message to suggest the sender and company fields (shown above; not stored). Nothing it read counts until you confirm it",

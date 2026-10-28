@@ -1,11 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { aiMode, callStructured } from "@/lib/ai/client";
 import { aiPaused, dailyCapMicros, reserveAiCall, resetPauseCache, settleAiCall } from "@/lib/ai/budget";
-import { costMicros, modelFor } from "@/lib/ai/config";
+import { AI_LIMITS, costMicros, modelFor, reserveMicros } from "@/lib/ai/config";
 import { cleanExtract, PostingExtract } from "@/lib/ai/extract";
 import { fixtureKey, readFixture } from "@/lib/ai/replay";
 import { emailDomains, redactForAi, urlsIn } from "@/lib/ai/sanitize";
-import { replayTransport } from "@/lib/ai/transport";
+import { liveTransport, replayTransport } from "@/lib/ai/transport";
+import { haikuProvider } from "@/lib/ai/shadow";
+import { utcDay } from "@/lib/ai/budget";
 import { DEMO_POSTING_BRAMBLECLOUD, DEMO_POSTING_DISCORD } from "@/lib/demo-examples";
 import { z } from "zod";
 
@@ -231,6 +233,73 @@ describe("AI budget", () => {
     resetPauseCache();
     expect(await aiPaused(budgetDb(false).db, 1)).toBe(false);
     resetPauseCache();
+  });
+});
+
+// ---- Review fixes: reservations, tool caps, refunds, settlement day ------------------
+
+describe("AI budget after the review", () => {
+  it("reserves each call's worst case for the model actually used", () => {
+    // Sonnet search: 8,000 output × $10 + 25,000 input × $2 per million, plus 3 searches × $0.01.
+    expect(reserveMicros("search", "claude-sonnet-5-5")).toBe(160_000);
+    expect(reserveMicros("page", "claude-sonnet-5-5")).toBe(90_000);
+    // A pricier override reserves more, so it still can't overshoot the cap.
+    expect(reserveMicros("search", "claude-opus-5-5")).toBeGreaterThan(reserveMicros("search", "claude-sonnet-5-5"));
+  });
+
+  it("web searches and page reads may only use part of the daily cap", async () => {
+    const { db, days } = budgetDb();
+    days.set("2026-10-27", { spendMicros: 500, calls: 0 });
+    const tool = await reserveAiCall(db, { userId: "u1", micros: 200, tool: true, now: NOW, capMicros: 1_000 });
+    expect(tool.ok).toBe(false); // 500 + 200 > 60% of 1,000
+    const plain = await reserveAiCall(db, { userId: "u1", micros: 200, now: NOW, capMicros: 1_000 });
+    expect(plain.ok).toBe(true);
+    expect(AI_LIMITS.toolShareOfCap).toBe(0.6);
+  });
+
+  it("settles against the day the call was reserved on, even after midnight", async () => {
+    const { db, days } = budgetDb();
+    const r = await reserveAiCall(db, { userId: "u1", micros: 1_000, now: NOW, capMicros: 1_000_000 });
+    expect(r).toMatchObject({ ok: true, day: "2026-10-27" });
+    days.set("2026-10-28", { spendMicros: 0, calls: 0 });
+    await settleAiCall(db, { day: "2026-10-27", reservedMicros: 1_000, actualMicros: 300, inputTokens: 1, outputTokens: 1, outcome: "ok", now: new Date("2026-10-28T00:00:05Z") });
+    expect(days.get("2026-10-27")).toMatchObject({ spendMicros: 300 });
+    expect(days.get("2026-10-28")).toMatchObject({ spendMicros: 0 });
+  });
+
+  it("the live transport enforces the per-account tool cap before any network call", async () => {
+    const { db, users } = budgetDb();
+    users.set(`u1|${utcDay(new Date())}`, { calls: 0, toolCalls: AI_LIMITS.toolsPerUserPerDay });
+    const live = liveTransport({ ANTHROPIC_API_KEY: "test-key" }, db);
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    expect(await live.searchBoards!("Acme", null, { userId: "u1" })).toEqual({ ok: false, reason: "budget" });
+    expect(await live.presence!("Engineer", ["jobs.apple.com"], { userId: "u1" })).toEqual({ ok: false, reason: "budget" });
+    expect(await live.readPage!("https://jobs.apple.com/en-us/details/1", "jobs.apple.com", { userId: "u1" })).toEqual({ ok: false, reason: "budget" });
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
+  it("a call refused before anything was billed gives the account its call back", async () => {
+    const { db, users, days } = budgetDb();
+    // tests/setup.ts blocks Anthropic's API, so the call fails with no tokens billed.
+    const out = await liveTransport({ ANTHROPIC_API_KEY: "test-key" }, db).extract("A posting.", { userId: "u1" });
+    expect(out).toEqual({ ok: false, reason: "error" });
+    expect(users.get(`u1|${utcDay(new Date())}`)).toMatchObject({ calls: 0 });
+    expect(days.get(utcDay(new Date()))).toMatchObject({ spendMicros: 0 });
+  });
+
+  it("shadow-mode calls use the global budget only, never an account's allowance", async () => {
+    const { db, users, days } = budgetDb();
+    await haikuProvider({ ANTHROPIC_API_KEY: "test-key" }, db as never).match(["One sentence here."]);
+    expect(users.size).toBe(0);
+    expect(days.get(utcDay(new Date()))).toMatchObject({ calls: 1 });
+  });
+
+  it("AI_MODEL never moves web search and page reads off the locate model", () => {
+    expect(modelFor("locate", { AI_MODEL: "claude-haiku-5-5" })).toBe("claude-sonnet-5-5");
+    expect(modelFor("locate", { AI_MODEL_LOCATE: "custom-model" })).toBe("custom-model");
+    expect(modelFor("guess", { AI_MODEL: "custom-model" })).toBe("custom-model");
+    expect(modelFor("cues", {})).toBe("claude-haiku-5-5");
   });
 });
 

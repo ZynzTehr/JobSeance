@@ -1,6 +1,6 @@
 import { aiMode } from "@/lib/ai/client";
 import { aiPaused, reserveAiCall, settleAiCall } from "@/lib/ai/budget";
-import { modelFor, RESERVE_MICROS } from "@/lib/ai/config";
+import { modelFor, reserveMicros } from "@/lib/ai/config";
 import { cleanMatches, CUE_RULES, cuesCall, sentences, type CueMatch, type DecisionProvider } from "@/lib/ai/cues";
 import { redactForAi } from "@/lib/ai/sanitize";
 import { getDb } from "@/lib/db";
@@ -27,13 +27,24 @@ export function haikuProvider(env: Env = process.env, db: Db = getDb()): Decisio
     name: "haiku",
     async match(list, signal) {
       const model = modelFor("cues", env);
-      const reservation = await reserveAiCall(db, { userId: "shadow", micros: RESERVE_MICROS.cues, skipUser: true }).catch(() => ({ ok: false }) as const);
+      const reserve = reserveMicros("cues", model);
+      const reservation = await reserveAiCall(db, { userId: "shadow", micros: reserve, skipUser: true }).catch(() => ({ ok: false }) as const);
       if (!reservation.ok) return { ok: false, reason: "budget" };
       const r = await cuesCall(list, model, signal);
-      await settleAiCall(db, { reservedMicros: RESERVE_MICROS.cues, actualMicros: r.micros, inputTokens: r.inputTokens, outputTokens: r.outputTokens, outcome: r.ok ? "ok" : r.reason });
+      await settleAiCall(db, { day: reservation.day, reservedMicros: reserve, actualMicros: r.micros, inputTokens: r.inputTokens, outputTokens: r.outputTokens, outcome: r.ok ? "ok" : r.reason });
       return r.ok ? { ok: true, value: cleanMatches(r.value.matches, list.length), mode: "live", model } : { ok: false, reason: r.reason };
     },
   };
+}
+
+/**
+ * Whether a finished check may get a shadow run: only when Claude already read that check's
+ * pasted text. A board search or presence check sends a company name or title, not the text,
+ * so "AI was used" alone is not enough.
+ */
+export function shadowEligible(input: { kind: string; aiRead?: boolean }, result: { ai?: { textSent?: boolean } | null }): boolean {
+  const kindAllows = input.kind === "posting_text" || (input.kind === "message" && input.aiRead === true);
+  return kindAllows && result.ai?.textSent === true;
 }
 
 /** Rule ids our phrase rules fired on, among the ones a cue can express. */

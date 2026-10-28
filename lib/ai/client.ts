@@ -108,8 +108,10 @@ export type ToolCallResult = {
 };
 
 /**
- * One request with server tools, resumed once on pause_turn. A refusal, max_tokens stop or
- * error is a failure: callers then use nothing from it. Logs numbers only.
+ * One request with server tools. A paused turn is not resumed: a resume would start a fresh
+ * max_uses and could double the searches; the results already returned are enough, since only
+ * engine result blocks are read. A refusal, max_tokens stop or error is a failure: callers then
+ * use nothing from it. Logs numbers only.
  */
 export async function callWithTools(call: ToolCallInput, anthropic: Anthropic = getAnthropic()): Promise<ToolCallResult> {
   const started = Date.now();
@@ -124,7 +126,7 @@ export async function callWithTools(call: ToolCallInput, anthropic: Anthropic = 
   let err = "";
   let reason: AiFailureReason | undefined;
   try {
-    for (let turn = 0; turn < 2; turn++) {
+    {
       const message = await anthropic.messages.create(
         {
           model: call.model,
@@ -142,12 +144,9 @@ export async function callWithTools(call: ToolCallInput, anthropic: Anthropic = 
       fetches += message.usage.server_tool_use?.web_fetch_requests ?? 0;
       content.push(...message.content);
       stop = message.stop_reason ?? "none";
-      if (message.stop_reason !== "pause_turn") break;
-      messages.push({ role: "assistant", content: message.content });
     }
     if (stop === "refusal") reason = "refusal";
     else if (stop === "max_tokens") reason = "max_tokens";
-    else if (stop === "pause_turn") reason = "timeout"; // still paused after one resume
   } catch (error) {
     const timedOut = signal.aborted || error instanceof Anthropic.APIConnectionTimeoutError || error instanceof Anthropic.APIUserAbortError;
     err = error instanceof Anthropic.APIError ? `${error.constructor.name}:${error.status ?? ""}` : (error as Error)?.name ?? "Error";

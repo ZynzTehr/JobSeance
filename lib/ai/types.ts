@@ -11,7 +11,8 @@ export type AiFailureReason =
   | "max_tokens" // ran out of tokens before the answer
   | "invalid" // the answer didn't match the schema
   | "error" // API or network error
-  | "no_fixture"; // replay mode without a recorded answer
+  | "no_fixture" // replay mode without a recorded answer
+  | "limit"; // too many lookups of unlisted companies from one account this hour
 
 export type AiOutcome<T> =
   | { ok: true; value: T; mode: "live" | "replay"; model: string }
@@ -26,4 +27,5 @@ export const AI_REASON_TEXT: Record<AiFailureReason, string> = {
   invalid: "the AI answer was incomplete",
   error: "the AI service didn't respond",
   no_fixture: "no saved AI answer exists for this text",
+  limit: "this account has looked up many companies we don't list in the last hour; try again later",
 };

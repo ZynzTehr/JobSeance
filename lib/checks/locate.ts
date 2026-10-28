@@ -12,6 +12,8 @@ import { ATS_LABEL } from "@/lib/ui";
 // Phase 11 facts for employers outside the directory, presence checks and page reads.
 // All of them are 0-point "for your information" rows: anyone can open a board under a
 // company's name, and a search result or a page can't show that a job is still open.
+// Boards outside the directory are named, never linked: a squatted board must not get a
+// clickable link from a scam checker.
 
 const METHOD_SOURCE: Record<DiscoveryMethod, string> = {
   probe: "JobSeance's check of public job boards",
@@ -81,10 +83,8 @@ export async function locateRows(d: Discovery, role: string | null, typed: boole
     const named = f.declaredName ? ` that calls itself "${f.declaredName}"` : "";
     row(
       "A-LOCATE",
-      `Found a ${label} board${named}. It isn't in our directory, so we can't confirm it's the employer's own board, and nothing from it is counted`,
+      `Found a ${label} board ("${f.board}")${named}. It isn't in our directory, so we can't confirm it's the employer's own board, and nothing from it is counted. Apply through the employer's own website, not through this board`,
       METHOD_SOURCE[f.method],
-      "found",
-      { sourceUrl: safeSourceUrl(boardFrontUrl(f)) },
     );
     if (role) {
       const ref: BoardRef = { ats: f.ats, board: f.board, ...(f.host ? { host: f.host } : {}) };
@@ -95,9 +95,7 @@ export async function locateRows(d: Discovery, role: string | null, typed: boole
         const match = typed ? deps.pickByTitle(jobs, role) : matchRoleOnBoard(jobs, role).exact;
         if (match) {
           const when = match.postedAt ? `, first published ${isoDay(match.postedAt)} (${daysBetween(match.postedAt, deps.now)} days ago)` : "";
-          row("A-LISTING", `That board lists "${match.title.slice(0, 120)}"${when}. Not counted: the board isn't confirmed as the employer's`, source, "found", {
-            sourceUrl: safeSourceUrl(match.url),
-          });
+          row("A-LISTING", `That board lists "${match.title.slice(0, 120)}"${when}. Not counted: the board isn't confirmed as the employer's`, source);
         } else {
           const how = SEARCH_ATS.has(f.ats) ? " in a search" : "";
           row("A-LISTING", `That board doesn't list a matching title${how} (not conclusive)`, source, "couldnt_verify");
@@ -106,12 +104,15 @@ export async function locateRows(d: Discovery, role: string | null, typed: boole
     }
   } else if (d.unconfirmed.length) {
     for (const u of d.unconfirmed) {
-      row("A-LOCATE", `A ${ATS_LABEL[u.ats]} board with this name exists, but it doesn't state a company name, so we can't tell whose it is (nothing counted)`, METHOD_SOURCE[u.method], "found", {
-        sourceUrl: safeSourceUrl(boardFrontUrl(u)),
-      });
+      row("A-LOCATE", `A ${ATS_LABEL[u.ats]} board named "${u.board}" exists, but it doesn't state a company name, so we can't tell whose it is (nothing counted)`, METHOD_SOURCE[u.method]);
     }
   } else {
-    const why = d.aiFailure && d.aiFailure !== "off" ? `; the AI-assisted search didn't finish: ${AI_REASON_TEXT[d.aiFailure]}` : "";
+    const why =
+      d.aiFailure === "limit"
+        ? `: ${AI_REASON_TEXT.limit}`
+        : d.aiFailure && d.aiFailure !== "off"
+          ? `; the AI-assisted search didn't finish: ${AI_REASON_TEXT[d.aiFailure]}`
+          : "";
     row("A-LOCATE", `We couldn't find this company's job board on the systems we read${why}`, METHOD_SOURCE.probe, "couldnt_verify");
   }
   return rows;
@@ -169,7 +170,7 @@ export function pageRows(out: AiOutcome<PageRead>, host: string, now: Date): Sig
   const link = safeSourceUrl(p.url, [host]);
   const rows: Signal[] = [];
   const push = (fact: string) => rows.push({ id: "A-PAGE", points: 0, status: "found", kind: "info", fact, source, sourceUrl: link, checkedAt: at });
-  if (!p.isJobPosting) push("This page doesn't look like a single job opening");
+  if (!p.isJobPosting) push("Claude judged that this page isn't a single job opening (its judgement, not text from the page)");
   if (p.title) push(`Page title: "${p.title.slice(0, 160)}"`);
   if (p.location) push(`Location on the page: ${p.location.slice(0, 120)}`);
   if (p.postedText) push(`The page says "${p.postedText.slice(0, 80)}". Not counted until we've measured how reliable page dates are`);

@@ -157,11 +157,30 @@ const fromAdapter = (j: AdapterJob): BoardJob => ({
   description: j.descriptionHtml ? htmlToText(j.descriptionHtml) : null,
 });
 
+/** Runs a normalizer; an unexpected response shape is a bad response ("couldn't verify"), never a crash. */
+function safely<T>(run: () => T): T {
+  try {
+    return run();
+  } catch (error) {
+    if (error instanceof UpstreamError) throw error;
+    throw new UpstreamError("bad_body");
+  }
+}
+
 /** Turns a raw board response (live or fixture) into BoardJobs. */
 export function normalizeBoard(ats: BoardAts, raw: unknown, ref: Omit<BoardRef, "ats"> = { board: "" }): BoardJob[] {
-  if (ats === "GREENHOUSE") return ((raw as { jobs?: GreenhouseJob[] }).jobs ?? []).map(normalizeGreenhouse);
-  if (ats === "LEVER") return (Array.isArray(raw) ? (raw as LeverPosting[]) : []).map(normalizeLever);
-  if (ats === "ASHBY") return ((raw as { jobs?: AshbyJob[] }).jobs ?? []).map(normalizeAshby);
+  return safely(() => normalizeUnsafe(ats, raw, ref));
+}
+
+function normalizeUnsafe(ats: BoardAts, raw: unknown, ref: Omit<BoardRef, "ats">): BoardJob[] {
+  // A body without its job list is a bad response, never an empty board (that would mark every job removed).
+  const list = <T>(v: unknown): T[] => {
+    if (!Array.isArray(v)) throw new UpstreamError("bad_body");
+    return v as T[];
+  };
+  if (ats === "GREENHOUSE") return list<GreenhouseJob>((raw as { jobs?: unknown }).jobs).map(normalizeGreenhouse);
+  if (ats === "LEVER") return list<LeverPosting>(raw).map(normalizeLever);
+  if (ats === "ASHBY") return list<AshbyJob>((raw as { jobs?: unknown }).jobs).map(normalizeAshby);
   const r = { ...ref, ats };
   const jobs =
     ats === "WORKDAY"
@@ -247,11 +266,14 @@ export async function fetchBoardJob(ref: BoardRef, jobId: string, opts?: FetchOp
   const single = ORIGINAL.has(ref.ats) ? jobUrl(ref, jobId) : null;
   if (fixturesEnabled() || !single) {
     const jobs = await fetchBoardJobs(ref, opts);
-    return jobs.find((j) => j.externalId.toLowerCase() === id) ?? null;
+    const job = jobs.find((j) => j.externalId.toLowerCase() === id) ?? null;
+    // A saved copy of a search system holds only the newest page: a miss there proves nothing.
+    if (!job && SEARCH_ATS.has(ref.ats)) throw new UpstreamError("bad_body");
+    return job;
   }
   try {
     const raw = await getJson(single, opts);
-    return ref.ats === "GREENHOUSE" ? normalizeGreenhouse(raw as GreenhouseJob) : normalizeLever(raw as LeverPosting);
+    return safely(() => (ref.ats === "GREENHOUSE" ? normalizeGreenhouse(raw as GreenhouseJob) : normalizeLever(raw as LeverPosting)));
   } catch (error) {
     if (error instanceof UpstreamError && error.kind === "not_found") return null;
     throw error;

@@ -99,7 +99,7 @@ export default async function AdminPage() {
           </h2>
           <p className={`${ui.muted} mt-1`}>
             A board&rsquo;s own name matched the company searched for, but anyone can open a board under any name. Open the board,
-            confirm it&rsquo;s the employer&rsquo;s (its jobs link back to the company&rsquo;s own site), and type the official domains yourself.
+            confirm it&rsquo;s the employer&rsquo;s (its jobs link back to the company&rsquo;s own site), and type the official domains yourself. If it isn&rsquo;t theirs, dismiss it: checks won&rsquo;t show it for 90 days.
           </p>
           {discoveries.length === 0 ? (
             <p className={`${ui.muted} mt-4`}>Nothing waiting.</p>
@@ -117,7 +117,7 @@ export default async function AdminPage() {
                     ) : null}
                   </p>
                   <p className={`${ui.small} mt-1`}>
-                    Searched as &ldquo;{d.employerName}&rdquo; · found by {d.method} · {checkedAt(d.checkedAt)}
+                    Search key <code className={ui.inlineCode}>{d.key}</code> · found by {d.method} · {checkedAt(d.checkedAt)}
                   </p>
                   <AddDiscovered d={{ key: d.key, name: d.declaredName ?? d.employerName, ats: d.ats!, board: d.board!, host: d.host }} />
                 </li>

@@ -97,7 +97,7 @@ export const GATHERED_SIGNALS: Record<string, { name: string; when: string }> = 
   "A-POSTED": { name: "Posting date in the text", when: "The text says when it was posted. Job sites reset that date on repost, so it is never counted; only the board's own date is." },
   "A-LOCATE": {
     name: "Job board found for a company we don't list",
-    when: "We asked the job boards we read whether this company has a board, then asked Claude for likely boards, then ran one web search limited to those job-board sites. A board counts as found only when its own company name matches. Anyone can open a board under any name, so it is never counted until an admin adds the company to our directory.",
+    when: "We asked the job boards we read whether this company has a board, then asked Claude for likely boards, then ran one web search limited to those job-board sites. A board counts as found only when its own company name matches. Anyone can open a board under any name, so it is never counted, and it is named but never linked, until an admin adds the company to our directory. An admin can also dismiss a board that isn't the employer's.",
   },
   "A-LISTING": { name: "Listing on that board", when: "The found board lists this title, with its own date and link. Shown, never counted, for the same reason." },
   "A-PRESENCE": {

@@ -15,7 +15,7 @@ Rules:
 - Reply with NONE or with matching result links, one per line, nothing else. Only the search results themselves are read.
 (prompt ${LOCATE_PROMPT_VERSION})`;
 
-export function presenceCall(title: string, hosts: string[], model: string, signal?: AbortSignal) {
+export function presenceCall(title: string, hosts: string[], model: string, signal?: AbortSignal, anthropic?: Anthropic) {
   return callWithTools({
     step: "presence",
     model,
@@ -25,7 +25,7 @@ export function presenceCall(title: string, hosts: string[], model: string, sign
     maxTokens: MAX_TOKENS.presence,
     timeoutMs: AI_TIMEOUT_MS.presence,
     signal,
-  });
+  }, anthropic);
 }
 
 export const onHosts = (url: string, hosts: string[]) => {

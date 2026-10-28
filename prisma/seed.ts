@@ -19,8 +19,9 @@ const DEV_DEMO_PASSWORD = "seance-demo-password-dev";
 const demoEmail = (process.env.DEMO_USER_EMAIL || "demo@jobseance.example").trim().toLowerCase();
 const demoPassword = (process.env.DEMO_USER_PASSWORD || DEV_DEMO_PASSWORD).normalize("NFC");
 
-// Phase 12: a separate admin account, from the shell only (never a default). When it is set,
-// "demo" becomes a plain USER, because the demo password is typed in front of an audience.
+// Phase 12: a separate admin account, from the shell or .env only (never a default). "demo" is
+// always a plain USER: its password is typed in front of an audience, and re-running the seed
+// must never quietly make it an admin again.
 const adminEmail = process.env.ADMIN_USER_EMAIL?.trim().toLowerCase() || null;
 const adminPassword = process.env.ADMIN_USER_PASSWORD?.normalize("NFC") || null;
 if (Boolean(adminEmail) !== Boolean(adminPassword)) throw new Error("Set both ADMIN_USER_EMAIL and ADMIN_USER_PASSWORD, or neither.");
@@ -113,7 +114,8 @@ async function main() {
   // bcrypt is slow on purpose (cost 12), so hash before opening the transaction.
   const passwordHash = await bcrypt.hash(demoPassword, 12);
   const adminHash = adminPassword ? await bcrypt.hash(adminPassword, 12) : null;
-  if (adminEmail) console.log("Creating the admin account; demo becomes a USER.");
+  if (adminEmail) console.log("Creating or updating the admin account.");
+  else console.warn("No ADMIN_USER_EMAIL: no admin account is seeded (demo is a plain user).");
 
   const counts = await db.$transaction(
     async (tx) => {
@@ -129,7 +131,7 @@ async function main() {
       }
 
       const demoUsers = [
-        { username: "demo", email: demoEmail, role: adminEmail ? ("USER" as const) : ("ADMIN" as const), name: "Demo user" },
+        { username: "demo", email: demoEmail, role: "USER" as const, name: "Demo user" },
         { username: "demo2", email: "demo2@jobseance.example", role: "USER" as const, name: "Second demo user" },
       ];
       const demos: User[] = [];

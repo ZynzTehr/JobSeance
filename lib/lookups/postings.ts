@@ -91,13 +91,24 @@ export async function getCompanyPostings(slug: string, now = new Date()): Promis
   return { company: head, postings: liveFirst(synced), fetchedAt: now, source, stale: false, ...extra(list.partial) };
 }
 
+/** On search systems, a stored job not seen on the newest page for this long is no longer listed as open. */
+export const PARTIAL_STALE_DAYS = 7;
+
 /**
  * Inserts new jobs, marks seen jobs LIVE and jobs that left the board NOT_FOUND. A partial
  * list (the newest page of a search system) never marks anything NOT_FOUND: absence from one
- * page proves nothing.
+ * page proves nothing. Instead, jobs it hasn't shown for a week drop from LIVE to UNKNOWN, so a
+ * removed job isn't listed as open forever; a lookup by id still checks it directly.
  */
-async function syncBoard(company: Company, ref: BoardRef, jobs: BoardJob[], existing: Posting[], now: Date, partial = false) {
-  const db = getDb();
+export async function syncBoard(
+  company: Pick<Company, "id">,
+  ref: BoardRef,
+  jobs: BoardJob[],
+  existing: Pick<Posting, "externalId">[],
+  now: Date,
+  partial = false,
+  db: Pick<ReturnType<typeof getDb>, "$transaction" | "posting"> = getDb(),
+) {
   const known = new Set(existing.map((p) => p.externalId));
   const seen = jobs.map((j) => j.externalId);
   const fresh = jobs.filter((j) => !known.has(j.externalId));
@@ -126,14 +137,15 @@ async function syncBoard(company: Company, ref: BoardRef, jobs: BoardJob[], exis
       where: { ats: ref.ats, board: ref.board, externalId: { in: seen } },
       data: { state: "LIVE", lastSeenAt: now, fetchedAt: now },
     }),
-    ...(partial
-      ? []
-      : [
-          db.posting.updateMany({
-            where: { ats: ref.ats, board: ref.board, externalId: { notIn: seen } },
-            data: { state: "NOT_FOUND" as const, fetchedAt: now },
-          }),
-        ]),
+    partial
+      ? db.posting.updateMany({
+          where: { ats: ref.ats, board: ref.board, state: "LIVE", externalId: { notIn: seen }, lastSeenAt: { lt: new Date(now.getTime() - PARTIAL_STALE_DAYS * 86_400_000) } },
+          data: { state: "UNKNOWN" as const },
+        })
+      : db.posting.updateMany({
+          where: { ats: ref.ats, board: ref.board, externalId: { notIn: seen } },
+          data: { state: "NOT_FOUND" as const, fetchedAt: now },
+        }),
   ]);
 }
 

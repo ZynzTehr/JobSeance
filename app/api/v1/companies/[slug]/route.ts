@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { handle, HttpError, notFound, readBody } from "@/lib/api";
-import { careersHostProblem, requireAdmin } from "@/lib/admin";
+import { careersHostProblem, officialDomainProblem, requireAdmin } from "@/lib/admin";
 import { companyUpdate } from "@/lib/schemas";
 import { getDb } from "@/lib/db";
 import { companyAggregate } from "@/lib/reports";
@@ -32,6 +32,8 @@ export const PATCH = handle(async (request: NextRequest, ctx: RouteContext<"/api
   if (!current) throw notFound("That company");
   const officialDomains = body.officialDomains ? [...new Set(body.officialDomains)] : current.officialDomains;
   const careersHosts = body.careersHosts ? [...new Set(body.careersHosts)] : current.careersHosts;
+  const domainProblem = officialDomainProblem(officialDomains);
+  if (domainProblem) throw new HttpError({ status: 400, code: "validation_failed", message: domainProblem, fields: { officialDomains: domainProblem } });
   const problem = careersHostProblem(careersHosts, officialDomains);
   if (problem) throw new HttpError({ status: 400, code: "validation_failed", message: problem, fields: { careersHosts: problem } });
   const company = await db.company.update({

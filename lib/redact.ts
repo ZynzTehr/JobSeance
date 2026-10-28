@@ -6,7 +6,7 @@ const EXCERPT_MAX = 500;
 
 export function redact(text: string): string {
   return text
-    .replace(/[\w.+-]+@([\w-]+(?:\.[\w-]+)+)/g, "[email]@$1")
+    .replace(/[\w.+-]{1,64}@([\w-]{1,63}(?:\.[\w-]{1,63}){1,10})/g, "[email]@$1") // bounded: linear time on long runs
     .replace(/\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b/g, "[ssn]")
     .replace(/(?:\+?\d{1,3}[\s.-]?)?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}\b/g, "[phone]")
     .replace(/\d{6,}/g, "[number]");

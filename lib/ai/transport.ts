@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { aiMode, type ToolCallResult } from "@/lib/ai/client";
-import { LOCATE_PROMPT_VERSION, modelFor, PROMPT_VERSION, RESERVE_MICROS, type AiStep } from "@/lib/ai/config";
+import { LOCATE_PROMPT_VERSION, modelFor, PROMPT_VERSION, reserveMicros, type AiStep, type CallKind } from "@/lib/ai/config";
 import { aiPaused, reserveAiCall, settleAiCall } from "@/lib/ai/budget";
 import { cleanExtract, extractCall, MessageExtract, messageCall, PostingExtract } from "@/lib/ai/extract";
-import { BoardGuesses, boardsFromHits, guessCall, searchCall, searchHits, validGuesses, type SearchHit } from "@/lib/ai/locate";
+import { BoardGuesses, boardsFromHits, guessCall, searchCall, searchFailed, searchHits, validGuesses, type SearchHit } from "@/lib/ai/locate";
 import { presenceCall, presenceHits } from "@/lib/ai/presence";
 import { pageFrom, readPageCall, type PageRead } from "@/lib/ai/read-page";
 import { fixtureKey, readFixture } from "@/lib/ai/replay";
@@ -85,18 +85,29 @@ type Metered = { ok: boolean; reason?: AiFailureReason; inputTokens: number; out
 export function liveTransport(env: Env = process.env, db = getDb()): AiTransport {
   /** Reserve budget, call, then settle the real cost. Over budget is a reason, never an error. */
   async function metered<R extends Metered, T>(
-    { userId, step, reserve, tool }: { userId: string; step: AiStep; reserve: number; tool: boolean },
+    { userId, step, kind, tool }: { userId: string; step: AiStep; kind: CallKind; tool: boolean },
     run: (model: string) => Promise<R>,
     toOutcome: (result: R) => AiOutcome<T> | { ok: true; value: T },
   ): Promise<AiOutcome<T>> {
     const model = modelFor(step, env);
+    const reserve = reserveMicros(kind, model);
     const reservation = await reserveAiCall(db, { userId, micros: reserve, tool }).catch(() => ({ ok: false }) as const);
     if (!reservation.ok) return { ok: false, reason: "budget" };
     const result = await run(model);
-    const out = result.ok ? toOutcome(result) : ({ ok: false, reason: result.reason ?? "error" } as const);
+    const billedNothing = result.inputTokens === 0 && result.outputTokens === 0;
+    let out: AiOutcome<T> | { ok: true; value: T };
+    try {
+      out = result.ok ? toOutcome(result) : { ok: false, reason: result.reason ?? "error" };
+    } catch {
+      out = { ok: false, reason: "invalid" }; // an unexpected response shape; the call is still settled below
+    }
+    // Refused before any token was billed (API or network error): give the account its call back.
+    if (!result.ok && result.reason === "error" && billedNothing) await reservation.releaseUser().catch(() => undefined);
     await settleAiCall(db, {
+      day: reservation.day,
       reservedMicros: reserve,
-      actualMicros: result.micros,
+      // A timeout may still be billed with no usage reported: keep the worst case on the books.
+      actualMicros: !result.ok && result.reason === "timeout" && billedNothing ? reserve : result.micros,
       inputTokens: result.inputTokens,
       outputTokens: result.outputTokens,
       searches: result.searches ?? 0,
@@ -108,18 +119,22 @@ export function liveTransport(env: Env = process.env, db = getDb()): AiTransport
   const value = <T>(v: T) => ({ ok: true as const, value: v });
   return {
     extract: (text, { userId, signal }) =>
-      metered({ userId, step: "extract", reserve: RESERVE_MICROS.extract, tool: false }, (m) => extractCall(text, m, signal), (r) => value(cleanExtract(okValue<PostingExtract>(r)))),
+      metered({ userId, step: "extract", kind: "extract", tool: false }, (m) => extractCall(text, m, signal), (r) => value(cleanExtract(okValue<PostingExtract>(r)))),
     extractMessage: (text, { userId, signal }) =>
-      metered({ userId, step: "extract", reserve: RESERVE_MICROS.extract, tool: false }, (m) => messageCall(text, m, signal), (r) => value(okValue<MessageExtract>(r))),
+      metered({ userId, step: "extract", kind: "extract", tool: false }, (m) => messageCall(text, m, signal), (r) => value(okValue<MessageExtract>(r))),
     guessBoards: (employer, { userId, signal }) =>
-      metered({ userId, step: "guess", reserve: RESERVE_MICROS.guess, tool: false }, (m) => guessCall(employer, m, signal), (r) => value(validGuesses(okValue<BoardGuesses>(r)))),
+      metered({ userId, step: "guess", kind: "guess", tool: false }, (m) => guessCall(employer, m, signal), (r) => value(validGuesses(okValue<BoardGuesses>(r)))),
     searchBoards: (employer, role, { userId, signal }) =>
-      metered({ userId, step: "locate", reserve: RESERVE_MICROS.search, tool: true }, (m) => searchCall(employer, role, m, signal), (r: ToolCallResult) => value(boardsFromHits(searchHits(r.content)))),
+      metered({ userId, step: "locate", kind: "search", tool: true }, (m) => searchCall(employer, role, m, signal), (r: ToolCallResult) =>
+        searchFailed(r.content) ? { ok: false as const, reason: "error" as const } : value(boardsFromHits(searchHits(r.content))),
+      ),
     presence: (title, hosts, { userId, signal }) =>
-      metered({ userId, step: "locate", reserve: RESERVE_MICROS.presence, tool: true }, (m) => presenceCall(title, hosts, m, signal), (r: ToolCallResult) => value(presenceHits(r.content, hosts))),
+      metered({ userId, step: "locate", kind: "presence", tool: true }, (m) => presenceCall(title, hosts, m, signal), (r: ToolCallResult) =>
+        searchFailed(r.content) ? { ok: false as const, reason: "error" as const } : value(presenceHits(r.content, hosts)),
+      ),
     readPage: (url, host, { userId, signal }) =>
-      metered({ userId, step: "locate", reserve: RESERVE_MICROS.page, tool: true }, (m) => readPageCall(url, host, m, signal), (r: ToolCallResult) => {
-        const page = pageFrom(r.content, host);
+      metered({ userId, step: "locate", kind: "page", tool: true }, (m) => readPageCall(url, host, m, signal), (r: ToolCallResult) => {
+        const page = pageFrom(r.content, host, url);
         return page.ok ? value(page.value) : { ok: false as const, reason: page.reason };
       }),
   };

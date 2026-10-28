@@ -4,7 +4,7 @@ import type { ApiError } from "@/lib/http";
 import { fixturesEnabled, type BoardRef } from "@/lib/lookups/boards";
 import { describeDomain, officialDomains, registrableDomain, type DomainReport } from "@/lib/lookups/domains";
 import type { FetchOptions } from "@/lib/lookups/fetch";
-import { parseJobUrl, SEARCH_ATS, type BoardAts } from "@/lib/lookups/job-url";
+import { parseJobUrl, SEARCH_ATS, withJobPath, type BoardAts } from "@/lib/lookups/job-url";
 import { fetchBoardJobs, searchBoardJobs } from "@/lib/lookups/boards";
 import { discoverBoard, probeBoard, type CachedDiscovery, type DiscoveryDeps } from "@/lib/lookups/discovery";
 import { safeQuery } from "@/lib/ai/locate";
@@ -19,6 +19,7 @@ import { checkMessageText, messageExtras, type MessageReading } from "@/lib/chec
 import { checkPostingText, postingTextSchema, searchMissDetail, type CompanyBoard, type PostingDeps, type Reading } from "@/lib/checks/posting";
 import { dmarcPolicy } from "@/lib/lookups/mail-auth";
 import { CONFIG_VERSION, DISCLAIMER, HIGH_SCAM_ADVICE, VERIFICATION_CHECKLIST } from "@/lib/scoring/config";
+import { rateLimit } from "@/lib/http";
 import { bandFor, clamp, scoreGhost, type BoardStatus, type CommunityReport, type CommunitySummary, type Score, type Signal } from "@/lib/scoring/ghost";
 import { scoreScam, warningCount, type SenderFacts } from "@/lib/scoring/scam";
 import type { Company, Prisma } from "@/app/generated/prisma/client";
@@ -228,7 +229,7 @@ export function pickByTitle<T extends { title: string }>(items: T[], role: strin
   return partial.sort((a, b) => a.title.length - b.title.length)[0] ?? null;
 }
 
-async function checkCompanyRole(company: Company, role: string, now: Date, presence?: (company: Company, role: string) => Promise<Signal[]>): Promise<BoardCheck> {
+export async function checkCompanyRole(company: Company, role: string, now: Date, presence?: (company: Company, role: string) => Promise<Signal[]>): Promise<BoardCheck> {
   const community = await communityFor(company.id, now);
   const ref = boardRef(company);
 
@@ -257,7 +258,7 @@ async function checkCompanyRole(company: Company, role: string, now: Date, prese
     const detail = `No posting titled "${role.slice(0, 80)}" on ${found.boardName}`;
     return scoreBoardCheck({ kind: "not_found", boardName: found.boardName, source: found.source, detail }, null, ref.ats, community, now);
   }
-  return checkBoardJob(ref, match.externalId, company, { now, community });
+  return checkBoardJob(withJobPath(ref, match.url), match.externalId, company, { now, community });
 }
 
 // ---- Message checks -------------------------------------------------------------
@@ -375,9 +376,16 @@ function discoveryCache(): DiscoveryDeps["cache"] {
   };
 }
 
+/** Lookups of unlisted companies per account per hour: each one can probe several job boards. */
+export const DISCOVERY_PER_HOUR = 20;
+
 /** Finds an unknown employer's board and turns it into info rows (never counted). */
 export function locator(userId: string, now: Date, ai: AiTransport, started: number, signal?: AbortSignal) {
   return async (employer: string, role: string | null, typed: boolean) => {
+    if (!rateLimit(`discover:user:${userId || "anonymous"}`, DISCOVERY_PER_HOUR, 3600).ok) {
+      const d = { found: null, unconfirmed: [], ai: { used: false, model: null, mode: null }, aiFailure: "limit" as const };
+      return { rows: await locateRows(d, role, typed, { now, pickByTitle, jobs: async () => [] }), ai: d.ai, located: false, aiFailure: d.aiFailure };
+    }
     const d = await discoverBoard(employer, role, {
       ai,
       userId,
@@ -397,23 +405,47 @@ export function locator(userId: string, now: Date, ai: AiTransport, started: num
   };
 }
 
+/** Presence results per company and title, kept for 6 hours on this server (searches cost money; the answer changes slowly). */
+const PRESENCE_TTL_MS = 6 * 3_600_000;
+const presenceCache = new Map<string, { at: number; out: Awaited<ReturnType<NonNullable<AiTransport["presence"]>>> }>();
+
 /** Presence check on a directory company's own careers hosts (admin-curated). */
 export function presenceCheck(userId: string, now: Date, ai: AiTransport, signal?: AbortSignal) {
   return async (company: Company, role: string): Promise<Signal[]> => {
     const hosts = company.careersHosts;
     const title = safeQuery(role, 120);
     if (!hosts.length || !title || !ai.presence) return [];
-    return presenceRows(await ai.presence(title, hosts, { userId, signal }), role, hosts, now);
+    const key = `${company.id}|${hosts.join(",")}|${title.toLowerCase()}`;
+    const hit = presenceCache.get(key);
+    let out = hit && Date.now() - hit.at < PRESENCE_TTL_MS ? hit.out : null;
+    if (!out) {
+      out = await ai.presence(title, hosts, { userId, signal });
+      if (out.ok) {
+        if (presenceCache.size >= 500) presenceCache.delete(presenceCache.keys().next().value!);
+        presenceCache.set(key, { at: Date.now(), out });
+      }
+    }
+    return presenceRows(out, role, hosts, now);
   };
 }
 
 const PAGE_NOTE = "From a page read: shown for information and not counted yet.";
 
-/** Page-derived phrase hits are shown, not counted, until page reads are measured. Community reports still count. */
-function pageInfoOnly<T extends Score>(s: T): T {
-  const signals = s.signals.map((x) => (x.points > 0 && x.id !== "G-COMMUNITY" ? { ...x, points: 0, kind: "info" as const, note: PAGE_NOTE } : x));
+/**
+ * Page-derived phrase hits are shown, not counted, until page reads are measured; community
+ * reports still count. A page whose warning signs were set aside, or that couldn't be read,
+ * gets "Not enough data", never a reassuring "Low" built from nothing.
+ */
+export function pageInfoOnly<T extends Score>(s: T, hadText: boolean): T {
+  let demoted = false;
+  const signals = s.signals.map((x) => {
+    if (x.points <= 0 || x.id === "G-COMMUNITY") return x;
+    demoted = true;
+    return { ...x, points: 0, kind: "info" as const, note: PAGE_NOTE };
+  });
   if (s.band === "NOT_ENOUGH_DATA") return { ...s, signals };
   const score = clamp(signals.reduce((sum, x) => sum + x.points, 0), 0, 100);
+  if (score === 0 && (demoted || !hadText)) return { ...s, score: null, band: "NOT_ENOUGH_DATA", signals };
   return { ...s, score, band: bandFor(score), signals };
 }
 
@@ -451,8 +483,8 @@ async function pageCheck(rawUrl: string, userId: string | null, now: Date, aiOve
       ? { id: null, externalId: "", title: out.value.title, location: out.value.location, url: out.value.url, postedAt: null, internalJobId: null, description: null }
       : null;
   return {
-    ghost: { ...pageInfoOnly(g), community: g.community },
-    scam: pageInfoOnly(scam),
+    ghost: { ...pageInfoOnly(g, Boolean(text)), community: g.community },
+    scam: pageInfoOnly(scam, Boolean(text)),
     posting,
     gathered: pageRows(out, host, now),
     company,
@@ -504,7 +536,7 @@ export async function runCheck(input: CheckInput, userId: string | null, now = n
   let gathered: Signal[] = [];
   let reading: Reading | null = null;
   let messageReading: MessageReading | null = null;
-  let ai: { used: boolean; model: string | null; mode: "live" | "replay" | null; suggestedKind: "message" | null } | null = null;
+  let ai: { used: boolean; model: string | null; mode: "live" | "replay" | null; suggestedKind: "message" | null; textSent?: boolean } | null = null;
 
   if (input.kind === "posting_text") {
     if (!userId) throw new CheckError({ status: 401, code: "unauthorized", message: "Sign in to continue." });
@@ -558,7 +590,12 @@ export async function runCheck(input: CheckInput, userId: string | null, now = n
       if (!company) {
         const located = await locator(userId ?? "", now, transport, Date.now(), signal)(input.company, input.role, true);
         if (!located.located) {
-          const why = located.aiFailure && located.aiFailure !== "off" ? ` (the AI-assisted search didn't finish: ${AI_REASON_TEXT[located.aiFailure]})` : "";
+          const why =
+            located.aiFailure === "limit"
+              ? ` (${AI_REASON_TEXT.limit})`
+              : located.aiFailure && located.aiFailure !== "off"
+                ? ` (the AI-assisted search didn't finish: ${AI_REASON_TEXT[located.aiFailure]})`
+                : "";
           throw new CheckError({
             status: 404,
             code: "company_not_found",

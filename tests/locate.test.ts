@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { callWithTools } from "@/lib/ai/client";
 import { boardsFromHits, safeQuery, searchHits, validGuesses } from "@/lib/ai/locate";
 import { presenceHits } from "@/lib/ai/presence";
-import { grounded, pageFrom, pageUrlFor } from "@/lib/ai/read-page";
+import { grounded, pageFrom, pageUrlFor, samePage } from "@/lib/ai/read-page";
 import type { AiTransport } from "@/lib/ai/transport";
 import { boardFrontUrl, locateRows, pageRows, presenceRows, presenceUsedAi, safeSourceUrl } from "@/lib/checks/locate";
 import { discoverBoard, probeBoard, sameCompany, slugVariants, type CachedDiscovery, type Discovery, type DiscoveryDeps, type Probe } from "@/lib/lookups/discovery";
@@ -100,12 +100,19 @@ describe("callWithTools", () => {
   };
   const call = { step: "search", model: "claude-sonnet-5-5", system: "s", user: "u", tools: [], maxTokens: 100, timeoutMs: 1000 };
 
-  it("adds search fees to the token cost and resumes a paused turn once", async () => {
-    const c = client({ stop_reason: "pause_turn", content: [], usage }, { stop_reason: "end_turn", content: [searchResult(["https://jobs.lever.co/acme"])], usage });
+  it("adds search fees to the token cost", async () => {
+    const r = await callWithTools(call, client({ stop_reason: "end_turn", content: [searchResult(["https://jobs.lever.co/acme"])], usage }));
+    expect(r).toMatchObject({ ok: true, searches: 2, inputTokens: 2_000, outputTokens: 300 });
+    // 2,000 × $2 + 300 × $10 per million tokens = 7,000 micro-dollars, plus 2 searches × 10,000.
+    expect(r.micros).toBe(27_000);
+    expect(searchHits(r.content)).toHaveLength(1);
+  });
+
+  it("never resumes a paused turn (a resume would allow more searches than max_uses)", async () => {
+    const c = client({ stop_reason: "pause_turn", content: [searchResult(["https://jobs.lever.co/acme"])], usage });
     const r = await callWithTools(call, c);
-    expect(r).toMatchObject({ ok: true, searches: 4, inputTokens: 4_000, outputTokens: 600 });
-    // 4,000 × $2 + 600 × $10 per million tokens = 14,000 micro-dollars, plus 4 searches × 10,000.
-    expect(r.micros).toBe(54_000);
+    expect((c as unknown as { messages: { create: ReturnType<typeof vi.fn> } }).messages.create).toHaveBeenCalledTimes(1);
+    expect(r).toMatchObject({ ok: true, searches: 2 });
     expect(searchHits(r.content)).toHaveLength(1);
   });
 
@@ -134,6 +141,19 @@ describe("page reading", () => {
   });
   const answer = (o: object) => ({ type: "text", text: JSON.stringify({ isJobPosting: true, title: "Senior Engineer", location: "Cupertino, California", postedText: "Posted: Oct 10, 2026", ...o }) });
 
+  it("keeps a job id in the query string and drops tracking parameters", () => {
+    expect(pageUrlFor("https://careers.acme.com/job?jobId=R-123&utm_source=x&ref=li", ["careers.acme.com"])).toBe("https://careers.acme.com/job?jobId=R-123");
+    expect(pageUrlFor("https://careers.acme.com/job?jobId=<script>", ["careers.acme.com"])).toBe("https://careers.acme.com/job");
+  });
+
+  it("only accepts the page that was asked for (a deeper slug redirect is fine)", () => {
+    expect(samePage("https://jobs.apple.com/en-us/details/123/senior-engineer", "https://jobs.apple.com/en-us/details/123")).toBe(true);
+    expect(samePage("https://jobs.apple.com/en-us/details/999", "https://jobs.apple.com/en-us/details/123")).toBe(false);
+    expect(samePage("https://jobs.apple.com/en-us/details/1234", "https://jobs.apple.com/en-us/details/123")).toBe(false);
+    expect(samePage("https://careers.acme.com/job?jobId=2", "https://careers.acme.com/job?jobId=1")).toBe(false);
+    expect(pageFrom(blocks([fetched("https://jobs.apple.com/en-us/search"), answer({})]), "jobs.apple.com", "https://jobs.apple.com/en-us/details/123")).toEqual({ ok: false, reason: "error" });
+  });
+
   it("drops the query string and refuses hosts that aren't allowlisted", () => {
     expect(pageUrlFor("https://jobs.apple.com/en-us/details/123?utm_source=x#apply", ["jobs.apple.com"])).toBe("https://jobs.apple.com/en-us/details/123");
     expect(pageUrlFor("https://jobs.apple.com.evil.com/x", ["jobs.apple.com"])).toBeNull();
@@ -144,7 +164,9 @@ describe("page reading", () => {
   it("keeps a field only if the page says it word for word", () => {
     const r = pageFrom(blocks([fetched(), answer({ title: "Principal Engineer (made up)" })]), "jobs.apple.com");
     expect(r).toMatchObject({ ok: true, value: { title: null, location: "Cupertino, California", postedText: "Posted: Oct 10, 2026" } });
-    expect(grounded("  senior   ENGINEER ", PAGE)).toBe("senior ENGINEER");
+    // The page's own spelling is shown, never the model's.
+    expect(grounded("  senior   ENGINEER ", PAGE)).toBe("Senior Engineer");
+    expect(grounded("Engineer (Senior", PAGE)).toBeNull();
   });
 
   it("uses the fetched text, not the model's, and rejects extra keys or another host", () => {
@@ -160,6 +182,7 @@ describe("page reading", () => {
     const rows = pageRows({ ok: true, value: r.value, mode: "live", model: "claude-sonnet-5-5" }, "jobs.apple.com", NOW);
     expect(rows.every((s) => s.points === 0 && s.kind === "info")).toBe(true);
     expect(rows.map((s) => s.fact)).toContain('Page title: "Senior Engineer"');
+    expect(pageRows({ ok: true, value: { ...r.value, isJobPosting: false }, mode: "live", model: "m" }, "jobs.apple.com", NOW)[0].fact).toMatch(/Claude judged .*its judgement, not text from the page/);
     expect(rows[0].sourceUrl).toBe("https://jobs.apple.com/en-us/details/123/senior-engineer");
     expect(pageRows({ ok: false, reason: "error" }, "jobs.apple.com", NOW)[0]).toMatchObject({ status: "couldnt_verify", points: 0 });
   });
@@ -198,7 +221,8 @@ describe("discoverBoard", () => {
     const r = await discoverBoard("Acme Inc.", null, d);
     expect(r.found).toMatchObject({ ats: "GREENHOUSE", board: "acme", method: "probe" });
     expect(guessBoards).not.toHaveBeenCalled();
-    expect(store.get("acme")).toMatchObject({ status: "FOUND", ats: "GREENHOUSE" });
+    // Stored under the board's own name, never the name the user typed ("Acme Inc.").
+    expect(store.get("acme")).toMatchObject({ status: "FOUND", ats: "GREENHOUSE", employerName: "Acme" });
   });
 
   it("ignores a board that states another company's name", async () => {
@@ -225,16 +249,16 @@ describe("discoverBoard", () => {
     const r = await discoverBoard("Acme", "Engineer", d);
     expect(r.found).toBeNull();
     expect(d.ai.searchBoards).toHaveBeenCalledWith("Acme", "Engineer", expect.anything());
-    expect(store.get("acme")).toMatchObject({ status: "NOT_FOUND" });
+    expect(store.get("acme")).toMatchObject({ status: "NOT_FOUND", method: "search", employerName: "" });
   });
 
-  it("a probe miss with AI off is not cached, so a later search can still run", async () => {
+  it("a probe miss with AI off is kept only 12 hours, so a later search can still run", async () => {
     const { d, store } = deps();
     d.ai.guessBoards = async () => ({ ok: false, reason: "off" });
     d.ai.searchBoards = async () => ({ ok: false, reason: "off" });
     const r = await discoverBoard("Acme", null, d);
     expect(r).toMatchObject({ found: null, aiFailure: "off" });
-    expect(store.size).toBe(0);
+    expect(store.get("acme")).toMatchObject({ status: "NOT_FOUND", method: "probe", employerName: "", expiresAt: new Date(NOW.getTime() + 12 * 3_600_000) });
   });
 
   it("skips the search when the check is short of time", async () => {
@@ -283,15 +307,16 @@ describe("info rows", () => {
   const job = { externalId: "1", title: "Data Engineer", location: null, url: "https://job-boards.greenhouse.io/acme/jobs/1", postedAt: new Date("2026-10-01"), internalJobId: null, description: null };
   const rowDeps = { now: NOW, jobs: async () => [job], pickByTitle: <T extends { title: string }>(items: T[], role: string) => items.find((i) => i.title === role) ?? null };
 
-  it("a discovered board and its listing are shown, linked and never counted", async () => {
+  it("a discovered board and its listing are shown, never linked and never counted", async () => {
     const rows = await locateRows(found, "Data Engineer", true, rowDeps);
     expect(rows.map((r) => [r.id, r.points, r.status])).toEqual([
       ["A-LOCATE", 0, "found"],
       ["A-LISTING", 0, "found"],
     ]);
-    expect(rows[0].fact).toMatch(/calls itself "Acme".*can't confirm it's the employer's own board/);
+    expect(rows[0].fact).toMatch(/Greenhouse board \("acme"\) that calls itself "Acme".*can't confirm it's the employer's own board/);
     expect(rows[1].fact).toMatch(/lists "Data Engineer", first published 2026-10-01 \(26 days ago\)/);
-    expect(rows[1].sourceUrl).toBe(job.url);
+    // A board outside the directory may be squatted: name it, never link to it.
+    expect(rows.map((r) => r.sourceUrl)).toEqual([undefined, undefined]);
   });
 
   it("a title read by AI needs an exact match", async () => {

@@ -106,7 +106,7 @@ Rules:
 (prompt ${LOCATE_PROMPT_VERSION})`;
 
 /** One search call restricted to the hiring systems' hosts. */
-export function searchCall(employer: string, role: string | null, model: string, signal?: AbortSignal) {
+export function searchCall(employer: string, role: string | null, model: string, signal?: AbortSignal, anthropic?: Anthropic) {
   return callWithTools({
     step: "search",
     model,
@@ -116,7 +116,7 @@ export function searchCall(employer: string, role: string | null, model: string,
     maxTokens: MAX_TOKENS.search,
     timeoutMs: AI_TIMEOUT_MS.search,
     signal,
-  });
+  }, anthropic);
 }
 
 export type SearchHit = { url: string; title: string; pageAge: string | null };
@@ -131,6 +131,15 @@ export function searchHits(content: Anthropic.Messages.ContentBlock[]): SearchHi
     }
   }
   return hits;
+}
+
+/**
+ * True when the searches failed rather than found nothing: some search returned an error and
+ * none returned results. A failure must never be cached or shown as "nothing found".
+ */
+export function searchFailed(content: Anthropic.Messages.ContentBlock[]): boolean {
+  const results = content.filter((b) => b.type === "web_search_tool_result");
+  return results.some((b) => !Array.isArray(b.content)) && !results.some((b) => Array.isArray(b.content));
 }
 
 /** Candidate boards from search hits: parsed from the URL text, deduplicated, at most 5. */

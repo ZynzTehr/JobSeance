@@ -16,7 +16,7 @@ export const FLAG_REASONS = ["personal_info", "fake", "harassment", "false_fact"
 export const FLAG_TARGETS = ["OUTCOME_REPORT", "SCAM_REPORT", "CHECK", "COMPANY", "SITE"] as const;
 
 /** Notes are free text: refuse obvious contact details (no names or contacts of individuals). */
-const CONTACT = /[\w.+-]+@[\w-]+\.[\w.]+|(?:\+?\d[\s().-]?){9,}/;
+const CONTACT = /[\w.+-]{1,64}@[\w-]{1,63}\.[\w.]{1,253}|(?:\+?\d[\s().-]?){9,}/;
 const note = z
   .string()
   .trim()
@@ -112,7 +112,9 @@ export const companyCreate = z
     path: ["atsBoard"],
   })
   .refine((b) => (b.ats === "WORKDAY") === Boolean(b.atsHost), { message: "Workday needs its host; other systems don't take one.", path: ["atsHost"] })
-  .refine((b) => (b.ats === "WORKDAY") === Boolean(b.atsBoard?.includes("/")), { message: "Workday boards are tenant/site; others have no slash.", path: ["atsBoard"] });
+  .refine((b) => (b.ats === "WORKDAY") === Boolean(b.atsBoard?.includes("/")), { message: "Workday boards are tenant/site; others have no slash.", path: ["atsBoard"] })
+  // amazon.jobs searches all of Amazon: it can only ever be Amazon's own board.
+  .refine((b) => b.ats !== "AMAZON" || b.atsBoard === "amazon", { message: "amazon.jobs is only Amazon's board (atsBoard \"amazon\").", path: ["atsBoard"] });
 
 /** PATCH /api/v1/companies/:slug (admin): the hand-curated fields only. */
 export const companyUpdate = z

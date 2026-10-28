@@ -6,7 +6,7 @@ import type { PostingExtract } from "@/lib/ai/extract";
 import { matchRoleOnBoard } from "@/lib/checks/title-match";
 import { presenceUsedAi } from "@/lib/checks/locate";
 import type { BoardRef } from "@/lib/lookups/boards";
-import { parseJobUrl } from "@/lib/lookups/job-url";
+import { parseJobUrl, withJobPath } from "@/lib/lookups/job-url";
 import type { PostingFacts, PostingSummary } from "@/lib/lookups/postings";
 import { bandFor, clamp, scoreGhost, type BoardStatus, type CommunityReport, type CommunitySummary, type Score, type Signal } from "@/lib/scoring/ghost";
 import { scoreScam, type SenderFacts } from "@/lib/scoring/scam";
@@ -83,7 +83,8 @@ export type PostingCheck = {
   posting: PostingFacts | null;
   company: Company | null;
   reading: Reading | null;
-  ai: { used: boolean; model: string | null; mode: "live" | "replay" | null; suggestedKind: "message" | null };
+  /** textSent: Claude read the pasted text itself (not just a company name for a board search). Gates shadow mode. */
+  ai: { used: boolean; model: string | null; mode: "live" | "replay" | null; suggestedKind: "message" | null; textSent?: boolean };
 };
 
 /** On pasted postings these sender rules are shown for information only until measured. */
@@ -137,7 +138,7 @@ export async function checkPostingText(input: PostingTextInput, deps: PostingDep
       lookUp = false;
     } else {
       const e = out.value;
-      aiInfo = { used: true, model: out.model, mode: out.mode, suggestedKind: e.documentKind === "recruiter_message" ? "message" : null };
+      aiInfo = { used: true, model: out.model, mode: out.mode, suggestedKind: e.documentKind === "recruiter_message" ? "message" : null, textSent: true };
       reading = {
         company: e.employerName,
         title: e.roleTitle,
@@ -209,7 +210,7 @@ export async function checkPostingText(input: PostingTextInput, deps: PostingDep
       const { exact, closest } = matchRoleOnBoard(found.postings, role);
       const pick = typed ? deps.pickByTitle(found.postings, role) : exact;
       if (pick) {
-        ({ board, posting } = await deps.lookupJob(found.ref, pick.externalId, company));
+        ({ board, posting } = await deps.lookupJob(withJobPath(found.ref, pick.url), pick.externalId, company));
         counted = true;
       } else if (typed && found.searched) {
         board = {

@@ -94,6 +94,13 @@ function supportedName(host: string): string | null {
   return { "jobs.smartrecruiters.com": "SmartRecruiters", "apply.workable.com": "Workable", "www.amazon.jobs": "amazon.jobs", "amazon.jobs": "amazon.jobs" }[host] ?? null;
 }
 
+/** Other link formats of systems we read, which we can't map to a board: a specific message, not "we can't read this site". */
+const OTHER_FORMATS: [RegExp, string][] = [
+  [/(^|\.)(myworkdaysite|myworkdayjobs|workday)\.com$/, "Workday"],
+  [/(^|\.)workable\.com$/, "Workable"],
+  [/(^|\.)smartrecruiters\.com$/, "SmartRecruiters"],
+];
+
 function greenhouse(path: string): ParsedJobUrl | null {
   const m = GREENHOUSE_PATH.exec(path);
   return m ? { kind: "board", ats: "GREENHOUSE", board: m[1].toLowerCase(), jobId: m[2] } : null;
@@ -171,6 +178,12 @@ const BOARD_ONLY = new RegExp(`^/(${SLUG})(?:/jobs)?/?$`);
 function explain(url: URL, host: string): JobUrlError {
   const system = supportedName(host);
   if (system) return unsupported(`That ${system} link doesn't point to a single job. Open the job itself and paste its link.`);
+  const format = OTHER_FORMATS.find(([re]) => re.test(host))?.[1];
+  if (format) {
+    return unsupported(
+      `We read ${format}, but not links in this format. Open the job from the company's careers page and paste a link like the one in your browser's address bar there, or paste the posting text.`,
+    );
+  }
   const ats = ATS_NAME[host];
   if (ats) {
     const board = BOARD_ONLY.exec(url.pathname)?.[1];
@@ -296,3 +309,14 @@ export const BOARD_SEARCH_DOMAINS = [
   "recruitee.com",
   "myworkdayjobs.com",
 ] as const;
+
+/**
+ * A Workday ref with the job's own path taken from a job link the system itself returned, so a
+ * later lookup can confirm the job directly (the detail endpoint answers 404 once it's gone).
+ */
+export function withJobPath<R extends { ats: BoardAts; host?: string; jobPath?: string }>(ref: R, url: string | null | undefined): R {
+  if (ref.ats !== "WORKDAY" || !url || ref.jobPath) return ref;
+  const parsed = parseJobUrl(url);
+  if ("error" in parsed || parsed.kind !== "board" || !parsed.jobPath || parsed.host !== ref.host) return ref;
+  return { ...ref, jobPath: parsed.jobPath };
+}
