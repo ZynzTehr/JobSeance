@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import CommunitySummary from "../../components/CommunitySummary";
 import ui from "../../components/ui.module.css";
-import { boardUrl, openRoles, postingsWithin } from "@/lib/company-directory";
+import { boardUrl, noBoardWeRead, openRoles, ownSiteLabel, postingsWithin } from "@/lib/company-directory";
 import { getDb } from "@/lib/db";
 import { companyAggregate } from "@/lib/reports";
 import { ATS_LABEL, checkedAt, shortDate } from "@/lib/ui";
@@ -62,6 +62,8 @@ export default async function CompanyPage({ params }: PageProps<"/companies/[slu
                 <a className={ui.link} href={board} target="_blank" rel="noreferrer">
                   {ATS_LABEL[company.ats]} · {company.atsBoard}
                 </a>
+              ) : noBoardWeRead(company) ? (
+                [ownSiteLabel(company.careersHosts), ...company.careersHosts].join(": ")
               ) : (
                 ATS_LABEL[company.ats]
               )}
@@ -69,13 +71,15 @@ export default async function CompanyPage({ params }: PageProps<"/companies/[slu
           </div>
           <div>
             <p className={ui.small}>Open roles right now</p>
-            <p className={`${styles.big} mt-1`}>{roles.count ?? "—"}</p>
+            <p className={`${styles.big} mt-1`}>{noBoardWeRead(company) ? "—" : (roles.count ?? "—")}</p>
             <p className={ui.small}>
-              {roles.count === null
-                ? "The job board didn't respond. Try again in a minute."
-                : roles.fetchedAt
-                  ? `${roles.stale ? "Last known, " : ""}checked ${checkedAt(roles.fetchedAt)}`
-                  : "Stored with the demo data"}
+              {noBoardWeRead(company)
+                ? `Not counted: ${company.name} doesn't use a job board we read, so we can't count its open roles.`
+                : roles.count === null
+                  ? "The job board didn't respond. Try again in a minute."
+                  : roles.fetchedAt
+                    ? `${roles.stale ? "Last known, " : ""}checked ${checkedAt(roles.fetchedAt)}`
+                    : "Stored with the demo data"}
             </p>
           </div>
           <div>

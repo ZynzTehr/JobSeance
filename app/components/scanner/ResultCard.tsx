@@ -379,7 +379,7 @@ export default function ResultCard({ result, message, signedIn, onConfirm, onUse
           <p className={`${ui.small} mt-1`}>Users&rsquo; own experiences. Not verified by JobSeance.</p>
           <p className={`${ui.body} mt-3`}>
             {community.shown
-              ? `${community.ghosted ?? 0} of ${plural(community.reports, "person")} who reported in the last 180 days heard nothing back 45+ days after applying or interviewing.`
+              ? `${community.ghosted ?? 0} of ${community.reports} ${community.reports === 1 ? "person" : "people"} who reported in the last 180 days heard nothing back 45+ days after applying or interviewing.`
               : `Not rated: ${community.reason ?? "fewer than 3 people have reported"} (${plural(community.reports, "report")}).`}
           </p>
           {result.company && (

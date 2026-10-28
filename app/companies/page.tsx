@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import CommunitySummary from "../components/CommunitySummary";
 import ui from "../components/ui.module.css";
-import { companyCards } from "@/lib/company-directory";
+import { companyCards, noBoardWeRead, ownSiteLabel } from "@/lib/company-directory";
 import { ATS_LABEL } from "@/lib/ui";
 import styles from "./companies.module.css";
 
@@ -37,12 +37,18 @@ export default async function CompaniesPage() {
                 <dl className="grid grid-cols-2 gap-3">
                   <div>
                     <dt className={ui.small}>Job board</dt>
-                    <dd className={styles.fact}>{ATS_LABEL[c.ats]}</dd>
+                    <dd className={styles.fact}>{noBoardWeRead(c) ? ownSiteLabel(c.careersHosts) : ATS_LABEL[c.ats]}</dd>
                   </div>
                   <div>
                     <dt className={ui.small}>Open roles</dt>
                     <dd className={styles.fact}>
-                      {c.roles.count === null ? <span className={ui.muted}>Board didn&rsquo;t respond</span> : c.roles.count}
+                      {noBoardWeRead(c) ? (
+                        <span className={ui.muted}>Not counted</span>
+                      ) : c.roles.count === null ? (
+                        <span className={ui.muted}>Board didn&rsquo;t respond</span>
+                      ) : (
+                        c.roles.count
+                      )}
                     </dd>
                   </div>
                 </dl>

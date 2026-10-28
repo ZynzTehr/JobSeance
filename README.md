@@ -59,7 +59,7 @@ Anthropic's Claude (`claude-haiku-5-5`, effort `low`) reads the company, role an
 - Text is masked before it is sent (`lib/ai/sanitize.ts`): email addresses, phone and ID numbers, long numbers and links. Names are not masked.
 - Spend guardrails, outermost first: the console spend limit on the key, `AI_MODE=off`, the admin pause row (`Setting` key `aiPaused` = `1`), a global daily cap (`AI_DAILY_USD`) and 20 AI checks per account per day, both reserved atomically in Postgres (`AiUsage`, `AiUserUsage`). Each call reserves its worst case for the model used (output limit, input ceiling, search fees), so the cap can't be overshot. Web searches and page reads may use at most 60% of the cap. A call refused before anything was billed gives the account its call back. Any failure or cap shows "couldn't verify" and scores 0.
 - Logs carry numbers only: `ai extract model=… in=… out=… ms=… stop=… outcome=…`.
-- `USE_FIXTURES=1` replays recorded readings from `fixtures/ai/` (the two demo postings in `lib/demo-examples.ts`). Re-record them with a key:
+- `USE_FIXTURES=1` replays the answers in `fixtures/ai/`: synthetic ones written for the two demo postings and the demo message in `lib/demo-examples.ts`. Record real ones with a key:
 
   ```bash
   ANTHROPIC_API_KEY=... npx tsx --tsconfig tsconfig.json scripts/record-ai-fixtures.mts
@@ -127,11 +127,11 @@ Our phrase rules catch exact wording ("training fee"); scammers reword it ("cove
   ```
 
   It writes `docs/eval/cues-shadow-report.md`. Showing cues as "AI noticed (not counted)" needs at least 90% precision and at most 2 extra hits per 1,000 real postings. Counting points needs 97% precision and a scoring-version change.
-- On the labelled set, today's phrase rules catch 4 of the 72 reworded signs. They also fire on 4 of the anti-fraud notices, for example "We don't conduct interviews over WhatsApp".
+- On the labelled set, today's phrase rules catch 4 of the 72 reworded signs and, since scoring 2026-10-28.2, fire on none of the 21 anti-fraud notices.
 
 ## End-to-end tests and CI
 
-`npm run test:e2e` builds the app, serves it on port 3100 with recorded job boards and AI answers (`USE_FIXTURES=1`), and runs 13 browser tests in Chromium. They cover sign-up, login, signed-out redirects, the four kinds of check, saved checks, the dashboard, scam reports, Report a problem, account deletion and the admin page.
+`npm run test:e2e` builds the app, serves it on port 3100 with saved job-board copies and scripted AI answers (`USE_FIXTURES=1`), and runs 13 browser tests in Chromium. They cover sign-up, login, signed-out redirects, the four kinds of check, saved checks, the dashboard, scam reports, Report a problem, account deletion and the admin page.
 
 - They use the dev database from `.env`; never point them at production. Each run signs up throwaway accounts and deletes them again.
 - The admin test runs only when `ADMIN_USER_PASSWORD` is set.
@@ -151,7 +151,7 @@ Set each variable per environment in Vercel. On previews, leave `APP_URL` unset;
 
 ## Postman
 
-`postman/jobseance.postman_collection.json` covers the whole API. It logs in once per seeded user, signs up nobody and cleans up after itself.
+`postman/jobseance.postman_collection.json` covers the main endpoints in 44 requests (24 of the 38 method and path pairs). It logs in once per seeded user, signs up nobody and cleans up after itself.
 
 ```bash
 npx newman@6.2.2 run postman/jobseance.postman_collection.json --env-var baseUrl=http://localhost:3000

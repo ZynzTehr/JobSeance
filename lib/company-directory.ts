@@ -8,6 +8,12 @@ import { aggregate, type AggregateRow, type CommunityAggregate } from "@/lib/rep
 
 export type OpenRoles = { count: number | null; fetchedAt: Date | null; stale: boolean; source: CompanyPostings["source"] | null };
 
+/** A real company without a job board we read (Apple, Meta, Microsoft): its open roles can't be counted. */
+export const noBoardWeRead = (c: { ats: Ats; isFictional: boolean }) => c.ats === "NONE" && !c.isFictional;
+
+/** What to call such a company's hiring site: its admin-allowlisted careers hosts, if any. */
+export const ownSiteLabel = (careersHosts: string[]) => (careersHosts.length ? "Own careers site" : "No board we read");
+
 const BOARD_TIMEOUT_MS = 4000;
 
 /** Live postings with a time limit, so one slow job board can't hold up the page. */
@@ -39,6 +45,7 @@ export type CompanyCard = {
   atsBoard: string | null;
   isFictional: boolean;
   officialDomains: string[];
+  careersHosts: string[];
   roles: OpenRoles;
   community: CommunityAggregate;
 };
@@ -63,6 +70,7 @@ export async function companyCards(now = new Date()): Promise<CompanyCard[]> {
     atsBoard: c.atsBoard,
     isFictional: c.isFictional,
     officialDomains: c.officialDomains,
+    careersHosts: c.careersHosts,
     roles: openRoles(postings[i]),
     community: aggregate(byCompany.get(c.id) ?? [], now),
   }));
