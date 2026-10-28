@@ -10,6 +10,8 @@
   --surface: var(--ink-raised);
   /* Deep lantern: vellum text keeps 4.9:1 on it. */
   --accent-deep: #4a5fa8;
+  /* Underlines: slow at both ends, so the whole stroke reads instead of snapping into place. */
+  --ease-draw: cubic-bezier(0.65, 0, 0.35, 1);
   box-sizing: border-box;
   min-height: 100svh;
   display: flex;
@@ -129,7 +131,22 @@
   font: inherit;
   font-size: 2.133cqw;
   font-weight: 500;
-  transition: border-color 0.5s ease;
+}
+
+/* The lantern underline draws in over the mist one from the left and leaves to the right.
+   The origin flips without a transition, so both directions move left to right. */
+.field::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 0.267cqw;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 0.6s var(--ease-draw);
+  pointer-events: none;
 }
 
 .field span {
@@ -156,16 +173,16 @@
   transition: color 0.5s ease;
 }
 
-.field input:focus,
-.field input:not(:placeholder-shown) { border-color: var(--accent); }
+.field:focus-within::after,
+.field:has(input:not(:placeholder-shown))::after { transform: scaleX(1); transform-origin: left; }
 .field input:focus ~ span,
 .field input:not(:placeholder-shown) ~ span { top: -0.667cqw; color: var(--accent); }
 .field input:focus ~ svg,
 .field input:not(:placeholder-shown) ~ svg { color: var(--accent); }
-/* A filled field also turns lantern, so the focused one gets a thicker underline. */
-.field input:focus-visible { box-shadow: 0 0.267cqw 0 var(--accent); }
+/* A filled field also turns lantern, so the focused one gets a thicker underline. The shadow
+   belongs to the line, so it draws in with it. */
+.field:has(input:focus-visible)::after { box-shadow: 0 0.267cqw 0 var(--accent); }
 .field input:autofill { -webkit-text-fill-color: var(--vellum); box-shadow: inset 0 0 0 100px var(--surface); }
-.field input:autofill:focus-visible { box-shadow: inset 0 0 0 100px var(--surface), 0 0.267cqw 0 var(--accent); }
 
 /* Pill with a gradient that sweeps in on hover. OAuth buttons share it, smaller. */
 .submit,
@@ -208,8 +225,24 @@
 .submit:disabled { cursor: wait; }
 
 .switch { margin: 2.667cqw 0 1.333cqw; color: var(--vellum); text-align: center; font-size: 1.867cqw; line-height: 1.5; }
-.switch button { display: block; margin: 0 auto; padding: 0; border: 0; background: transparent; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; }
-.switch button:hover { text-decoration: underline; }
+.switch button { position: relative; display: block; margin: 0 auto; padding: 0; border: 0; background: transparent; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; }
+
+/* Hover underline grows from the middle out to both edges. */
+.switch button::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0.133cqw;
+  left: 0;
+  height: 0.2cqw;
+  background: currentColor;
+  transform: scaleX(0);
+  transition: transform 0.4s var(--ease-draw);
+  pointer-events: none;
+}
+
+.switch button:hover::after,
+.switch button:focus-visible::after { transform: scaleX(1); }
 .stage button:focus-visible,
 .stage a:focus-visible { outline: 2px solid var(--lantern); outline-offset: 4px; }
 
@@ -451,8 +484,8 @@
   .field input:focus ~ span,
   .field input:not(:placeholder-shown) ~ span { top: -4px; }
   .field svg { width: 18px; height: 18px; }
-  .field input:focus-visible { box-shadow: 0 2px 0 var(--accent); }
-  .field input:autofill:focus-visible { box-shadow: inset 0 0 0 100px var(--surface), 0 2px 0 var(--accent); }
+  .field::after { height: 2px; }
+  .field:has(input:focus-visible)::after { box-shadow: 0 2px 0 var(--accent); }
 
   .submit,
   .oauthButton { border-width: 2px; border-radius: 40px; }
@@ -466,6 +499,8 @@
 
   .switch { margin: 18px 0 0; font-size: 14px; }
   .switch button { padding: 6px 10px; }
+  /* Inset by the padding so the line spans the word, not the tap target. */
+  .switch button::after { right: 10px; bottom: 7px; left: 10px; height: 1.5px; }
 }
 
 @keyframes fadeIn {
