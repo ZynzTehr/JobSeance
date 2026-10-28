@@ -25,11 +25,32 @@ const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$/;
 const WORKDAY_PAGE = 20; // Workday's maximum page size
 const SEARCH_LIMIT = 20;
 
+const MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+
+/** amazon.jobs dates ("October 23, 2026"), read exactly and as UTC; anything else is no date, never a guess. */
+export function amazonDate(value: unknown): Date | null {
+  const m = /^([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4})$/.exec(String(value ?? "").trim());
+  const month = m ? MONTHS.indexOf(m[1].toLowerCase()) : -1;
+  if (!m || month < 0) return null;
+  const d = new Date(Date.UTC(Number(m[3]), month, Number(m[2])));
+  return d.getUTCDate() === Number(m[2]) ? d : null;
+}
+
 const toDate = (value: unknown): Date | null => {
   if (value === null || value === undefined || value === "") return null;
   const d = new Date(String(value).replace(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}) UTC$/, "$1T$2Z"));
   return Number.isNaN(d.getTime()) ? null : d;
 };
+
+/**
+ * The list inside an upstream response. These APIs are undocumented or loosely specified, so a
+ * missing or non-array list is a bad response ("couldn't verify"), never an empty board.
+ */
+function items<T>(value: unknown): T[] {
+  if (!Array.isArray(value)) throw new UpstreamError("bad_body");
+  return value as T[];
+}
+const text = (v: unknown): v is string => typeof v === "string" && v.trim().length > 0;
 
 function assertSafe(...ids: string[]) {
   for (const id of ids) if (!SAFE_ID.test(id)) throw new UpstreamError("not_found");
@@ -54,14 +75,24 @@ function workdayParts(ref: AdapterRef) {
   return { base: `https://${host}/wday/cxs/${encodeURIComponent(tenant)}/${encodeURIComponent(site)}`, publicBase: `https://${host}/${encodeURIComponent(site)}` };
 }
 
+/**
+ * The requisition number to search for: "jr2022104-1" → "jr2022104" (a short posting suffix
+ * dropped), but "r-12345" and "jr-0001234" stay whole: their dash is part of the number.
+ */
+export function workdayRequisition(id: string): string {
+  const m = /^(.*\d.*)-\d{1,2}$/.exec(id);
+  return m ? m[1] : id;
+}
+
 /** "…/Senior-Engineer_JR2022104-1" → "jr2022104-1" (the id the job's own URL ends with). */
 export const workdayIdOf = (externalPath: string) => (externalPath.split("_").pop() ?? externalPath).toLowerCase();
 
 export function normalizeWorkday(raw: WorkdayRaw, ref: AdapterRef): AdapterJob[] {
   const site = ref.board.split("/")[1] ?? "";
   const publicBase = ref.host ? `https://${ref.host}/${encodeURIComponent(site)}` : "";
-  return (raw.jobPostings ?? [])
-    .filter((j) => WORKDAY_EXTERNAL_PATH.test(j.externalPath) && !j.externalPath.includes(".."))
+  return items<WorkdayListItem>(raw.jobPostings)
+    .filter((j) => text(j?.externalPath) && WORKDAY_EXTERNAL_PATH.test(j.externalPath) && !j.externalPath.includes(".."))
+    .filter((j) => text(raw.details?.[j.externalPath]?.jobPostingInfo?.title ?? j.title))
     .map((j) => {
       const info = raw.details?.[j.externalPath]?.jobPostingInfo;
       return {
@@ -86,7 +117,7 @@ async function workdayJob(ref: AdapterRef, jobId: string, opts?: FetchOptions): 
   const { base } = workdayParts(ref);
   const id = jobId.toLowerCase();
   // Search by the requisition number (without a "-1" posting suffix), then match the exact id.
-  const raw = await postJson<WorkdayList>(`${base}/jobs`, { appliedFacets: {}, limit: WORKDAY_PAGE, offset: 0, searchText: id.replace(/-\d+$/, "") }, opts);
+  const raw = await postJson<WorkdayList>(`${base}/jobs`, { appliedFacets: {}, limit: WORKDAY_PAGE, offset: 0, searchText: workdayRequisition(id) }, opts);
   const item = (raw.jobPostings ?? []).find((j) => WORKDAY_EXTERNAL_PATH.test(j.externalPath) && !j.externalPath.includes("..") && workdayIdOf(j.externalPath) === id);
   if (item) {
     const detail = await getJson<WorkdayDetail>(`${base}${item.externalPath}`, opts);
@@ -117,8 +148,8 @@ export type SmartRecruitersRaw = SrList & { details?: Record<string, SrDetail> }
 const SR_API = "https://api.smartrecruiters.com/v1/companies";
 
 export function normalizeSmartRecruiters(raw: SmartRecruitersRaw, ref: AdapterRef): AdapterJob[] {
-  return (raw.content ?? [])
-    .filter((p) => /^\d{1,20}$/.test(p.id))
+  return items<SrPosting>(raw.content)
+    .filter((p) => /^\d{1,20}$/.test(String(p?.id)) && text(p.name))
     .map((p) => {
       const d = raw.details?.[p.id];
       const sections = d?.jobAd?.sections ? Object.values(d.jobAd.sections).map((s) => s?.text ?? "").join("\n") : null;
@@ -146,6 +177,8 @@ async function srJob(ref: AdapterRef, jobId: string, opts?: FetchOptions): Promi
   if (!/^\d{1,20}$/.test(jobId)) return null;
   try {
     const d = await getJson<SrDetail>(`${SR_API}/${encodeURIComponent(ref.board)}/postings/${jobId}`, opts);
+    // Only a 404 means "gone"; a 200 that isn't this posting is a bad response, not a removal.
+    if (String(d?.id) !== jobId || !text(d.name)) throw new UpstreamError("bad_body");
     return normalizeSmartRecruiters({ content: [d], details: { [d.id]: d } }, ref)[0] ?? null;
   } catch (error) {
     if (error instanceof UpstreamError && error.kind === "not_found") return null;
@@ -159,8 +192,8 @@ type WorkableJob = { shortcode: string; title: string; city?: string; state?: st
 export type WorkableRaw = { jobs?: WorkableJob[] };
 
 export function normalizeWorkable(raw: WorkableRaw, ref: AdapterRef): AdapterJob[] {
-  return (raw.jobs ?? [])
-    .filter((j) => /^[A-Za-z0-9]{4,20}$/.test(j.shortcode))
+  return items<WorkableJob>(raw.jobs)
+    .filter((j) => /^[A-Za-z0-9]{4,20}$/.test(String(j?.shortcode)) && text(j.title))
     .map((j) => ({
       externalId: j.shortcode.toLowerCase(),
       title: j.title.trim(),
@@ -183,8 +216,8 @@ type RecruiteeOffer = { slug: string; title: string; location?: string; careers_
 export type RecruiteeRaw = { offers?: RecruiteeOffer[] };
 
 export function normalizeRecruitee(raw: RecruiteeRaw, ref: AdapterRef): AdapterJob[] {
-  return (raw.offers ?? [])
-    .filter((o) => /^[a-z0-9][a-z0-9-]{0,199}$/.test(o.slug) && (o.status ?? "published") === "published")
+  return items<RecruiteeOffer>(raw.offers)
+    .filter((o) => /^[a-z0-9][a-z0-9-]{0,199}$/.test(String(o?.slug)) && text(o.title) && (o.status ?? "published") === "published")
     .map((o) => ({
       externalId: o.slug,
       title: o.title.trim(),
@@ -207,14 +240,14 @@ type AmazonJob = { id_icims: string; title: string; job_path?: string; posted_da
 export type AmazonRaw = { hits?: number; jobs?: AmazonJob[] };
 
 export function normalizeAmazon(raw: AmazonRaw): AdapterJob[] {
-  return (raw.jobs ?? [])
-    .filter((j) => /^\d{5,12}$/.test(j.id_icims))
+  return items<AmazonJob>(raw.jobs)
+    .filter((j) => /^\d{5,12}$/.test(String(j?.id_icims)) && text(j.title))
     .map((j) => ({
       externalId: j.id_icims,
       title: j.title.trim(),
       location: (j.normalized_location ?? j.location)?.trim() || null,
       url: `https://www.amazon.jobs/en/jobs/${j.id_icims}`,
-      postedAt: toDate(j.posted_date?.replace(/\s+/g, " ")),
+      postedAt: amazonDate(j.posted_date),
       internalJobId: null,
       descriptionHtml: [j.description, j.basic_qualifications, j.preferred_qualifications].filter(Boolean).join("<br/>") || null,
     }));

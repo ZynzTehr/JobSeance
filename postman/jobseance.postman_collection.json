@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "JobSeance API",
-    "description": "Demo and CRUD collection. Logs in once per seeded user (demo, demo2), signs up nobody, and cleans up after itself, so it can run twice in a row. Folder \"★ Demo step 6\" holds demo step 6 in presenting order.\n\nRun: npx newman@6.2.2 run postman/jobseance.postman_collection.json --env-var baseUrl=<URL> [--env-var demoPassword=<seeded password>] [--env-var vercelBypass=<secret, previews only>]",
+    "description": "Demo and CRUD collection. Logs in once per seeded user (demo, demo2), signs up nobody, and cleans up after itself, so it can run twice in a row. Folder \"★ Demo step 6\" holds demo step 6 in presenting order.\n\nRun: npx newman@6.2.2 run postman/jobseance.postman_collection.json --env-var baseUrl=<URL> [--env-var demoPassword=<seeded password>] [--env-var adminPassword=<ADMIN_USER_PASSWORD>] [--env-var vercelBypass=<secret, previews only>]",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "event": [
@@ -55,6 +55,14 @@
     },
     {
       "key": "scamReportId",
+      "value": ""
+    },
+    {
+      "key": "adminPassword",
+      "value": ""
+    },
+    {
+      "key": "adminToken",
       "value": ""
     }
   ],
@@ -153,6 +161,44 @@
                 "exec": [
                   "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
                   "pm.collectionVariables.set(\"token2\", pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Log in as admin (optional)",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Admin requests run as the seeded admin account only when adminPassword is passed; otherwise they expect the 404 everyone else gets.",
+                  "if (pm.variables.get(\"adminPassword\")) {",
+                  "  pm.test(\"admin login 200\", () => pm.response.to.have.status(200));",
+                  "  pm.collectionVariables.set(\"adminToken\", pm.response.json().token);",
+                  "} else {",
+                  "  pm.test(\"no adminPassword given: admin requests expect 404\", () => pm.expect(pm.response.code).to.be.oneOf([400, 401]));",
+                  "  pm.collectionVariables.set(\"adminToken\", \"\");",
+                  "}"
                 ]
               }
             }
@@ -458,7 +504,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{token}}"
+                "value": "Bearer {{adminToken}}"
               },
               {
                 "key": "Content-Type",
@@ -477,8 +523,12 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
-                  "pm.test(\"names the field\", () => pm.expect(pm.response.json().error.fields).to.have.property(\"atsBoard\"));"
+                  "if (pm.collectionVariables.get(\"adminToken\")) {",
+                  "  pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+                  "  pm.test(\"names the field\", () => pm.expect(pm.response.json().error.fields).to.have.property(\"atsBoard\"));",
+                  "} else {",
+                  "  pm.test(\"no admin token: refused before validation\", () => pm.expect(pm.response.code).to.be.oneOf([401, 403]));",
+                  "}"
                 ]
               }
             }
@@ -1235,8 +1285,30 @@
     },
     {
       "name": "5 · Admin",
-      "description": "Admin-only endpoints answer 404 to everyone else. In dev the seeded demo user is ADMIN; in production demo is a plain user (seeded with ADMIN_USER_EMAIL), so the admin requests accept 404 there.",
+      "description": "Admin-only endpoints answer 404 to everyone else, signed in or not. Admin requests run as the seeded admin account when adminPassword is passed (--env-var adminPassword=...), and otherwise expect that 404.",
       "item": [
+        {
+          "name": "AI usage signed out (404)",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/ai-usage"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 404: no hint that admin tools exist\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
         {
           "name": "AI usage as non-admin (404)",
           "protocolProfileBehavior": {
@@ -1406,7 +1478,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{token}}"
+                "value": "Bearer {{adminToken}}"
               }
             ],
             "url": "{{baseUrl}}/api/v1/admin/ai-usage"
@@ -1417,10 +1489,12 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"200 for an admin, 404 where demo isn't one\", () => pm.expect(pm.response.code).to.be.oneOf([200, 404]));",
-                  "if (pm.response.code === 200) {",
+                  "if (pm.collectionVariables.get(\"adminToken\")) {",
+                  "  pm.test(\"status 200\", () => pm.response.to.have.status(200));",
                   "  const body = pm.response.json();",
                   "  pm.test(\"has the pause switch and daily rows\", () => { pm.expect(body.paused).to.be.a(\"boolean\"); pm.expect(body.days).to.be.an(\"array\"); });",
+                  "} else {",
+                  "  pm.test(\"no admin token: 404 like any missing page\", () => pm.response.to.have.status(404));",
                   "}"
                 ]
               }
@@ -1437,7 +1511,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{token}}"
+                "value": "Bearer {{adminToken}}"
               },
               {
                 "key": "Content-Type",
@@ -1456,8 +1530,12 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"400 for an admin, 404 where demo isn't one\", () => pm.expect(pm.response.code).to.be.oneOf([400, 404]));",
-                  "if (pm.response.code === 400) pm.test(\"names the careersHosts field\", () => pm.expect(pm.response.json().error.fields).to.have.property(\"careersHosts\"));"
+                  "if (pm.collectionVariables.get(\"adminToken\")) {",
+                  "  pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+                  "  pm.test(\"names the careersHosts field\", () => pm.expect(pm.response.json().error.fields).to.have.property(\"careersHosts\"));",
+                  "} else {",
+                  "  pm.test(\"no admin token: 404 like any missing page\", () => pm.response.to.have.status(404));",
+                  "}"
                 ]
               }
             }

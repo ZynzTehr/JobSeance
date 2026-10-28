@@ -91,7 +91,9 @@ describe("fixture mode", () => {
     expect(list.partial).toBe(key === "workday" || key === "smartrecruiters" || key === "amazon");
     const first = list.jobs[0];
     expect(await fetchBoardJob(ref, first.externalId.toUpperCase())).toMatchObject({ externalId: first.externalId });
-    expect(await fetchBoardJob(ref, "zz-no-such-job")).toBeNull();
+    // A saved copy of a search system holds only the newest page, so a miss is "couldn't verify", never "removed".
+    if (list.partial) await expect(fetchBoardJob(ref, "zz-no-such-job")).rejects.toMatchObject({ kind: "bad_body" });
+    else expect(await fetchBoardJob(ref, "zz-no-such-job")).toBeNull();
     expect(await boardExists(ref)).toBe(true);
     expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();

@@ -31,7 +31,10 @@ Rules:
 - Reply with one JSON object with exactly the keys isJobPosting, title, location, postedText, and nothing else.
 (prompt ${LOCATE_PROMPT_VERSION})`;
 
-/** Only https, no credentials or port; query string and fragment dropped (tracking parameters). */
+/** Query parameters that identify a job on some careers sites; every other parameter (tracking) is dropped. */
+const JOB_ID_PARAM = /^(?:id|jobid|job_id|job-id|req|reqid|req_id|requisition|requisitionid|positionid|position_id|pid|gh_jid)$/i;
+
+/** Only https, no credentials or port; the fragment and every query parameter except a job id dropped. */
 export function pageUrlFor(input: string, allowedHosts: string[]): string | null {
   let u: URL;
   try {
@@ -40,11 +43,28 @@ export function pageUrlFor(input: string, allowedHosts: string[]): string | null
     return null;
   }
   if (u.protocol !== "https:" || u.username || u.password || u.port || !onHosts(u.href, allowedHosts)) return null;
-  const clean = `https://${u.hostname.toLowerCase()}${u.pathname}`;
+  const kept = new URLSearchParams([...u.searchParams].filter(([k, v]) => JOB_ID_PARAM.test(k) && /^[A-Za-z0-9_-]{1,64}$/.test(v)).slice(0, 2));
+  const query = kept.toString();
+  const clean = `https://${u.hostname.toLowerCase()}${u.pathname}${query ? `?${query}` : ""}`;
   return clean.length <= 2048 ? clean : null;
 }
 
-export function readPageCall(url: string, host: string, model: string, signal?: AbortSignal) {
+/** Whether the fetch tool read the page asked for: same host, and the same path or a deeper one (a slug redirect). */
+export function samePage(fetched: string, requested: string): boolean {
+  try {
+    const f = new URL(fetched);
+    const r = new URL(requested);
+    const path = (p: string) => p.replace(/\/+$/, "") || "/";
+    const rp = path(r.pathname);
+    const fp = path(f.pathname);
+    const query = [...r.searchParams].every(([k, v]) => f.searchParams.get(k) === v);
+    return f.hostname.toLowerCase() === r.hostname.toLowerCase() && (fp === rp || fp.startsWith(`${rp}/`)) && query;
+  } catch {
+    return false;
+  }
+}
+
+export function readPageCall(url: string, host: string, model: string, signal?: AbortSignal, anthropic?: Anthropic) {
   return callWithTools({
     step: "page",
     model,
@@ -64,16 +84,26 @@ export function readPageCall(url: string, host: string, model: string, signal?: 
     maxTokens: MAX_TOKENS.page,
     timeoutMs: AI_TIMEOUT_MS.page,
     signal,
-  });
+  }, anthropic);
 }
 
-const norm = (s: string) => s.normalize("NFKC").replace(/\s+/g, " ").trim().toLowerCase();
+const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-/** Keeps a field only if the fetched page contains it word for word. */
+/**
+ * The page's own text for a field the model reported, or null if the page doesn't contain it.
+ * Matching ignores case and spacing, but what is returned is the page's spelling, never the model's.
+ */
 export function grounded(value: string | null, pageText: string): string | null {
   if (!value) return null;
-  const v = value.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
-  return v && norm(pageText).includes(norm(v)) ? v : null;
+  const words = value
+    .normalize("NFKC")
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 60);
+  if (!words.length) return null;
+  const match = new RegExp(words.map(escape).join("\\s+"), "iu").exec(pageText.normalize("NFKC"));
+  return match ? match[0].replace(/\s+/g, " ").trim() : null;
 }
 
 function lastJson(content: Anthropic.Messages.ContentBlock[]): unknown {
@@ -88,11 +118,17 @@ function lastJson(content: Anthropic.Messages.ContentBlock[]): unknown {
 }
 
 /** The page read from a finished call, or a reason it can't be used. */
-export function pageFrom(content: Anthropic.Messages.ContentBlock[], allowedHost: string): { ok: true; value: PageRead } | { ok: false; reason: "invalid" | "error" } {
+export function pageFrom(
+  content: Anthropic.Messages.ContentBlock[],
+  allowedHost: string,
+  requestedUrl?: string,
+): { ok: true; value: PageRead } | { ok: false; reason: "invalid" | "error" } {
   const fetched = content.find((b) => b.type === "web_fetch_tool_result");
-  if (!fetched || fetched.type !== "web_fetch_tool_result" || fetched.content.type !== "web_fetch_result") return { ok: false, reason: "error" };
+  if (!fetched || fetched.type !== "web_fetch_tool_result" || fetched.content?.type !== "web_fetch_result") return { ok: false, reason: "error" };
   const doc = fetched.content.content;
-  if (doc.source.type !== "text" || !onHosts(fetched.content.url, [allowedHost])) return { ok: false, reason: "error" };
+  if (doc?.source?.type !== "text" || !onHosts(fetched.content.url, [allowedHost])) return { ok: false, reason: "error" };
+  // The model chooses what to fetch: facts about any other page on the host would describe a page the user never pasted.
+  if (requestedUrl && !samePage(fetched.content.url, requestedUrl)) return { ok: false, reason: "error" };
   const pageText = doc.source.data.slice(0, 20_000);
   const fields = PageFields.safeParse(lastJson(content));
   if (!fields.success) return { ok: false, reason: "invalid" };

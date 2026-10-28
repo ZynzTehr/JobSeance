@@ -101,6 +101,17 @@ export function AddDiscovered({ d }: { d: { key: string; name: string; ats: stri
         <button type="submit" className={`${ui.secondary} px-4 py-2`} disabled={busy} aria-busy={busy}>
           Add to directory
         </button>
+        <button
+          type="button"
+          className={`${ui.ghost} px-3 py-2`}
+          disabled={busy}
+          onClick={() =>
+            window.confirm("Dismiss this board as not the employer's? Checks won't show it for 90 days.") &&
+            submit("POST", `/api/v1/admin/discoveries/${encodeURIComponent(d.key)}/dismiss`, {}, "Dismissed.")
+          }
+        >
+          Not theirs: dismiss
+        </button>
         <Status status={status} />
       </div>
     </form>

@@ -119,6 +119,10 @@ export type Discovery = {
 
 const FOUND_DAYS = 30;
 const NOT_FOUND_DAYS = 7;
+/** A miss from the free probes alone (AI off, over budget or out of time): kept briefly so repeats don't re-probe every board. */
+const PROBE_MISS_DAYS = 0.5;
+/** An admin dismissed a board as not the employer's: kept long enough for the squat to be abandoned. */
+export const DISMISSED_DAYS = 90;
 const days = (now: Date, n: number) => new Date(now.getTime() + n * 86_400_000);
 const linkKey = (l: BoardLink) => `${l.ats}:${l.board.toLowerCase()}:${l.host ?? ""}`;
 
@@ -180,16 +184,19 @@ export async function discoverBoard(employerInput: string, role: string | null, 
   // Boards that exist but state no company name. A stated name that differs is someone else's board.
   result.unconfirmed = result.found ? [] : all.filter((p) => !p.declaredName).slice(0, 3);
 
-  const base = { key, employerName: employer.slice(0, 100) };
+  // Stored: the cache key (a slug) and the board's own name. Never the text the user typed or
+  // Claude read: for a found board the board's own name stands in, for a miss nothing does.
   if (result.found) {
     const f = result.found;
     await deps.cache
-      .put({ ...base, status: "FOUND", ats: f.ats, board: f.board, host: f.host ?? null, declaredName: f.declaredName, method: f.method, expiresAt: days(deps.now, FOUND_DAYS) })
+      .put({ key, employerName: f.declaredName ?? "", status: "FOUND", ats: f.ats, board: f.board, host: f.host ?? null, declaredName: f.declaredName, method: f.method, expiresAt: days(deps.now, FOUND_DAYS) })
       .catch(() => undefined);
-  } else if (searched && !result.unconfirmed.length) {
-    // Only a completed search is cached as "not found"; a probe miss alone may just mean AI was off.
+  } else if (!result.unconfirmed.length) {
+    // A completed search that found nothing is kept 7 days; a probe-only miss (AI off, over
+    // budget, out of time) only half a day, so a later check can still run the search.
+    const keep = searched ? NOT_FOUND_DAYS : PROBE_MISS_DAYS;
     await deps.cache
-      .put({ ...base, status: "NOT_FOUND", ats: null, board: null, host: null, declaredName: null, method: "search", expiresAt: days(deps.now, NOT_FOUND_DAYS) })
+      .put({ key, employerName: "", status: "NOT_FOUND", ats: null, board: null, host: null, declaredName: null, method: searched ? "search" : "probe", expiresAt: days(deps.now, keep) })
       .catch(() => undefined);
   }
   return result;

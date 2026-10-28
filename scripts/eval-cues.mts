@@ -68,10 +68,12 @@ let postings: Sample[] = [];
 if (postingCount > 0) {
   const { getDb } = await import("@/lib/db");
   const db = getDb();
-  const systems = (await db.posting.groupBy({ by: ["ats"], where: { description: { not: null } } })).map((g) => g.ats);
+  // Real employers' boards only: the fictional demo companies' postings are written to contain warning signs.
+  const real = { description: { not: null }, ats: { not: "NONE" as const }, company: { isFictional: false } };
+  const systems = (await db.posting.groupBy({ by: ["ats"], where: real })).map((g) => g.ats);
   const per = Math.ceil(postingCount / Math.max(1, systems.length));
   for (const ats of systems) {
-    const rows = await db.posting.findMany({ where: { ats, description: { not: null } }, select: { description: true }, orderBy: { fetchedAt: "desc" }, take: per });
+    const rows = await db.posting.findMany({ where: { ...real, ats }, select: { description: true }, orderBy: { fetchedAt: "desc" }, take: per });
     postings.push(...rows.map((r) => ({ ats, description: r.description! })));
   }
   postings = postings.slice(0, postingCount);

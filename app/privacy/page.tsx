@@ -158,11 +158,13 @@ export default function PrivacyPage() {
             If none does, Anthropic&rsquo;s Claude may suggest where the company posts jobs, and Anthropic&rsquo;s web search may
             look for it on public job-board sites. Only the company name and the role title are sent; never your account, your
             IP address or anything you pasted. What we find is kept for {RETENTION_DAYS.discoveryFound} days ({" "}
-            {RETENTION_DAYS.discoveryNotFound} days if nothing was found) so the next person&rsquo;s check doesn&rsquo;t search
-            again; it holds the company name and the board&rsquo;s public identifier only. For a company we list whose careers
-            site we allowlisted, Anthropic&rsquo;s web search may look for the role title on that site, and a job link you paste on
-            that site is sent without its query string so Anthropic&rsquo;s fetch tool can read the page. Our own server never
-            opens a link you paste.
+            {RETENTION_DAYS.discoveryNotFound} days if a search found nothing, half a day if only our quick board check ran) so
+            the next person&rsquo;s check doesn&rsquo;t search again. It holds a short key made from the company name and, when
+            a board was found, that board&rsquo;s own name and public identifier; never the text you typed. For a company we list
+            whose careers site we allowlisted, Anthropic&rsquo;s web search may look for the role title on that site, and a job
+            link you paste on that site is sent without tracking parameters (a job id in the link is kept) so Anthropic&rsquo;s
+            fetch tool can read the page. Our own server never opens a link you paste, with one exception: for a Workday job link,
+            we ask that Workday site for the job at the same address, to tell a removed job from a search miss.
           </p>
 
           <Sub>When you paste email headers or let Claude read a message</Sub>
@@ -325,9 +327,9 @@ export default function PrivacyPage() {
               contains data about you.
             </li>
             <li>
-              <strong>Job-board search results:</strong> a company name and the public board we found for it, kept{" "}
-              {RETENTION_DAYS.discoveryFound} days ({RETENTION_DAYS.discoveryNotFound} days when nothing was found). They
-              contain no data about you.
+              <strong>Job-board search results:</strong> a short key made from the company name searched for and, when found, the
+              board&rsquo;s own name and identifier. Kept {RETENTION_DAYS.discoveryFound} days ({RETENTION_DAYS.discoveryNotFound} days
+              when a search found nothing, half a day after a quick board check alone). They contain no data about you.
             </li>
             <li>
               <strong>AI quality measurements:</strong> when a check already sent your masked text to Claude, we may ask Claude

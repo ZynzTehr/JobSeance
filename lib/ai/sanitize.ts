@@ -10,6 +10,7 @@ const CONTROL_RE = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f\u200b-\u200f\u
 const CHROME_LINE = /^(easy apply|apply|save|saved|share|report this job|show more|show less|see more|see less|promoted|be an early applicant|.*your profile matches.*|.*people clicked apply.*|.*applicants?\b.*\bago\b.*|.*\bresponses? managed off linkedin\b.*)$/i;
 
 export const AI_TEXT_MAX = 20_000;
+const CHROME_MAX = 200;
 
 /** Emails → [email]@domain, phones, SSN-like and long digit runs masked, links → [link]@host, chrome dropped. */
 export function redactForAi(text: string): string {
@@ -23,14 +24,15 @@ export function redactForAi(text: string): string {
   const lines = redact(withoutLinks)
     .replace(CONTROL_RE, "")
     .split(/\r?\n/)
-    .filter((line) => !CHROME_LINE.test(line.trim()));
+    // Chrome lines are short; testing long lines would let nested .* patterns run in quadratic time.
+    .filter((line) => line.length > CHROME_MAX || !CHROME_LINE.test(line.trim()));
   return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, AI_TEXT_MAX);
 }
 
 /** Registrable-looking domains of email addresses in the ORIGINAL text (deterministic, never from AI output). */
 export function emailDomains(text: string, max = 3): string[] {
   const seen = new Set<string>();
-  for (const m of text.matchAll(/[\w.+-]+@([\w-]+(?:\.[\w-]+)+)/g)) {
+  for (const m of text.matchAll(/[\w.+-]{1,64}@([\w-]{1,63}(?:\.[\w-]{1,63}){1,10})/g)) {
     seen.add(m[1].toLowerCase().replace(/\.$/, ""));
     if (seen.size >= max) break;
   }

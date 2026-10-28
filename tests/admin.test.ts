@@ -33,52 +33,77 @@ describe("careers hosts", () => {
   });
 });
 
-function flagDb(openFlags = 0) {
+/** Fake db for resolveFlag: records every call; flag.count answers per status list. */
+function flagDb(counts: { open?: number; upheld?: number } = {}) {
   const calls: { op: string; args: unknown }[] = [];
-  const rec = (op: string, result: unknown = { count: 1 }) => vi.fn(async (args: unknown) => (calls.push({ op, args }), result));
-  return {
-    calls,
-    db: {
-      flag: { update: rec("flag.update", { id: "f1" }), count: rec("flag.count", openFlags) },
-      outcomeReport: { updateMany: rec("outcomeReport.updateMany") },
-      scamReport: { updateMany: rec("scamReport.updateMany") },
-    } as never,
+  const rec = (op: string, result: (args: unknown) => unknown = () => ({ count: 1 })) =>
+    vi.fn(async (args: unknown) => (calls.push({ op, args }), result(args)));
+  const tx = {
+    flag: {
+      update: rec("flag.update", () => ({ id: "f1" })),
+      count: rec("flag.count", (args) =>
+        JSON.stringify(args).includes("UPHELD") ? (counts.upheld ?? 0) : (counts.open ?? 0),
+      ),
+    },
+    outcomeReport: { updateMany: rec("outcomeReport.updateMany") },
+    scamReport: { updateMany: rec("scamReport.updateMany") },
   };
+  const db = { ...tx, $transaction: vi.fn(async (fn: (t: typeof tx) => unknown) => (calls.push({ op: "$transaction", args: null }), fn(tx))) };
+  return { calls, db: db as never };
 }
 
 describe("resolveFlag", () => {
-  const flag = { id: "f1", targetType: "SCAM_REPORT", targetId: "r1", resolutionNote: null };
+  const flag = { id: "f1", targetType: "SCAM_REPORT", targetId: "r1", status: "OPEN", resolutionNote: null };
 
-  it("upheld removes the reported report and records when", async () => {
+  it("upheld removes the reported report, inside one transaction, and records when", async () => {
     const { db, calls } = flagDb();
     await resolveFlag(db, flag, { status: "UPHELD", resolutionNote: "Contained a name." }, NOW);
-    expect(calls[0]).toMatchObject({ op: "flag.update", args: { data: { status: "UPHELD", resolutionNote: "Contained a name.", resolvedAt: NOW } } });
-    expect(calls[1]).toEqual({ op: "scamReport.updateMany", args: { where: { id: "r1" }, data: { visibility: "REMOVED" } } });
+    expect(calls[0].op).toBe("$transaction");
+    expect(calls[1]).toMatchObject({ op: "flag.update", args: { data: { status: "UPHELD", resolutionNote: "Contained a name.", resolvedAt: NOW } } });
+    expect(calls[2]).toEqual({ op: "scamReport.updateMany", args: { where: { id: "r1" }, data: { visibility: "REMOVED" } } });
   });
 
-  it("rejected makes a hidden report visible again once no other flag holds it", async () => {
-    const { db, calls } = flagDb(0);
+  it("rejected makes a hidden report visible again once no other open flag on the same report holds it", async () => {
+    const { db, calls } = flagDb({ open: 0 });
     await resolveFlag(db, { ...flag, targetType: "OUTCOME_REPORT" }, { status: "REJECTED" }, NOW);
+    // Pin the filter: same report, another flag, still open. Dropping any part would break the rule.
+    expect(calls.find((c) => c.op === "flag.count")?.args).toEqual({
+      where: { targetType: "OUTCOME_REPORT", targetId: "r1", id: { not: "f1" }, status: { in: ["OPEN", "UNDER_REVIEW"] } },
+    });
     expect(calls.at(-1)).toEqual({ op: "outcomeReport.updateMany", args: { where: { id: "r1", visibility: "HIDDEN_PENDING_REVIEW" }, data: { visibility: "VISIBLE" } } });
   });
 
   it("rejected keeps it hidden while another flag is still open", async () => {
-    const { db, calls } = flagDb(1);
+    const { db, calls } = flagDb({ open: 1 });
     await resolveFlag(db, flag, { status: "REJECTED" }, NOW);
-    expect(calls.map((c) => c.op)).toEqual(["flag.update", "flag.count"]);
+    expect(calls.map((c) => c.op)).toEqual(["$transaction", "flag.update", "flag.count"]);
+  });
+
+  it("moving a flag off upheld undoes the removal unless another upheld flag stands", async () => {
+    const undone = flagDb({ upheld: 0 });
+    await resolveFlag(undone.db, { ...flag, status: "UPHELD" }, { status: "REJECTED" }, NOW);
+    expect(undone.calls).toContainEqual({ op: "scamReport.updateMany", args: { where: { id: "r1", visibility: "REMOVED" }, data: { visibility: "VISIBLE" } } });
+
+    const reviewing = flagDb({ upheld: 0 });
+    await resolveFlag(reviewing.db, { ...flag, status: "UPHELD" }, { status: "UNDER_REVIEW" }, NOW);
+    expect(reviewing.calls).toContainEqual({ op: "scamReport.updateMany", args: { where: { id: "r1", visibility: "REMOVED" }, data: { visibility: "HIDDEN_PENDING_REVIEW" } } });
+
+    const stillRemoved = flagDb({ upheld: 1 });
+    await resolveFlag(stillRemoved.db, { ...flag, status: "UPHELD" }, { status: "REJECTED" }, NOW);
+    expect(stillRemoved.calls.filter((c) => c.op === "scamReport.updateMany" && JSON.stringify(c.args).includes("REMOVED"))).toEqual([]);
   });
 
   it("under review changes nothing else and clears resolvedAt", async () => {
     const { db, calls } = flagDb();
     await resolveFlag(db, flag, { status: "UNDER_REVIEW" }, NOW);
-    expect(calls).toHaveLength(1);
-    expect(calls[0]).toMatchObject({ args: { data: { resolvedAt: null } } });
+    expect(calls.map((c) => c.op)).toEqual(["$transaction", "flag.update"]);
+    expect(calls[1]).toMatchObject({ args: { data: { resolvedAt: null } } });
   });
 
   it("flags on companies, checks or the site touch no report", async () => {
     const { db, calls } = flagDb();
     await resolveFlag(db, { ...flag, targetType: "COMPANY" }, { status: "UPHELD" }, NOW);
-    expect(calls.map((c) => c.op)).toEqual(["flag.update"]);
+    expect(calls.map((c) => c.op)).toEqual(["$transaction", "flag.update"]);
   });
 });
 

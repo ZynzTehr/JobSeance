@@ -32,7 +32,7 @@ Built with Next.js 16.4 (App Router), Prisma 7.10, Neon Postgres, Passport.js an
    | `GOOGLE_*`, `GITHUB_*` | From your OAuth apps; leave empty to hide that sign-in button |
    | `CRON_SECRET`, `USE_FIXTURES` | Optional |
    | `DEMO_USER_EMAIL`, `DEMO_USER_PASSWORD` | Optional; used by the database seed |
-   | `ADMIN_USER_EMAIL`, `ADMIN_USER_PASSWORD` | Optional, seed only (set in your shell): a separate `admin` account. When set, `demo` is seeded as a plain user, since its password is typed on stage |
+   | `ADMIN_USER_EMAIL`, `ADMIN_USER_PASSWORD` | Optional, seed only: the only way to get an admin account (username `admin`). `demo` is always seeded as a plain user, since its password is typed on stage |
    | `ANTHROPIC_API_KEY` | Optional; turns on AI reading, board searches and page reads. Use a dedicated key with a monthly spend limit set in the Anthropic console |
    | `AI_MODE`, `AI_MODEL`, `AI_MODEL_LOCATE`, `AI_DAILY_USD` | Optional: `off` disables AI without removing the key; model for reading and board guesses (default `claude-haiku-5-5`); model for web search and page reads (default `claude-sonnet-5-5`); global daily spend cap in USD (default 2) |
 
@@ -56,7 +56,7 @@ Built with Next.js 16.4 (App Router), Prisma 7.10, Neon Postgres, Passport.js an
 Anthropic's Claude (`claude-haiku-5-5`, effort `low`) reads the company, role and location from a pasted posting. It never scores: the directory and the employer's own job board verify what it read, and the versioned rubric scores as for any check. Board points from an AI reading count only for an exact title match, a job link found in the text, or a company and role the user confirms. What Claude read is shown on the result and never stored.
 
 - Text is masked before it is sent (`lib/ai/sanitize.ts`): email addresses, phone and ID numbers, long numbers and links. Names are not masked.
-- Spend guardrails, outermost first: the console spend limit on the key, `AI_MODE=off`, the admin pause row (`Setting` key `aiPaused` = `1`), a global daily cap (`AI_DAILY_USD`) and 20 AI checks per account per day, both reserved atomically in Postgres (`AiUsage`, `AiUserUsage`). Any failure or cap shows "couldn't verify" and scores 0.
+- Spend guardrails, outermost first: the console spend limit on the key, `AI_MODE=off`, the admin pause row (`Setting` key `aiPaused` = `1`), a global daily cap (`AI_DAILY_USD`) and 20 AI checks per account per day, both reserved atomically in Postgres (`AiUsage`, `AiUserUsage`). Each call reserves its worst case for the model used (output limit, input ceiling, search fees), so the cap can't be overshot. Web searches and page reads may use at most 60% of the cap. A call refused before anything was billed gives the account its call back. Any failure or cap shows "couldn't verify" and scores 0.
 - Logs carry numbers only: `ai extract model=… in=… out=… ms=… stop=… outcome=…`.
 - `USE_FIXTURES=1` replays recorded readings from `fixtures/ai/` (the two demo postings in `lib/demo-examples.ts`). Re-record them with a key:
 
@@ -83,9 +83,11 @@ Checks read the employer's own system, never a job site. Greenhouse, Lever and A
 ## Companies we don't list (phase 11)
 
 - **Board discovery** (`lib/lookups/discovery.ts`): free probes of likely identifiers on the boards we read, then Claude's guesses (Haiku 5.5, no tools), then one Anthropic web search limited to job-board hosts (Sonnet 5.5, at most 3 searches). A board counts as found only when its own company name matches. Results are cached in `BoardDiscovery` (30 days found, 7 days not found).
-- **Never counted.** Anyone can open a board under a company's name (a Workable account called "Spotify" exists), so a discovered board and its listing are 0-point info rows. An admin adds the company to the directory to make it count.
+- **Never counted, never linked.** Anyone can open a board under a company's name (a Workable account called "Spotify" exists), so a discovered board and its listing are 0-point info rows that name the board without linking to it. An admin adds the company to the directory to make it count, or dismisses the board so no check shows it for 90 days.
+- A failed web search is never cached as "nothing found". A miss from the free probes alone is cached for half a day, and each account can look up 20 unlisted companies an hour, so checks can't flood the job boards with requests.
 - **Presence check and page reading** run only on `Company.careersHosts`, an admin-curated allowlist (seeded for Apple, Microsoft and Meta). Page text comes from the fetch tool's own result block; a field the model reports is shown only if it appears word for word on the page. Phrase hits from a page are shown, not counted.
-- Web searches and page reads are limited to 5 per account per day on top of the 20 AI checks, and each search costs $0.01 plus tokens.
+- Web-search and page-read calls are limited to 5 per account per day on top of the 20 AI checks. A search call runs at most 3 searches ($0.01 each plus tokens) and is never resumed. Careers-site search results are cached for 6 hours per company and title.
+- Page reads keep a job id from the link's query string and drop tracking parameters. A fact from a page is shown in the page's own wording, and a fetch that landed on a different page than the one pasted is rejected.
 
 ## Admin page (phase 12)
 
@@ -104,7 +106,7 @@ Checks read the employer's own system, never a job site. Greenhouse, Lever and A
 | `PATCH /api/v1/companies/:slug` | `officialDomains`, `careersHosts` |
 | `PATCH /api/v1/flags/:id` | `status`, `resolutionNote` |
 
-In production, seed a separate admin account from your shell and demote `demo`, whose password is typed on stage:
+Admin accounts come only from the seed's `ADMIN_USER_*` variables; `demo` is always a plain user, because its password is typed on stage. To seed production:
 
 ```bash
 ADMIN_USER_EMAIL=... ADMIN_USER_PASSWORD=... DEMO_USER_PASSWORD=... npx prisma db seed --config prisma7.config.ts
@@ -144,7 +146,7 @@ Set each variable per environment in Vercel. On previews, leave `APP_URL` unset;
 npx newman@6.2.2 run postman/jobseance.postman_collection.json --env-var baseUrl=http://localhost:3000
 ```
 
-Against production, create a Postman environment with `baseUrl=https://job-seance.vercel.app` and `demoPassword` set to the production demo password (the default is the dev seed's). The folder **★ Demo step 6** holds the demo's API step in presenting order: run "0 · Setup › Log in as demo" first.
+Against production, create a Postman environment with `baseUrl=https://job-seance.vercel.app` and `demoPassword` set to the production demo password (the default is the dev seed's). Add `adminPassword` (your `ADMIN_USER_PASSWORD`) to run the admin requests as the admin account; without it they expect the 404 everyone else gets. The folder **★ Demo step 6** holds the demo's API step in presenting order: run "0 · Setup › Log in as demo" first.
 
 ## Version pins
 

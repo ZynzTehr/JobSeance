@@ -13,7 +13,7 @@ export const PATCH = handle(async (request: NextRequest, ctx: RouteContext<"/api
   if (!/^[a-z0-9]{10,40}$/i.test(id)) throw notFound("That problem report");
   const body = await readBody(request, flagUpdate);
   const db = getDb();
-  const flag = await db.flag.findUnique({ where: { id } });
+  const flag = await db.flag.findUnique({ where: { id }, select: { id: true, targetType: true, targetId: true, status: true, resolutionNote: true } });
   if (!flag) throw notFound("That problem report");
   return Response.json({ flag: await resolveFlag(db, flag, body) });
 });

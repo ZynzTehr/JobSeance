@@ -4,7 +4,7 @@ import { jsonError } from "@/lib/auth/require-user";
 import { rateLimit, tooManyRequests } from "@/lib/http";
 import { CheckError, checkSchema, runCheck } from "@/lib/checks/run";
 import { savedChecks } from "@/lib/saved-checks";
-import { firedCueRules, haikuProvider, runShadow, shadowProviderName } from "@/lib/ai/shadow";
+import { firedCueRules, haikuProvider, runShadow, shadowEligible, shadowProviderName } from "@/lib/ai/shadow";
 
 export const dynamic = "force-dynamic";
 /** AI reading, board searches and page reads share a 45-second deadline per check; this leaves headroom. */
@@ -27,8 +27,7 @@ export const POST = handle(async (request: NextRequest) => {
     const result = await runCheck(input, user.id);
     // Phase 13 shadow mode (off unless CUES_PROVIDER=haiku): only when this check already sent
     // the masked text to Anthropic. Runs after the response; stores numbers only, shows nothing.
-    const sentText = (input.kind === "posting_text" || (input.kind === "message" && input.aiRead)) && "ai" in result && result.ai?.used;
-    if (sentText) {
+    if ((input.kind === "posting_text" || input.kind === "message") && shadowEligible(input, "ai" in result ? result : {})) {
       const text = input.text;
       const fired = firedCueRules([...result.ghost.signals, ...result.scam.signals]);
       after(async () => {

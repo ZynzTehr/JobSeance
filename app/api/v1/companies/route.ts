@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { handle, HttpError, readBody, readQuery, writer } from "@/lib/api";
 import { slugify } from "@/lib/checks/run";
 import { getDb } from "@/lib/db";
-import { careersHostProblem } from "@/lib/admin";
+import { careersHostProblem, officialDomainProblem } from "@/lib/admin";
 import { boardExists } from "@/lib/lookups/boards";
 import { companyCreate, companyQuery, conflictOn } from "@/lib/schemas";
 
@@ -40,6 +40,8 @@ export const POST = handle(async (request: NextRequest) => {
   const body = await readBody(request, companyCreate);
   const slug = body.slug ?? slugify(body.name);
   if (!slug) throw new HttpError({ status: 400, code: "validation_failed", message: "Pick a slug.", fields: { slug: "Required." } });
+  const domainProblem = officialDomainProblem(body.officialDomains);
+  if (domainProblem) throw new HttpError({ status: 400, code: "validation_failed", message: domainProblem, fields: { officialDomains: domainProblem } });
   const careersHosts = [...new Set(body.careersHosts ?? [])];
   const hostProblem = careersHostProblem(careersHosts, body.officialDomains);
   if (hostProblem) throw new HttpError({ status: 400, code: "validation_failed", message: hostProblem, fields: { careersHosts: hostProblem } });

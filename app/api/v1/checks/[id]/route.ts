@@ -24,6 +24,7 @@ export const DELETE = handle(async (request: NextRequest, ctx: Ctx) => {
   const { id } = await ctx.params;
   const db = getDb();
   assertOwner(await db.check.findUnique({ where: { id }, select: { userId: true } }), user, "That check");
-  await db.check.delete({ where: { id } });
+  // Shadow-mode rows hold only numbers, but they name this check: they go with it.
+  await db.$transaction([db.aiShadow.deleteMany({ where: { checkId: id } }), db.check.delete({ where: { id } })]);
   return new Response(null, { status: 204 });
 });

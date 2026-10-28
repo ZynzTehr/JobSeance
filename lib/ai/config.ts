@@ -26,8 +26,21 @@ export const PRICE_PER_MTOK: Record<string, { input: number; output: number }> =
 /** Web search: $10 per 1,000 searches, in micro-dollars per search. Fetches have no per-use fee. */
 export const SEARCH_MICROS = 10_000;
 
-/** Spend reserved before a call (micro-dollars), refined with real token counts after it. */
-export const RESERVE_MICROS = { extract: 3_000, guess: 2_000, search: 80_000, presence: 50_000, page: 60_000, cues: 3_000 } as const;
+/** The kinds of AI call, each with its own worst case. */
+export type CallKind = "extract" | "guess" | "search" | "presence" | "page" | "cues";
+
+/** Most input tokens a call of each kind can send (prompt plus pasted text, search results or a fetched page). */
+const INPUT_CEILING: Record<CallKind, number> = { extract: 8_000, guess: 1_000, search: 25_000, presence: 20_000, page: 15_000, cues: 4_000 };
+
+/**
+ * Spend reserved before a call: its worst case for the model actually used (output limit,
+ * input ceiling, search fees), so a call can't push the day past the cap. Refined to the real
+ * cost when the call settles.
+ */
+export function reserveMicros(kind: CallKind, model: string): number {
+  const searches = kind === "search" ? MAX_USES.search : kind === "presence" ? MAX_USES.presence : 0;
+  return costMicros(model, INPUT_CEILING[kind], MAX_TOKENS[kind], searches);
+}
 
 export const AI_TIMEOUT_MS = { extract: 20_000, guess: 10_000, search: 30_000, presence: 25_000, page: 25_000, cues: 10_000 } as const;
 
@@ -36,8 +49,10 @@ export const AI_LIMITS = {
   dailyUsd: 2,
   /** AI-assisted checks per account per UTC day. */
   perUserPerDay: 20,
-  /** Web searches and page reads per account per UTC day (each also counts as an AI call). */
+  /** Web-search and page-read calls per account per UTC day (each also counts as an AI call; a search call runs at most 3 searches). */
   toolsPerUserPerDay: 5,
+  /** Share of the daily cap web searches and page reads may use, so reading pasted postings stays available. */
+  toolShareOfCap: 0.6,
   /** How long the admin pause switch is cached in memory. */
   pauseCacheMs: 60_000,
 } as const;

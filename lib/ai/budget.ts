@@ -28,7 +28,16 @@ export function resetPauseCache() {
   pauseCache = null;
 }
 
-export type Reservation = { ok: true; release: () => Promise<void> } | { ok: false };
+export type Reservation =
+  | {
+      ok: true;
+      /** The UTC day the spend was reserved on: settle against it even if the call crosses midnight. */
+      day: string;
+      release: () => Promise<void>;
+      /** Gives back only the account's allowance, for a call refused before anything was billed. */
+      releaseUser: () => Promise<void>;
+    }
+  | { ok: false };
 
 /**
  * Reserves `micros` of today's global budget and one call of the account's daily allowance.
@@ -59,8 +68,10 @@ export async function reserveAiCall(
 ): Promise<Reservation> {
   const day = utcDay(now);
   await db.aiUsage.upsert({ where: { day }, update: {}, create: { day } });
+  // Web searches and page reads may only use part of the cap, so reading pasted postings stays available.
+  const ceiling = tool ? Math.floor(capMicros * AI_LIMITS.toolShareOfCap) : capMicros;
   const global = await db.aiUsage.updateMany({
-    where: { day, spendMicros: { lte: capMicros - micros } },
+    where: { day, spendMicros: { lte: ceiling - micros } },
     data: { spendMicros: { increment: micros }, calls: { increment: 1 } },
   });
   if (global.count === 0) return { ok: false };
@@ -68,7 +79,7 @@ export async function reserveAiCall(
   const refundGlobal = () =>
     db.aiUsage.updateMany({ where: { day }, data: { spendMicros: { decrement: micros }, calls: { decrement: 1 } } }).then(() => undefined);
 
-  if (skipUser) return { ok: true, release: refundGlobal };
+  if (skipUser) return { ok: true, day, release: refundGlobal, releaseUser: async () => undefined };
 
   await db.aiUserUsage.upsert({ where: { userId_day: { userId, day } }, update: {}, create: { userId, day } });
   const user = await db.aiUserUsage.updateMany({
@@ -79,12 +90,16 @@ export async function reserveAiCall(
     await refundGlobal();
     return { ok: false };
   }
+  const refundUser = () =>
+    db.aiUserUsage.updateMany({ where: { userId, day }, data: { calls: { decrement: 1 }, ...(tool ? { toolCalls: { decrement: 1 } } : {}) } }).then(() => undefined);
   return {
     ok: true,
+    day,
     release: async () => {
       await refundGlobal();
-      await db.aiUserUsage.updateMany({ where: { userId, day }, data: { calls: { decrement: 1 }, ...(tool ? { toolCalls: { decrement: 1 } } : {}) } });
+      await refundUser();
     },
+    releaseUser: refundUser,
   };
 }
 
@@ -99,6 +114,7 @@ export async function settleAiCall(
     outcome,
     searches = 0,
     fetches = 0,
+    day,
     now = new Date(),
   }: {
     reservedMicros: number;
@@ -108,12 +124,14 @@ export async function settleAiCall(
     outcome: string;
     searches?: number;
     fetches?: number;
+    /** The day the call was reserved on (defaults to today). */
+    day?: string;
     now?: Date;
   },
 ): Promise<void> {
   await db.aiUsage
     .updateMany({
-      where: { day: utcDay(now) },
+      where: { day: day ?? utcDay(now) },
       data: {
         spendMicros: { increment: actualMicros - reservedMicros },
         inputTokens: { increment: inputTokens },

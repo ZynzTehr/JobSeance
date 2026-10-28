@@ -48,7 +48,8 @@ export const CueMatches = z.strictObject({
         confidence: z.number().min(0).max(1),
       }),
     )
-    .max(30),
+    // Every (rule, sentence) pair at most: a scam-dense text must not overflow into an invalid answer.
+    .max(MAX_SENTENCES * 12),
 });
 export type CueMatch = z.infer<typeof CueMatches>["matches"][number];
 
