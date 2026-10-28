@@ -245,7 +245,7 @@ describe("discoverBoard", () => {
   it("then one search; a completed search with nothing found is cached as not found", async () => {
     const { d, store } = deps();
     d.ai.guessBoards = async () => ({ ok: true, value: [], mode: "live", model: "claude-haiku-5-5" });
-    d.ai.searchBoards = vi.fn(async () => ({ ok: true as const, value: [], mode: "live" as const, model: "claude-sonnet-5-5" }));
+    d.ai.searchBoards = vi.fn(async () => ({ ok: true as const, value: { boards: [], others: [] }, mode: "live" as const, model: "claude-sonnet-5-5" }));
     const r = await discoverBoard("Acme", "Engineer", d);
     expect(r.found).toBeNull();
     expect(d.ai.searchBoards).toHaveBeenCalledWith("Acme", "Engineer", expect.anything());
@@ -303,7 +303,7 @@ describe("probeBoard", () => {
 // ---- Rows ---------------------------------------------------------------------------------
 
 describe("info rows", () => {
-  const found: Discovery = { found: { ats: "GREENHOUSE", board: "acme", declaredName: "Acme", method: "search" }, unconfirmed: [], ai: { used: true, model: "m", mode: "live" }, aiFailure: null };
+  const found: Discovery = { found: { ats: "GREENHOUSE", board: "acme", declaredName: "Acme", method: "search" }, unconfirmed: [], ai: { used: true, model: "m", mode: "live" }, aiFailure: null, others: null };
   const job = { externalId: "1", title: "Data Engineer", location: null, url: "https://job-boards.greenhouse.io/acme/jobs/1", postedAt: new Date("2026-10-01"), internalJobId: null, description: null };
   const rowDeps = { now: NOW, jobs: async () => [job], pickByTitle: <T extends { title: string }>(items: T[], role: string) => items.find((i) => i.title === role) ?? null };
 
@@ -325,7 +325,7 @@ describe("info rows", () => {
   });
 
   it("nothing found names the reason, never a guessed board", async () => {
-    const rows = await locateRows({ found: null, unconfirmed: [], ai: { used: false, model: null, mode: null }, aiFailure: "budget" }, null, true, rowDeps);
+    const rows = await locateRows({ found: null, unconfirmed: [], ai: { used: false, model: null, mode: null }, aiFailure: "budget", others: null }, null, true, rowDeps);
     expect(rows).toMatchObject([{ id: "A-LOCATE", status: "couldnt_verify", fact: expect.stringMatching(/today's AI limit/) }]);
   });
 

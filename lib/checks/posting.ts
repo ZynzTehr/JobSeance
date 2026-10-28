@@ -158,8 +158,9 @@ export async function checkPostingText(input: PostingTextInput, deps: PostingDep
         lookUp = false;
       } else {
         info("A-READ", "Company and role read from your pasted text (shown above; not stored)", source);
-        company = e.employerName ? await deps.findCompanyExact(e.employerName) : null;
-        role = e.roleTitle;
+        // A field the user filled in wins over Claude's reading of it; both still count only on an exact match.
+        company = input.company ? await deps.findCompany(input.company) : e.employerName ? await deps.findCompanyExact(e.employerName) : null;
+        role = input.role ?? e.roleTitle;
         if (e.postedAgoText) info("A-POSTED", "The text says when it was posted. Job sites reset that date on repost, so it isn't counted", source);
       }
     }
@@ -184,7 +185,7 @@ export async function checkPostingText(input: PostingTextInput, deps: PostingDep
         ? "We don't have that company yet, so its job board wasn't checked (nothing counted)"
         : "The company named in the text isn't in our directory, so its job board wasn't checked (nothing counted)",
     };
-    const employer = typed ? input.company : reading?.company;
+    const employer = input.company ?? reading?.company;
     if (employer && deps.locate) {
       const located = await deps.locate(employer, role, typed);
       gathered.push(...located.rows);
@@ -233,6 +234,16 @@ export async function checkPostingText(input: PostingTextInput, deps: PostingDep
         };
       }
     }
+  }
+
+  // Without a title nothing can be matched anywhere; say how to add one rather than guess it.
+  if (lookUp && !link && !role) {
+    info(
+      "A-TITLE",
+      "No job title in the text, so no listing could be looked for. On LinkedIn the title sits above \"About the job\": add it and check again",
+      "Claude reading your pasted text",
+      "couldnt_verify",
+    );
   }
 
   // 4. Score with the unchanged rubric. Community counts only on the counted path.

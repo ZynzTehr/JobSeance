@@ -6,12 +6,12 @@ import { describeDomain, officialDomains, registrableDomain, type DomainReport }
 import type { FetchOptions } from "@/lib/lookups/fetch";
 import { parseJobUrl, SEARCH_ATS, withJobPath, type BoardAts } from "@/lib/lookups/job-url";
 import { fetchBoardJobs, searchBoardJobs } from "@/lib/lookups/boards";
-import { discoverBoard, probeBoard, type CachedDiscovery, type DiscoveryDeps } from "@/lib/lookups/discovery";
-import { safeQuery } from "@/lib/ai/locate";
+import { discoverBoard, discoveryKey, probeBoard, type CachedDiscovery, type DiscoveryDeps } from "@/lib/lookups/discovery";
+import { safeQuery, type SearchHit } from "@/lib/ai/locate";
 import { onHosts } from "@/lib/ai/presence";
 import { pageUrlFor, type PageRead } from "@/lib/ai/read-page";
 import { AI_REASON_TEXT, type AiOutcome } from "@/lib/ai/types";
-import { locateRows, pageRows, presenceRows, presenceUsedAi } from "@/lib/checks/locate";
+import { locateRows, pageRows, presenceRows, presenceUsedAi, systemRows } from "@/lib/checks/locate";
 import { UpstreamError } from "@/lib/lookups/fetch";
 import { boardRef, BoardUnavailableError, getCompanyPostings, lookupPosting, type PostingFacts } from "@/lib/lookups/postings";
 import { currentTransport, offTransport, type AiTransport } from "@/lib/ai/transport";
@@ -22,6 +22,7 @@ import { CONFIG_VERSION, DISCLAIMER, HIGH_SCAM_ADVICE, VERIFICATION_CHECKLIST } 
 import { rateLimit } from "@/lib/http";
 import { bandFor, clamp, scoreGhost, type BoardStatus, type CommunityReport, type CommunitySummary, type Score, type Signal } from "@/lib/scoring/ghost";
 import { scoreScam, warningCount, type SenderFacts } from "@/lib/scoring/scam";
+import { SEARCH_MEMORY_HOURS } from "@/lib/legal";
 import type { Company, Prisma } from "@/app/generated/prisma/client";
 
 // POST /api/v1/checks: gathers facts (boards, RDAP, DNS, reports), scores them
@@ -383,7 +384,7 @@ export const DISCOVERY_PER_HOUR = 20;
 export function locator(userId: string, now: Date, ai: AiTransport, started: number, signal?: AbortSignal) {
   return async (employer: string, role: string | null, typed: boolean) => {
     if (!rateLimit(`discover:user:${userId || "anonymous"}`, DISCOVERY_PER_HOUR, 3600).ok) {
-      const d = { found: null, unconfirmed: [], ai: { used: false, model: null, mode: null }, aiFailure: "limit" as const };
+      const d = { found: null, unconfirmed: [], ai: { used: false, model: null, mode: null }, aiFailure: "limit" as const, others: null };
       return { rows: await locateRows(d, role, typed, { now, pickByTitle, jobs: async () => [] }), ai: d.ai, located: false, aiFailure: d.aiFailure };
     }
     const d = await discoverBoard(employer, role, {
@@ -401,12 +402,43 @@ export function locator(userId: string, now: Date, ai: AiTransport, started: num
       pickByTitle,
       jobs: (ref, r) => (SEARCH_ATS.has(ref.ats) ? searchBoardJobs(ref, r) : fetchBoardJobs(ref)),
     });
-    return { rows, ai: d.ai, located: Boolean(d.found || d.unconfirmed.length), aiFailure: d.aiFailure };
+    let located = Boolean(d.found || d.unconfirmed.length);
+    let aiInfo = d.ai;
+
+    // No listing confirmed on a board we read (none found, or one that doesn't list the role,
+    // like an empty board under the company's name): name the hiring system the company uses, if
+    // it's one we can't read. The board search already looked there; when no search ran (a
+    // cached answer, or a board found by a free probe), run one on those systems alone, its
+    // answer kept a few hours like presence checks.
+    const listed = rows.some((r) => r.id === "A-LISTING" && r.status === "found");
+    if (!listed && (d.others || (!d.aiFailure && Date.now() - started <= POSTING_DEADLINE_MS - 30_000))) {
+      let out: AiOutcome<SearchHit[]>;
+      if (d.others) out = { ok: true, value: d.others, mode: d.ai.mode ?? "live", model: d.ai.model ?? "" };
+      else {
+        const query = safeQuery(employer, 60);
+        const title = role ? safeQuery(role, 120) : null;
+        const key = `${discoveryKey(query ?? "")}|${title?.toLowerCase() ?? ""}`;
+        const hit = systemsCache.get(key);
+        out = hit && Date.now() - hit.at < PRESENCE_TTL_MS ? hit.out : query && ai.searchSystems ? await ai.searchSystems(query, title, { userId, signal }) : { ok: false, reason: "off" };
+        if (out.ok && !hit) {
+          if (systemsCache.size >= 500) systemsCache.delete(systemsCache.keys().next().value!);
+          systemsCache.set(key, { at: Date.now(), out });
+        }
+        if (out.ok) aiInfo = { used: true, model: out.model, mode: out.mode };
+      }
+      const sys = systemRows(out, employer, role, typed, { now, pickByTitle });
+      rows.push(...sys);
+      located ||= sys.some((r) => r.id === "A-SYSTEM" && r.status === "found");
+    }
+    return { rows, ai: aiInfo, located, aiFailure: d.aiFailure };
   };
 }
 
+/** Other-system search answers for employers whose board search is cached. */
+const systemsCache = new Map<string, { at: number; out: AiOutcome<SearchHit[]> }>();
+
 /** Presence results per company and title, kept for 6 hours on this server (searches cost money; the answer changes slowly). */
-const PRESENCE_TTL_MS = 6 * 3_600_000;
+const PRESENCE_TTL_MS = SEARCH_MEMORY_HOURS * 3_600_000;
 const presenceCache = new Map<string, { at: number; out: Awaited<ReturnType<NonNullable<AiTransport["presence"]>>> }>();
 
 /** Presence check on a directory company's own careers hosts (admin-curated). */
