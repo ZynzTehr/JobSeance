@@ -133,8 +133,8 @@
   font-weight: 500;
 }
 
-/* The lantern underline draws in over the mist one from the left and leaves to the right.
-   The origin flips without a transition, so both directions move left to right. */
+/* The lantern underline draws in over the mist one from the left; when focus moves on
+   and the field is empty, it retracts the same way it came. */
 .field::after {
   content: "";
   position: absolute;
@@ -144,7 +144,7 @@
   height: 0.267cqw;
   background: var(--accent);
   transform: scaleX(0);
-  transform-origin: right;
+  transform-origin: left;
   transition: transform 0.6s var(--ease-draw);
   pointer-events: none;
 }
@@ -174,7 +174,7 @@
 }
 
 .field:focus-within::after,
-.field:has(input:not(:placeholder-shown))::after { transform: scaleX(1); transform-origin: left; }
+.field:has(input:not(:placeholder-shown))::after { transform: scaleX(1); }
 .field input:focus ~ span,
 .field input:not(:placeholder-shown) ~ span { top: -0.667cqw; color: var(--accent); }
 .field input:focus ~ svg,
