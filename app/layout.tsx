@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, IBM_Plex_Sans } from "next/font/google";
 import "./globals.css";
 import SiteHeader, { SiteFooter } from "./components/SiteHeader";
@@ -19,6 +19,9 @@ export const metadata: Metadata = {
   description:
     "Check a job posting or recruiter message for ghost-job risk and scam risk. Every score shows the facts and sources behind it.",
 };
+
+/** Matches the header's ink colour, so mobile browser chrome blends with the site. */
+export const viewport: Viewport = { themeColor: "#121a2f" };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
