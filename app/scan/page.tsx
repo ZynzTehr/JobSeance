@@ -30,7 +30,7 @@ export default async function ScanPage() {
       <div aria-hidden className={`${styles.glow} pointer-events-none absolute -top-40 left-[-10%] -z-10 h-[42rem] w-[42rem]`} />
 
       <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-5 pb-20 pt-12 sm:px-8 sm:pt-16">
-        <h1 className={styles.headline}>
+        <h1 className={`${styles.headline} ${ui.headingReveal}`}>
           Is this job
           <br />
           still alive?

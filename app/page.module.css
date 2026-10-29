@@ -1,18 +1,5 @@
 /* Visual styles for the starter page. Layout lives in Tailwind classes in page.tsx. */
 
-@keyframes materialize {
-  from {
-    opacity: 0;
-    filter: blur(14px);
-    letter-spacing: 0.04em;
-  }
-  to {
-    opacity: 1;
-    filter: blur(0);
-    letter-spacing: -0.02em;
-  }
-}
-
 .glow {
   border-radius: 9999px;
   background: color-mix(in srgb, var(--lantern) 15%, transparent);
@@ -33,7 +20,6 @@
   line-height: 0.95;
   letter-spacing: -0.02em;
   font-variation-settings: "opsz" 96, "wdth" 80;
-  animation: materialize 1.6s var(--ease-out) both;
 }
 
 @media (min-width: 40rem) {

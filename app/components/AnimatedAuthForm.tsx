@@ -3,6 +3,7 @@
 import { useRef, useState, type CSSProperties, type SubmitEvent, type ReactNode } from "react";
 import { passwordRules } from "@/lib/auth/password-rules";
 import styles from "./AnimatedAuthForm.module.css";
+import ui from "./ui.module.css";
 
 export type AuthValues =
   | { mode: "login"; username: string; password: string }
@@ -252,7 +253,7 @@ export default function AnimatedAuthForm({
             <fieldset disabled={mode !== "login" || pending}>
               <legend className={styles.srOnly}>Login credentials</legend>
               <h1 className={styles.animate} style={timing(0, 21)}>
-                Login
+                <span className={`${ui.headingReveal} inline-block`}>Login</span>
               </h1>
               <label className={`${styles.field} ${styles.animate}`} style={timing(1, 22)}>
                 <input
@@ -303,7 +304,7 @@ export default function AnimatedAuthForm({
             <fieldset disabled={mode !== "signup" || pending}>
               <legend className={styles.srOnly}>Registration details</legend>
               <h1 className={styles.animate} style={timing(17, 0)}>
-                Register
+                <span className={`${ui.headingReveal} inline-block`}>Register</span>
               </h1>
               <label className={`${styles.field} ${styles.animate}`} style={timing(18, 1)}>
                 <input
