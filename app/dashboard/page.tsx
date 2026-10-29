@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import ui from "../components/ui.module.css";
 import Applications from "./Applications";
+import Greeting from "./Greeting";
 import { DeleteAccount, SavedChecks, ScamReports } from "./Sections";
 import SessionActions from "./SessionActions";
 import { getDb } from "@/lib/db";
@@ -49,7 +50,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
         <div className="flex min-w-0 flex-col gap-8">
           <header>
             <p className={ui.eyebrow}>Dashboard</p>
-            <h1 className={`${ui.title} mt-2`}>{user.username ? `Welcome, ${user.username}` : "Welcome"}</h1>
+            <h1 className={`${ui.title} mt-2`}><Greeting username={user.username} /></h1>
             <nav aria-label="Dashboard sections" className="mt-5 flex flex-wrap gap-2">
               {sections.map((s) => (
                 <a key={s.id} href={`#${s.id}`} className={`${ui.badge} px-3 py-1.5`}>
