@@ -73,7 +73,7 @@ function OAuthButtons({
   );
 }
 
-function Icon({ name }: { name: "user" | "email" | "lock" }) {
+function Icon({ name }: { name: "user" | "email" }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -96,13 +96,75 @@ function Icon({ name }: { name: "user" | "email" | "lock" }) {
           <path d="m3 7 9 6 9-6" />
         </>
       )}
-      {name === "lock" && (
-        <>
-          <rect x="4" y="10" width="16" height="11" rx="2" />
-          <path d="M8 10V7a4 4 0 0 1 8 0v3M12 15v2" />
-        </>
-      )}
     </svg>
+  );
+}
+
+function PasswordField({ mode, style, value, onChange, onFocusChange }: {
+  mode: Mode;
+  style: CSSProperties;
+  value?: string;
+  onChange?: (value: string) => void;
+  onFocusChange?: (focused: boolean) => void;
+}) {
+  const [visible, setVisible] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  const signup = mode === "signup";
+  const id = `${mode}-password`;
+
+  return (
+    <div
+      className={`${styles.field} ${styles.passwordField} ${styles.animate}`}
+      style={style}
+      onFocus={() => onFocusChange?.(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          setVisible(false);
+          onFocusChange?.(false);
+        }
+      }}
+    >
+      <input
+        ref={input}
+        id={id}
+        name="password"
+        type={visible ? "text" : "password"}
+        autoComplete={signup ? "new-password" : "current-password"}
+        placeholder=" "
+        minLength={signup ? 8 : undefined}
+        maxLength={signup ? 64 : undefined}
+        title={signup ? "8–64 characters with an uppercase letter, a number and a symbol" : undefined}
+        required
+        aria-describedby={signup ? "password-rules" : undefined}
+        value={value}
+        onChange={onChange ? (event) => onChange(event.target.value) : undefined}
+      />
+      <label htmlFor={id}>Password</label>
+      <button
+        type="button"
+        className={`absolute top-1/2 -right-3 h-11 w-11 p-3 ${styles.passwordToggle}`}
+        aria-label={visible ? "Hide password" : "Show password"}
+        aria-controls={id}
+        onPointerDown={(event) => {
+          // Keep the caret (and mobile keyboard) in the input while toggling.
+          event.preventDefault();
+          input.current?.focus();
+        }}
+        onClick={() => setVisible((current) => !current)}
+      >
+        <svg className="h-full w-full pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <g className={styles.passwordLock}>
+            <rect x="4" y="10" width="16" height="11" rx="2" />
+            <path d="M8 10V7a4 4 0 0 1 8 0v3M12 15v2" />
+          </g>
+          <g className={styles.passwordEye}>
+            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+            <circle cx="12" cy="12" r="3" />
+            <path className={styles.passwordSlash} data-visible={visible} d="m3 3 18 18" />
+          </g>
+        </svg>
+      </button>
+    </div>
   );
 }
 
@@ -204,11 +266,7 @@ export default function AnimatedAuthForm({
                 <span>Username</span>
                 <Icon name="user" />
               </label>
-              <label className={`${styles.field} ${styles.animate}`} style={timing(2, 23)}>
-                <input name="password" type="password" autoComplete="current-password" placeholder=" " required />
-                <span>Password</span>
-                <Icon name="lock" />
-              </label>
+              <PasswordField mode="login" style={timing(2, 23)} />
               <button className={`${styles.submit} ${styles.animate}`} style={timing(3, 24)} type="submit">
                 {pending && mode === "login" ? "Logging in…" : "Login"}
               </button>
@@ -266,25 +324,13 @@ export default function AnimatedAuthForm({
                 <span>Email</span>
                 <Icon name="email" />
               </label>
-              <label className={`${styles.field} ${styles.animate}`} style={timing(20, 3)}>
-                <input
-                  name="password"
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder=" "
-                  minLength={8}
-                  maxLength={64}
-                  title="8–64 characters with an uppercase letter, a number and a symbol"
-                  required
-                  aria-describedby="password-rules"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onFocus={() => setPasswordFocused(true)}
-                  onBlur={() => setPasswordFocused(false)}
-                />
-                <span>Password</span>
-                <Icon name="lock" />
-              </label>
+              <PasswordField
+                mode="signup"
+                style={timing(20, 3)}
+                value={password}
+                onChange={setPassword}
+                onFocusChange={setPasswordFocused}
+              />
               <button className={`${styles.submit} ${styles.animate}`} style={timing(21, 4)} type="submit">
                 {pending && mode === "signup" ? "Creating account…" : "Register"}
               </button>
