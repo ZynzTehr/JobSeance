@@ -41,7 +41,7 @@ export async function verifyCurrentPassword(userId: string, password: string) {
     throw new HttpError({
       status: 403,
       code: "social_account",
-      message: "Your account signs in with Google or GitHub, so it has no password to change it with.",
+      message: "Your account signs in with Google or GitHub and has no password, so these details can't be changed here.",
     });
   }
   if (!(await bcrypt.compare(password.normalize("NFC"), account.passwordHash))) {
