@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import ui from "../components/ui.module.css";
+import AccountSettings from "./AccountSettings";
 import Applications from "./Applications";
 import Greeting from "./Greeting";
 import { DeleteAccount, SavedChecks, ScamReports } from "./Sections";
@@ -86,6 +87,18 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
             <p className={`${ui.muted} mt-1 mb-5`}>We store the sender&rsquo;s domain and the rules that matched, never the message.</p>
             <ScamReports reports={scamReports} />
           </section>
+
+          <section id="settings" aria-labelledby="settings-heading" className={`${ui.card} ${ui.rise} scroll-mt-24 p-5 sm:p-7`} style={{ animationDelay: "180ms" }}>
+            <h2 id="settings-heading" className={ui.h2}>
+              Account settings
+            </h2>
+            <p className={`${ui.muted} mt-1 mb-5`}>
+              {user.username === null ? "You sign in without a password." : "Each change asks for your current password."}
+            </p>
+            <AccountSettings
+              user={{ username: user.username, email: user.email, emailVerifiedAt: user.emailVerifiedAt, providers: user.providers }}
+            />
+          </section>
         </div>
 
         <aside className="flex flex-col gap-6 lg:sticky lg:top-24 lg:self-start">
@@ -101,6 +114,9 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
                 </div>
               ))}
             </dl>
+            <a href="#settings" className={`${ui.link} ${ui.small} mt-3 inline-block`}>
+              {user.username === null ? "Account settings" : "Change username, email or password"}
+            </a>
             <SessionActions />
           </section>
           <section aria-labelledby="danger-heading" className={`${ui.card} ${ui.rise} p-5`} style={{ animationDelay: "80ms" }}>

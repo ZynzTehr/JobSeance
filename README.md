@@ -131,7 +131,7 @@ Our phrase rules catch exact wording ("training fee"); scammers reword it ("cove
 
 ## End-to-end tests and CI
 
-`npm run test:e2e` builds the app, serves it on port 3100 with saved job-board copies and scripted AI answers (`USE_FIXTURES=1`), and runs 13 browser tests in Chromium. They cover sign-up, login, signed-out redirects, the four kinds of check, saved checks, the dashboard, scam reports, Report a problem, account deletion and the admin page.
+`npm run test:e2e` builds the app, serves it on port 3100 with saved job-board copies and scripted AI answers (`USE_FIXTURES=1`), and runs 15 browser tests in Chromium. They cover sign-up, login, signed-out redirects, the four kinds of check, saved checks, the dashboard, scam reports, Report a problem, username and password changes, account deletion and the admin page.
 
 - They use the dev database from `.env`; never point them at production. Each run signs up throwaway accounts and deletes them again.
 - The admin test runs only when `ADMIN_USER_PASSWORD` is set.

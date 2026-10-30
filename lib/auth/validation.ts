@@ -37,16 +37,19 @@ export function checkPassword(raw: string): { ok: true; password: string } | { o
   return { ok: true, password };
 }
 
-const username = z
+/** Shared by sign-up and the account settings change, so both apply the same rules. */
+export const usernameField = z
   .string()
   .max(100)
   .transform(normalizeUsername)
   .refine((u) => /^[a-z0-9_]{3,20}$/.test(u), "Username must be 3–20 letters, numbers or underscores.")
   .refine((u) => !RESERVED_USERNAMES.has(u), "That username is reserved.");
 
+export const emailField = z.string().transform(normalizeEmail).pipe(z.email("Enter a valid email.").max(254));
+
 export const signupSchema = z.strictObject({
-  username,
-  email: z.string().transform(normalizeEmail).pipe(z.email("Enter a valid email.").max(254)),
+  username: usernameField,
+  email: emailField,
   password: z.string().max(1000),
 });
 

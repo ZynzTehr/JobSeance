@@ -2,8 +2,8 @@
 // constants only: imported by server components, so no hooks here.
 // Retention numbers must match lib/cleanup.ts (RETENTION) and lib/lookups/*.
 
-export const EFFECTIVE_DATE = "October 28, 2026";
-export const EFFECTIVE_DATE_ISO = "2026-10-28";
+export const EFFECTIVE_DATE = "October 30, 2026";
+export const EFFECTIVE_DATE_ISO = "2026-10-30";
 
 export const SITE_NAME = "JobSeance";
 export const SITE_URL = "https://job-seance.vercel.app";

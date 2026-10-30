@@ -77,3 +77,29 @@
   border-radius: 16px;
   background: #0f1730;
 }
+
+/* Account settings: one quiet panel per change, and the new-password checklist. */
+.panel {
+  border: 1px solid var(--ink-line);
+  border-radius: 14px;
+  background: #121b35;
+}
+
+.rule {
+  color: var(--mist);
+  font-size: 13px;
+  transition: color 160ms;
+}
+
+.rule[data-met="true"] { color: var(--vellum); }
+
+.check {
+  fill: none;
+  stroke: var(--ink-line);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke 160ms;
+}
+
+.rule[data-met="true"] .check { stroke: var(--ok); }
