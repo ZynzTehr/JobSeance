@@ -3,6 +3,7 @@ import { Prisma } from "@/app/generated/prisma/client";
 import { handle, readBody, writer } from "@/lib/api";
 import { getDb } from "@/lib/db";
 import { accountUpdateSchema, fieldError, taken, verifyCurrentPassword } from "@/lib/auth/account";
+import { emailChanged } from "@/lib/auth/email-flows";
 import { requireUser, requireUserForWrite, unauthorized } from "@/lib/auth/require-user";
 import { clearedSessionCookie, loadPublicUser } from "@/lib/auth/session";
 
@@ -47,8 +48,10 @@ export const PATCH = handle(async (request: NextRequest) => {
     }
     throw error;
   }
+  // Links sent to the old address stop working; while email is on, the new address gets its own.
+  const verificationSent = email ? await emailChanged(db, { id: account.id, email }) : false;
   const found = await loadPublicUser(account.id);
-  return Response.json({ user: found?.user });
+  return Response.json({ user: found?.user, verificationSent });
 });
 
 /** DELETE /api/v1/me: deletes the account; reports and linked accounts cascade, checks are kept anonymized. */

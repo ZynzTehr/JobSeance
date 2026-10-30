@@ -8,7 +8,7 @@ import { api, ApiCallError } from "@/lib/ui";
 import styles from "./dashboard.module.css";
 
 type AccountUser = { username: string | null; email: string; emailVerifiedAt: string | Date | null; providers: string[] };
-type Saved = { user: { username: string | null; email: string } };
+type Saved = { user: { username: string | null; email: string }; verificationSent?: boolean };
 
 const PROVIDER_LABEL: Record<string, string> = { GOOGLE: "Google", GITHUB: "GitHub" };
 
@@ -130,14 +130,47 @@ function UsernameForm({ username }: { username: string }) {
   );
 }
 
-function EmailForm({ email, verified }: { email: string; verified: boolean }) {
+/** Emails a fresh verification link to the current address (POST /api/v1/me/verify-email). Only while email is on. */
+function SendVerification() {
+  const [status, setStatus] = useState({ text: "", error: false });
+  const [busy, setBusy] = useState(false);
+
+  async function send() {
+    setBusy(true);
+    setStatus({ text: "", error: false });
+    try {
+      const reply = await api<{ message: string }>("POST", "/api/v1/me/verify-email", {});
+      setStatus({ text: reply.message, error: false });
+    } catch (e) {
+      const err = e instanceof ApiCallError ? e : new ApiCallError("That didn't work. Please try again.", 0);
+      setStatus({ text: err.message, error: true });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-start gap-2">
+      <button type="button" className={`${ui.secondary} px-4 py-2`} onClick={send} disabled={busy} aria-busy={busy}>
+        {busy ? "Sending…" : "Send verification email"}
+      </button>
+      <Status status={status} />
+    </div>
+  );
+}
+
+function EmailForm({ email, verified, emailOn }: { email: string; verified: boolean; emailOn: boolean }) {
   const form = useAccountForm({ email: "", currentPassword: "" });
   return (
     <form
       aria-labelledby="change-email-heading"
       className={`${styles.panel} flex flex-col gap-4 p-4 sm:p-5`}
       onSubmit={(e) =>
-        form.submit(e, "PATCH", "/api/v1/me", form.values, ({ user }) => `Email changed to ${user.email}. It isn't verified.`)
+        form.submit(e, "PATCH", "/api/v1/me", form.values, ({ user, verificationSent }) =>
+          verificationSent
+            ? `Email changed to ${user.email}. We sent it a link to verify it.`
+            : `Email changed to ${user.email}. It isn't verified.`,
+        )
       }
     >
       <div>
@@ -146,10 +179,13 @@ function EmailForm({ email, verified }: { email: string; verified: boolean }) {
         </h3>
         <p className={`${ui.small} mt-1`}>
           Currently {email}
-          {verified ? " (verified by Google)" : " (not verified)"}. We can&rsquo;t send email yet, so a new address isn&rsquo;t verified
-          either.
+          {verified ? " (verified)" : " (not verified)"}.{" "}
+          {emailOn
+            ? "A new address gets a link to verify it."
+            : <>We can&rsquo;t send email yet, so a new address isn&rsquo;t verified either.</>}
         </p>
       </div>
+      {emailOn && !verified && <SendVerification />}
       <div className="grid gap-4 sm:grid-cols-2">
         <Field id="settings-email" label="New email" type="email" autoComplete="email" maxLength={254} {...form.bind("email")} />
         <Field id="settings-email-password" label="Current password" type="password" autoComplete="current-password" {...form.bind("currentPassword")} />
@@ -214,7 +250,7 @@ function PasswordForm({ username }: { username: string }) {
   );
 }
 
-export default function AccountSettings({ user }: { user: AccountUser }) {
+export default function AccountSettings({ user, emailOn }: { user: AccountUser; emailOn: boolean }) {
   // username and passwordHash are set together, so no username means a Google or GitHub-only account.
   if (user.username === null) {
     const providers = user.providers.map((p) => PROVIDER_LABEL[p] ?? p).join(" or ") || "Google or GitHub";
@@ -231,7 +267,7 @@ export default function AccountSettings({ user }: { user: AccountUser }) {
   return (
     <div className="flex flex-col gap-4">
       <UsernameForm username={user.username} />
-      <EmailForm email={user.email} verified={user.emailVerifiedAt !== null} />
+      <EmailForm email={user.email} verified={user.emailVerifiedAt !== null} emailOn={emailOn} />
       <PasswordForm username={user.username} />
     </div>
   );

@@ -10,6 +10,7 @@ type Props = {
   initialStatus?: string;
   oauth: { google: boolean; github: boolean };
   footer?: ReactNode;
+  forgotPasswordHref?: string;
   /** Signed by the server when it rendered this page (lib/bot-guard.ts). */
   formToken: string;
 };

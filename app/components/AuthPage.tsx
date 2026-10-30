@@ -6,6 +6,7 @@ import legal from "./legal.module.css";
 import ui from "./ui.module.css";
 import { MIN_AGE } from "@/lib/legal";
 import { issueFormToken } from "@/lib/bot-guard";
+import { emailEnabled } from "@/lib/email";
 import { OAUTH_ERROR_MESSAGES } from "@/lib/auth/messages";
 import { SESSION_COOKIE, oauthEnabled, userFromToken } from "@/lib/auth/session";
 
@@ -25,6 +26,7 @@ export default async function AuthPage({ mode, searchParams }: { mode: "login" |
       initialStatus={code ? (OAUTH_ERROR_MESSAGES[code] ?? OAUTH_ERROR_MESSAGES.oauth_failed) : ""}
       oauth={{ google: oauthEnabled("google"), github: oauthEnabled("github") }}
       formToken={issueFormToken("auth")}
+      forgotPasswordHref={emailEnabled() ? "/forgot-password" : undefined}
       footer={
         // Inside <main>, right under the card, so it's seen before anyone signs up.
         <p className={`${legal.authNotice} mt-5 max-w-sm px-2`}>

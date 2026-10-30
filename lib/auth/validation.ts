@@ -58,6 +58,13 @@ export const loginSchema = z.strictObject({
   password: z.string().min(1).max(1000),
 });
 
+/** Emailed one-time links (lib/auth/email-tokens.ts); the token's own format is checked when it's used. */
+const linkToken = z.string().min(1, "This link is incomplete. Open it from the email again.").max(200);
+
+export const forgotPasswordSchema = z.strictObject({ email: emailField });
+export const verifyEmailSchema = z.strictObject({ token: linkToken });
+export const resetPasswordSchema = z.strictObject({ token: linkToken, newPassword: z.string().max(1000) });
+
 export type FieldErrors = Record<string, string>;
 
 /** First message per top-level field, for the `{ error: { fields } }` shape. */

@@ -7,6 +7,7 @@ import Greeting from "./Greeting";
 import { DeleteAccount, SavedChecks, ScamReports } from "./Sections";
 import SessionActions from "./SessionActions";
 import { getDb } from "@/lib/db";
+import { emailEnabled } from "@/lib/email";
 import { ownReportSelect, ownScamReportSelect } from "@/lib/report-shape";
 import { savedChecks } from "@/lib/saved-checks";
 import { currentUser } from "@/lib/session-user";
@@ -97,6 +98,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
             </p>
             <AccountSettings
               user={{ username: user.username, email: user.email, emailVerifiedAt: user.emailVerifiedAt, providers: user.providers }}
+              emailOn={emailEnabled()}
             />
           </section>
         </div>

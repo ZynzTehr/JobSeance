@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRef, useState, type CSSProperties, type SubmitEvent, type ReactNode } from "react";
 import { passwordRules } from "@/lib/auth/password-rules";
 import { HONEYPOT_FIELD } from "@/lib/form-guard";
@@ -23,6 +24,8 @@ type Props = {
   oauth?: { google: boolean; github: boolean };
   /** Shown just below the card, e.g. the age and Terms notice. */
   footer?: ReactNode;
+  /** A "Forgot password?" link under the login password; only passed while email is on. */
+  forgotPasswordHref?: string;
 };
 
 type Mode = AuthValues["mode"];
@@ -178,6 +181,7 @@ export default function AnimatedAuthForm({
   initialStatus = "",
   oauth = { google: false, github: false },
   footer,
+  forgotPasswordHref,
 }: Props) {
   const [mode, setMode] = useState<Mode>(initialMode);
   const [pending, setPending] = useState(false);
@@ -273,6 +277,13 @@ export default function AnimatedAuthForm({
                 <Icon name="user" />
               </label>
               <PasswordField mode="login" style={timing(2, 23)} />
+              {forgotPasswordHref && (
+                <p className={`${styles.forgot} ${styles.animate}`} style={timing(2, 23)}>
+                  <Link href={forgotPasswordHref} tabIndex={mode === "login" ? 0 : -1}>
+                    Forgot password?
+                  </Link>
+                </p>
+              )}
               <button className={`${styles.submit} ${styles.animate}`} style={timing(3, 24)} type="submit">
                 {pending && mode === "login" ? "Logging in…" : "Login"}
               </button>

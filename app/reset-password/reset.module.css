@@ -1,0 +1,20 @@
+/* New-password checklist on the reset page: visuals only, matching account settings. */
+
+.rule {
+  color: var(--mist);
+  font-size: 13px;
+  transition: color 160ms;
+}
+
+.rule[data-met="true"] { color: var(--vellum); }
+
+.check {
+  fill: none;
+  stroke: var(--ink-line);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke 160ms;
+}
+
+.rule[data-met="true"] .check { stroke: var(--ok); }

@@ -12,7 +12,7 @@ import {
 } from "@/lib/form-guard";
 import { headerGetter, type ApiError, type HeaderSource } from "@/lib/http";
 
-// Bot checks for the public forms: sign-up, log-in and "Report a problem".
+// Bot checks for the public forms: sign-up, log-in, "Report a problem" and "Forgot password".
 // Three layers, cheapest first: a decoy field, a signed render-time token that
 // also enforces a minimum fill time, and Vercel BotID. Rate limits still apply.
 

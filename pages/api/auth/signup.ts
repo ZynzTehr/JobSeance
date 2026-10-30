@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db";
 import { guardAuthPost, sendError } from "@/lib/auth/pages";
 import { guardForm } from "@/lib/bot-guard";
 import { BCRYPT_COST } from "@/lib/auth/passport";
+import { sendVerificationEmail } from "@/lib/auth/email-flows";
 import { loadPublicUser, sessionCookie, signToken } from "@/lib/auth/session";
 import { checkPassword, fieldErrors, signupSchema } from "@/lib/auth/validation";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/http";
@@ -46,6 +47,8 @@ export default async function signup(req: NextApiRequest, res: NextApiResponse) 
   try {
     // username and passwordHash are written together: set if and only if.
     const user = await db.user.create({ data: { username, email, passwordHash }, select: { id: true, tokenVersion: true } });
+    // While email is on, a failed send still creates the account; the dashboard can send another link.
+    await sendVerificationEmail(db, { id: user.id, email });
     const token = signToken(user);
     const found = await loadPublicUser(user.id);
     res.setHeader("Set-Cookie", sessionCookie(token));

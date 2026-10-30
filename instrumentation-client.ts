@@ -7,6 +7,7 @@ initBotId({
   protect: [
     { path: "/api/auth/signup", method: "POST" },
     { path: "/api/auth/login", method: "POST" },
+    { path: "/api/auth/forgot-password", method: "POST" },
     { path: "/api/v1/flags", method: "POST" },
     { path: "/api/v1/checks", method: "POST" },
   ],

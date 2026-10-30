@@ -281,6 +281,12 @@
 .stage button:focus-visible,
 .stage a:focus-visible { outline: 2px solid var(--lantern); outline-offset: 4px; }
 
+/* "Forgot password?" under the login password, only while email is on. */
+.forgot { margin: 1.333cqw 0 -1.333cqw; text-align: right; font-size: 1.6cqw; line-height: 1.5; }
+.forgot a { color: var(--accent); font-weight: 600; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 0.267cqw; transition: text-decoration-color 0.3s ease; }
+.forgot a:hover,
+.forgot a:focus-visible { text-decoration-color: currentColor; }
+
 /* Social sign-in: one more row, shown only when a provider is configured. */
 .oauth { margin-top: 2.667cqw; }
 
@@ -535,6 +541,8 @@
   .oauthButton { gap: 8px; height: 42px; font-size: 14px; }
   .oauthButton svg { width: 16px; height: 16px; }
 
+  .forgot { margin: 12px 0 -8px; font-size: 14px; }
+  .forgot a { display: inline-block; padding: 6px 0; text-underline-offset: 3px; }
   .switch { margin: 18px 0 0; font-size: 14px; }
   .switch button { padding: 6px 10px; }
   /* Inset by the padding so the line spans the word, not the tap target. */

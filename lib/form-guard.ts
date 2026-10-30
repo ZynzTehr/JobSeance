@@ -13,7 +13,7 @@ export const MIN_FORM_MS = 2_000;
 /** Older tokens are refused; the form asks for a reload. */
 export const MAX_FORM_AGE_MS = 24 * 60 * 60 * 1000;
 
-export type FormPurpose = "auth" | "flag";
+export type FormPurpose = "auth" | "flag" | "reset";
 
 /**
  * Resolves once the form has been on screen for MIN_FORM_MS. Counted from when
