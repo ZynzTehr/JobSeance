@@ -1,0 +1,51 @@
+/* The 404 numeral: a faint figure that drifts and flickers like a lamp in a séance room. */
+.numeral {
+  font-family: var(--font-heading);
+  font-size: clamp(96px, 24vw, 184px);
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  font-variation-settings: "opsz" 96, "wdth" 75;
+  color: transparent;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--lantern) 55%, transparent), transparent 92%);
+  background-clip: text;
+  filter: drop-shadow(0 0 28px #a9bcff33);
+  animation:
+    drift 7s ease-in-out infinite,
+    flicker 9s steps(1, end) infinite;
+}
+
+@keyframes drift {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes flicker {
+  0%,
+  100% {
+    opacity: 0.9;
+  }
+  41% {
+    opacity: 0.55;
+  }
+  42% {
+    opacity: 0.9;
+  }
+  78% {
+    opacity: 0.7;
+  }
+  79% {
+    opacity: 0.9;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .numeral {
+    animation: none;
+  }
+}
