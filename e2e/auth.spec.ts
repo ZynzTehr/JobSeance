@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import { TEST_PASSWORD } from "./global-setup";
+import { AUTOMATION_HEADERS, TEST_PASSWORD } from "./global-setup";
 
 // Sign-up, login, the signed-out redirects and account deletion. Each test that needs an
 // account creates its own and deletes it, so tests pass alone and in any order.
@@ -17,7 +17,7 @@ test("a new visitor signs up, lands on the scanner signed in, and can log out", 
   const register = page.getByRole("form", { name: "Register" });
   await register.getByLabel("Username").fill(`e2e_${id}`);
   await register.getByLabel("Email").fill(`e2e-${id}@jobseance.example`);
-  await register.getByLabel("Password").fill(TEST_PASSWORD);
+  await register.getByLabel("Password", { exact: true }).fill(TEST_PASSWORD);
   await register.getByRole("button", { name: "Register" }).click();
 
   await expect(page).toHaveURL(/\/scan$/);
@@ -31,7 +31,7 @@ test("a new visitor signs up, lands on the scanner signed in, and can log out", 
 test("a returning user logs in; a wrong password shows an error and no session", async ({ page, baseURL }) => {
   const id = unique();
   const signup = await page.request.post("/api/auth/signup", {
-    headers: { origin: baseURL! },
+    headers: { origin: baseURL!, ...AUTOMATION_HEADERS },
     data: { username: `e2e_${id}`, email: `e2e-${id}@jobseance.example`, password: TEST_PASSWORD },
   });
   expect(signup.ok()).toBe(true);
@@ -40,12 +40,12 @@ test("a returning user logs in; a wrong password shows an error and no session",
   await page.goto("/");
   const login = page.getByRole("form", { name: "Login" });
   await login.getByLabel("Username").fill(`e2e_${id}`);
-  await login.getByLabel("Password").fill("Wrong-passw0rd!");
+  await login.getByLabel("Password", { exact: true }).fill("Wrong-passw0rd!");
   await login.getByRole("button", { name: "Login" }).click();
   await expect(page.getByRole("status")).toHaveText(/invalid username or password/i);
   await expect(page).toHaveURL(/\/$/);
 
-  await login.getByLabel("Password").fill(TEST_PASSWORD);
+  await login.getByLabel("Password", { exact: true }).fill(TEST_PASSWORD);
   await login.getByRole("button", { name: "Login" }).click();
   await expect(page).toHaveURL(/\/scan$/);
   await deleteAccount(page.request, baseURL!);
@@ -66,7 +66,7 @@ test("signed-out visitors are sent to the login page, and the admin page is a 40
 test("a user deletes their account by typing DELETE and is signed out", async ({ page, baseURL }) => {
   const id = unique();
   const signup = await page.request.post("/api/auth/signup", {
-    headers: { origin: baseURL! },
+    headers: { origin: baseURL!, ...AUTOMATION_HEADERS },
     data: { username: `e2e_${id}`, email: `e2e-${id}@jobseance.example`, password: TEST_PASSWORD },
   });
   expect(signup.ok()).toBe(true);
