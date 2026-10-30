@@ -5,18 +5,22 @@ import ui from "../components/ui.module.css";
 import styles from "../components/legal.module.css";
 import {
   CONTACT_HREF,
+  EMAIL_LINK_LIFETIME,
   EFFECTIVE_DATE,
   EFFECTIVE_DATE_ISO,
   MIN_AGE,
   OAUTH_COOKIE_MINUTES,
   OUTBOUND_USER_AGENT,
   POSTINGS_REFRESH_HOURS,
+  POSTMARK_RETENTION_DAYS,
   PRIVACY_REASON_LABEL,
-  PROCESSORS,
   RETENTION_DAYS,
   SEARCH_MEMORY_HOURS,
   SESSION_HOURS,
+  botCheckForms,
+  processors,
 } from "@/lib/legal";
+import { emailEnabled } from "@/lib/email";
 
 export const metadata: Metadata = {
   title: "Privacy · JobSeance",
@@ -61,6 +65,8 @@ function Sub({ children }: { children: ReactNode }) {
 }
 
 export default function PrivacyPage() {
+  // Postmark and the emailed links are described only while email is on.
+  const emailOn = emailEnabled();
   return (
     <main className={`${ui.page} flex-1`}>
       <div className="mx-auto w-full max-w-3xl px-5 pb-20 pt-12 sm:px-8">
@@ -121,12 +127,13 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Rate limiting.</strong> To stop abuse, our server counts checks, report and flag submissions per
-              account, other requests per IP address, login attempts also per username typed, and current-password checks
-              when you change your account details per account. These counters live only in the server&rsquo;s memory, are dropped within about a minute of
+              account, other requests per IP address, login attempts also per username typed,{" "}
+              {emailOn && "password-reset requests also per email address typed, verification emails per account, "}and current-password checks when you change
+              your account details per account. These counters live only in the server&rsquo;s memory, are dropped within about a minute of
               their window ending (no window is longer than an hour), and are never written to our database.
             </li>
             <li>
-              <strong>Bot check.</strong> When you sign up, log in, run a check or send a problem report, your browser loads
+              <strong>Bot check.</strong> When you {botCheckForms(emailOn)}, your browser loads
               Vercel&rsquo;s bot-check script (BotID, served from our own address) and sends Vercel signals about your browser so
               it can tell a person from an automated script. Our server gets back only a yes-or-no answer and stores nothing
               from it.
@@ -203,7 +210,28 @@ export default function PrivacyPage() {
             </li>
             <li>For every account: when it was created and updated, and an internal number used to sign you out everywhere.</li>
           </List>
-          <p>We don&rsquo;t send email, so your address is used only to identify your account.</p>
+          {emailOn ? (
+            <p>
+              Your address identifies your account, and we use it only to send the account emails described here: a link to
+              confirm the address when you sign up with a password or change it, and a password-reset link when you ask for
+              one. No newsletters or marketing.
+            </p>
+          ) : (
+            <p>We don&rsquo;t send email, so your address is used only to identify your account.</p>
+          )}
+
+          {emailOn && (
+            <>
+              <Sub>When we email you a link</Sub>
+              <p>
+                We store a fingerprint (a SHA-256 hash) of the link&rsquo;s one-time code, never the code itself, with the
+                address it went to, what it&rsquo;s for, and when it was sent, expires and was used. A link to confirm your
+                email lasts {EMAIL_LINK_LIFETIME.verify}; a password-reset link lasts {EMAIL_LINK_LIFETIME.reset}. Each works
+                once. Using a reset link signs you out everywhere. When you ask for a reset, we answer the same way whether or
+                not an account uses that address.
+              </p>
+            </>
+          )}
 
           <Sub>When you report a job application</Sub>
           <p>
@@ -298,7 +326,7 @@ export default function PrivacyPage() {
             address or browser.
           </p>
           <dl className={`${ui.card} flex flex-col px-5`}>
-            {PROCESSORS.map((p) => (
+            {processors(emailOn).map((p) => (
               <div key={p.name} className={`${styles.row} grid gap-2 py-5 sm:grid-cols-[11rem_1fr] sm:gap-6`}>
                 <dt className="flex flex-col gap-1">
                   <span className={styles.term}>{p.name}</span>
@@ -363,6 +391,13 @@ export default function PrivacyPage() {
               <strong>AI usage counters:</strong> one number per day for the whole site and one per account (how many AI
               calls), deleted after {RETENTION_DAYS.aiUsage} days. They contain no text.
             </li>
+            {emailOn && (
+              <li>
+                <strong>Emailed links:</strong> deleted once they&rsquo;re used or expire (a link to confirm an email lasts{" "}
+                {EMAIL_LINK_LIFETIME.verify}, a password-reset link {EMAIL_LINK_LIFETIME.reset}). Postmark keeps its copy of
+                each message for {POSTMARK_RETENTION_DAYS} days.
+              </li>
+            )}
             <li>
               <strong>Rate-limit counters:</strong> in server memory only, dropped within about a minute of their window ending (an hour at most). Vercel keeps its request logs
               under its own retention policy.
@@ -395,7 +430,11 @@ export default function PrivacyPage() {
           <p>
             If you sign in with a username and password, you can change your username, email address and password on your
             dashboard; each change asks for your current password. A new email address replaces the old one and is marked
-            unverified, because we can&rsquo;t send email to confirm it. If you sign in with Google or GitHub, your email
+            unverified,{" "}
+            {emailOn
+              ? "until you open the confirmation link we send to it."
+              : <>because we can&rsquo;t send email to confirm it.</>}{" "}
+            If you sign in with Google or GitHub, your email
             address comes from that sign-in; ask us through the contact link below to change it. If you gave an email
             address with a problem report and want it removed, ask us.
           </p>
@@ -437,8 +476,10 @@ export default function PrivacyPage() {
 
         <Section id="changes">
           <p>
-            When we change this notice we update this page and the effective date at the top. We don&rsquo;t send email, so
-            please check back here.
+            When we change this notice we update this page and the effective date at the top.{" "}
+            {emailOn
+              ? "We email you only about your account, not about changes to this notice, so please check back here."
+              : <>We don&rsquo;t send email, so please check back here.</>}
           </p>
         </Section>
 

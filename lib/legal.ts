@@ -36,6 +36,21 @@ export const POSTINGS_REFRESH_HOURS = 1;
 export const SESSION_HOURS = 24;
 export const OAUTH_COOKIE_MINUTES = 10;
 
+/**
+ * Emailed one-time links (lib/auth/email-tokens.ts EMAIL_TOKEN_TTL_MS). The daily cleanup deletes
+ * each one after it's used or expires. Shown only while email is on (lib/email.ts emailEnabled).
+ */
+export const EMAIL_LINK_LIFETIME = { verify: "24 hours", reset: "30 minutes" } as const;
+
+/** Postmark's default retention for message content and events (postmarkapp.com support, "How long are messages stored"). */
+export const POSTMARK_RETENTION_DAYS = 45;
+
+/** The forms that run Vercel's bot check; the password-reset request exists only while email is on. */
+export const botCheckForms = (emailOn: boolean) =>
+  emailOn
+    ? "sign up, log in, run a check, send a problem report or ask for a password reset"
+    : "sign up, log in, run a check or send a problem report";
+
 /** Outbound user agent for job boards, RDAP and DNS (lib/lookups/fetch.ts). */
 export const OUTBOUND_USER_AGENT = "JobSeance/0.1";
 
@@ -46,8 +61,25 @@ export type Processor = {
   when: string;
 };
 
-/** Every outside service that receives data, and exactly what it receives. */
-export const PROCESSORS: Processor[] = [
+/** Every outside service that receives data, and exactly what it receives. Postmark only while email is on. */
+export function processors(emailOn: boolean): Processor[] {
+  return [
+    ...PROCESSORS.map((p) => (p.name === "Vercel" ? { ...p, receives: vercelReceives(emailOn) } : p)),
+    ...(emailOn ? [EMAIL_PROCESSOR] : []),
+  ];
+}
+
+const vercelReceives = (emailOn: boolean) =>
+  `Every request to the site, including your IP address, the page or API path, the time and your browser's user agent, which Vercel keeps in its request logs. Our own server code runs on Vercel, so it also handles what you send us. When you ${botCheckForms(emailOn)}, its bot check also receives signals about your browser to tell a person from an automated script.`;
+
+const EMAIL_PROCESSOR: Processor = {
+  name: "Postmark",
+  role: "Sends account emails: the link to confirm your email address and the link to reset your password",
+  receives: `Your email address and the message we send you, which holds a one-time link. Postmark keeps the message and its delivery record for ${POSTMARK_RETENTION_DAYS} days, then deletes them; the link inside stops working once it's used, or after ${EMAIL_LINK_LIFETIME.verify} (${EMAIL_LINK_LIFETIME.reset} for a password reset). We turn off Postmark's open and click tracking. If an address bounces or reports our email as spam, Postmark keeps that address on a suppression list so we stop sending to it.`,
+  when: "When you sign up with a password, change your email address, ask for a new confirmation link, or ask to reset your password",
+};
+
+const PROCESSORS: Processor[] = [
   {
     name: "Neon",
     role: "Postgres database, hosted on AWS in us-west-2 (Oregon, USA)",
@@ -58,8 +90,7 @@ export const PROCESSORS: Processor[] = [
   {
     name: "Vercel",
     role: "Hosting, the daily cleanup job and the bot check (BotID)",
-    receives:
-      "Every request to the site, including your IP address, the page or API path, the time and your browser's user agent, which Vercel keeps in its request logs. Our own server code runs on Vercel, so it also handles what you send us. When you sign up, log in, run a check or send a problem report, its bot check also receives signals about your browser to tell a person from an automated script.",
+    receives: vercelReceives(false),
     when: "Always",
   },
   {
