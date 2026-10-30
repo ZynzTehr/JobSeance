@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { TEST_PASSWORD } from "./global-setup";
+import { AUTOMATION_HEADERS, TEST_PASSWORD } from "./global-setup";
 
 // Account settings: each test signs up its own account (changing the shared one would sign out
 // every other test), changes something on the dashboard, logs in again through the form and
@@ -13,7 +13,7 @@ async function signUp(page: Page, baseURL: string) {
   const id = unique();
   const username = `e2e_${id}`;
   const res = await page.request.post("/api/auth/signup", {
-    headers: { origin: baseURL },
+    headers: { origin: baseURL, ...AUTOMATION_HEADERS },
     data: { username, email: `e2e-${id}@jobseance.example`, password: TEST_PASSWORD },
   });
   expect(res.ok()).toBe(true);
