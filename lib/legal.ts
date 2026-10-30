@@ -57,9 +57,9 @@ export const PROCESSORS: Processor[] = [
   },
   {
     name: "Vercel",
-    role: "Hosting and the daily cleanup job",
+    role: "Hosting, the daily cleanup job and the bot check (BotID)",
     receives:
-      "Every request to the site, including your IP address, the page or API path, the time and your browser's user agent, which Vercel keeps in its request logs. Our own server code runs on Vercel, so it also handles what you send us.",
+      "Every request to the site, including your IP address, the page or API path, the time and your browser's user agent, which Vercel keeps in its request logs. Our own server code runs on Vercel, so it also handles what you send us. When you sign up, log in, run a check or send a problem report, its bot check also receives signals about your browser to tell a person from an automated script.",
     when: "Always",
   },
   {

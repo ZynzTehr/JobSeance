@@ -1,6 +1,7 @@
 import { after, type NextRequest } from "next/server";
 import { handle, HttpError, readBody, reader, writer } from "@/lib/api";
 import { jsonError } from "@/lib/auth/require-user";
+import { BOT_ERRORS, hasAutomationKey, looksLikeBot } from "@/lib/bot-guard";
 import { rateLimit, tooManyRequests } from "@/lib/http";
 import { CheckError, checkSchema, runCheck } from "@/lib/checks/run";
 import { savedChecks } from "@/lib/saved-checks";
@@ -21,6 +22,10 @@ export const POST = handle(async (request: NextRequest) => {
   const user = await writer(request); // 415 / 403 / 401 before anything else
   const limit = rateLimit(`scan:user:${user.id}`, 60, 60);
   if (!limit.ok) throw new HttpError(tooManyRequests(limit.retryAfter));
+  // Browser scans (cookie) get the BotID check; Bearer API clients and automation skip it.
+  if (!request.headers.has("authorization") && !hasAutomationKey(request.headers) && (await looksLikeBot())) {
+    throw new HttpError(BOT_ERRORS.bot);
+  }
 
   const input = await readBody(request, checkSchema); // 413 / 400 with field errors
   try {

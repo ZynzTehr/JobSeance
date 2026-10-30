@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
-import { handle, limitSubmissions, notFound, optionalWriter, readBody } from "@/lib/api";
+import { handle, HttpError, limitSubmissions, notFound, optionalWriter, readBody } from "@/lib/api";
+import { guardForm } from "@/lib/bot-guard";
 import { getDb } from "@/lib/db";
 import { flagCreate } from "@/lib/schemas";
 
@@ -13,7 +14,13 @@ export const dynamic = "force-dynamic";
 export const POST = handle(async (request: NextRequest) => {
   const user = await optionalWriter(request);
   limitSubmissions(request, user, "flag");
-  const body = await readBody(request, flagCreate);
+  // A valid Bearer token (an API client) skips the browser checks; with a Bearer header only that token counts.
+  const trusted = user !== null && request.headers.has("authorization");
+  const body = await readBody(request, flagCreate, async (raw) => {
+    const guard = await guardForm(raw, { purpose: "flag", headers: request.headers, trusted });
+    if (!guard.ok) throw new HttpError(guard.error);
+    return guard.body;
+  });
   const db = getDb();
 
   let targetId = body.targetId;

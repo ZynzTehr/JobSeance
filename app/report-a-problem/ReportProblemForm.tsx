@@ -1,9 +1,11 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { flushSync } from "react-dom";
+import { HONEYPOT_FIELD, waitForMinAge } from "@/lib/form-guard";
 import { api, ApiCallError } from "@/lib/ui";
 import AutoGrowTextarea from "../components/AutoGrowTextarea";
+import HoneypotField from "../components/HoneypotField";
 import ui from "../components/ui.module.css";
 import {
   isFixedTarget,
@@ -23,6 +25,8 @@ type Props = {
   companies: { slug: string; name: string }[];
   signedIn: boolean;
   prefill: Prefill | null;
+  /** Signed by the server when it rendered this page (lib/bot-guard.ts). */
+  formToken: string;
 };
 
 type Sent = { id: string; subject: Subject; reason: FlagReasonValue; hidden: boolean; linked: boolean; canReply: boolean };
@@ -30,7 +34,7 @@ type Sent = { id: string; subject: Subject; reason: FlagReasonValue; hidden: boo
 const MAX_DETAILS = 1000;
 
 /** "Report a problem": choose a target, a reason, say what's wrong. Posts to /api/v1/flags. */
-export default function ReportProblemForm({ companies, signedIn, prefill }: Props) {
+export default function ReportProblemForm({ companies, signedIn, prefill, formToken }: Props) {
   const prefillSubject = prefill ? subjectOf(prefill.type) : null;
   const prefillSlug = prefill?.type === "COMPANY" ? prefill.id?.toLowerCase() : undefined;
   const prefillCompany = prefillSlug ? companies.find((c) => c.slug === prefillSlug) : undefined;
@@ -54,6 +58,10 @@ export default function ReportProblemForm({ companies, signedIn, prefill }: Prop
 
   const subjectsRef = useRef<HTMLFieldSetElement>(null);
   const doneRef = useRef<HTMLHeadingElement>(null);
+  const mountedAt = useRef(0);
+  useEffect(() => {
+    mountedAt.current = performance.now();
+  }, []);
 
   const targetType = subject === "REPORT" ? reportType : subject;
   const targetId = subject === null ? "" : subject === "SITE" ? "site" : targetIds[subject].trim();
@@ -71,8 +79,9 @@ export default function ReportProblemForm({ companies, signedIn, prefill }: Prop
     subjectsRef.current?.querySelector<HTMLInputElement>("input:checked, input")?.focus();
   }
 
-  async function submit(event: FormEvent) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const fax = String(new FormData(event.currentTarget).get(HONEYPOT_FIELD) ?? "");
     setFields({});
     setError("");
     if (!subject || !targetType) {
@@ -83,12 +92,16 @@ export default function ReportProblemForm({ companies, signedIn, prefill }: Prop
     setBusy(true);
     const reporterEmail = signedIn ? "" : email.trim();
     try {
+      // The server refuses forms sent within two seconds of rendering; a quick person just waits.
+      await waitForMinAge(mountedAt.current);
       const { flag, hidden, linkedToAccount } = await api<{ flag: { id: string; status: string }; hidden: boolean; linkedToAccount: boolean }>("POST", "/api/v1/flags", {
         targetType,
         targetId,
         reason,
         details,
         ...(reporterEmail ? { reporterEmail } : {}),
+        [HONEYPOT_FIELD]: fax,
+        formToken,
       });
       flushSync(() =>
         setSent({
@@ -180,7 +193,8 @@ export default function ReportProblemForm({ companies, signedIn, prefill }: Prop
   const fixedId = subject === "CHECK" || subject === "REPORT" ? targetId : null;
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-6">
+    <form onSubmit={submit} className="relative flex flex-col gap-6">
+      <HoneypotField />
       {fixed && subject ? (
         <div role="group" aria-labelledby="rp-fixed-label">
           <p className={ui.label} id="rp-fixed-label">

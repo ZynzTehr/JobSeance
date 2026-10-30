@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "JobSeance API",
-    "description": "Demo and CRUD collection. Logs in once per seeded user (demo, demo2), signs up nobody, and cleans up after itself, so it can run twice in a row. Folder \"★ Demo step 6\" holds demo step 6 in presenting order.\n\nRun: npx newman@6.2.2 run postman/jobseance.postman_collection.json --env-var baseUrl=<URL> [--env-var demoPassword=<seeded password>] [--env-var adminPassword=<ADMIN_USER_PASSWORD>] [--env-var vercelBypass=<secret, previews only>]",
+    "description": "Demo and CRUD collection. Logs in once per seeded user (demo, demo2), signs up nobody, and cleans up after itself, so it can run twice in a row. Folder \"★ Demo step 6\" holds demo step 6 in presenting order.\n\nRun: npx newman@6.2.2 run postman/jobseance.postman_collection.json --env-var baseUrl=<URL> [--env-var demoPassword=<seeded password>] [--env-var adminPassword=<ADMIN_USER_PASSWORD>] [--env-var vercelBypass=<secret, previews only>] [--env-var automationKey=<AUTOMATION_BYPASS_SECRET, needed to log in>]",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "event": [
@@ -11,7 +11,9 @@
         "type": "text/javascript",
         "exec": [
           "const bypass = pm.variables.get(\"vercelBypass\");",
-          "if (bypass) pm.request.headers.upsert({ key: \"x-vercel-protection-bypass\", value: bypass });"
+          "if (bypass) pm.request.headers.upsert({ key: \"x-vercel-protection-bypass\", value: bypass });",
+          "const automationKey = pm.variables.get(\"automationKey\");",
+          "if (automationKey) pm.request.headers.upsert({ key: \"x-automation-key\", value: automationKey });"
         ]
       }
     }
@@ -23,6 +25,10 @@
     },
     {
       "key": "vercelBypass",
+      "value": ""
+    },
+    {
+      "key": "automationKey",
       "value": ""
     },
     {

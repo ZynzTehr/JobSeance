@@ -31,6 +31,7 @@ Built with Next.js 16.4 (App Router), Prisma 7.10, Neon Postgres, Passport.js an
    | `APP_URL` | `http://localhost:3000` |
    | `GOOGLE_*`, `GITHUB_*` | From your OAuth apps; leave empty to hide that sign-in button |
    | `CRON_SECRET`, `USE_FIXTURES` | Optional |
+   | `AUTOMATION_BYPASS_SECRET` | Optional, 32+ bytes. Postman and newman send it as `x-automation-key` to skip the form token on log-in, sign-up and problem reports |
    | `DEMO_USER_EMAIL`, `DEMO_USER_PASSWORD` | Optional; used by the database seed |
    | `ADMIN_USER_EMAIL`, `ADMIN_USER_PASSWORD` | Optional, seed only: the only way to get an admin account (username `admin`). `demo` is always seeded as a plain user, since its password is typed on stage |
    | `ANTHROPIC_API_KEY` | Optional; turns on AI reading, board searches and page reads. Use a dedicated key with a monthly spend limit set in the Anthropic console |
@@ -131,7 +132,7 @@ Our phrase rules catch exact wording ("training fee"); scammers reword it ("cove
 
 ## End-to-end tests and CI
 
-`npm run test:e2e` builds the app, serves it on port 3100 with saved job-board copies and scripted AI answers (`USE_FIXTURES=1`), and runs 15 browser tests in Chromium. They cover sign-up, login, signed-out redirects, the four kinds of check, saved checks, the dashboard, scam reports, Report a problem, username and password changes, account deletion and the admin page.
+`npm run test:e2e` builds the app, serves it on port 3100 with saved job-board copies and scripted AI answers (`USE_FIXTURES=1`), and runs 17 browser tests in Chromium. They cover sign-up, login, the form bot guard, signed-out redirects, the four kinds of check, saved checks, the dashboard, scam reports, Report a problem, username and password changes, account deletion and the admin page.
 
 - They use the dev database from `.env`; never point them at production. Each run signs up throwaway accounts and deletes them again.
 - The admin test runs only when `ADMIN_USER_PASSWORD` is set.
@@ -147,17 +148,19 @@ GitHub Actions (`.github/workflows/ci.yml`) runs typecheck, lint and unit tests 
 | Preview (one per pull request) | Vercel preview URL | `dev` | Username + password only |
 | Production | https://job-seance.vercel.app | `main` | Username + password; Google and GitHub once their client IDs are set |
 
-Set each variable per environment in Vercel. On previews, leave `APP_URL` unset; the app falls back to `https://$VERCEL_URL`. Same-origin checks also trust Vercel's `VERCEL_PROJECT_PRODUCTION_URL`, so production accepts its own domain even if `APP_URL` is unset. Set `CRON_SECRET` in Production so the daily cleanup and board sweep can run. Set `ANTHROPIC_API_KEY` in Preview and Production to turn AI reading on; without it the Pasted posting tab still works and shows "couldn't verify" for the AI step.
+Set each variable per environment in Vercel. On previews, leave `APP_URL` unset; the app falls back to `https://$VERCEL_URL`. Same-origin checks also trust Vercel's `VERCEL_PROJECT_PRODUCTION_URL`, so production accepts its own domain even if `APP_URL` is unset. Set `CRON_SECRET` in Production so the daily cleanup and board sweep can run. Set `ANTHROPIC_API_KEY` in Preview and Production to turn AI reading on; without it the Pasted posting tab still works and shows "couldn't verify" for the AI step. Set `AUTOMATION_BYPASS_SECRET` wherever you run the Postman collection; without it, log-in from Postman gets a 400 `form_expired`.
+
+Sign-up, log-in and "Report a problem" refuse a request that fills the hidden decoy field, has no form token signed when the page rendered, or arrives within two seconds of that render. On Vercel, those forms and browser scans also go through Vercel BotID (basic mode, free). BotID only runs on Vercel deployments, so local development and the end-to-end tests skip it. The code is in `lib/bot-guard.ts`.
 
 ## Postman
 
 `postman/jobseance.postman_collection.json` covers the main endpoints in 44 requests (24 of the 38 method and path pairs). It logs in once per seeded user, signs up nobody and cleans up after itself.
 
 ```bash
-npx newman@6.2.2 run postman/jobseance.postman_collection.json --env-var baseUrl=http://localhost:3000
+npx newman@6.2.2 run postman/jobseance.postman_collection.json --env-var baseUrl=http://localhost:3000 --env-var automationKey=<AUTOMATION_BYPASS_SECRET from .env>
 ```
 
-Against production, create a Postman environment with `baseUrl=https://job-seance.vercel.app` and `demoPassword` set to the production demo password (the default is the dev seed's). Add `adminPassword` (your `ADMIN_USER_PASSWORD`) to run the admin requests as the admin account; without it they expect the 404 everyone else gets. The folder **★ Demo step 6** holds the demo's API step in presenting order: run "0 · Setup › Log in as demo" first.
+Against production, create a Postman environment with `baseUrl=https://job-seance.vercel.app`, `demoPassword` set to the production demo password (the default is the dev seed's) and `automationKey` set to that environment's `AUTOMATION_BYPASS_SECRET`. Add `adminPassword` (your `ADMIN_USER_PASSWORD`) to run the admin requests as the admin account; without it they expect the 404 everyone else gets. The folder **★ Demo step 6** holds the demo's API step in presenting order: run "0 · Setup › Log in as demo" first.
 
 ## Version pins
 

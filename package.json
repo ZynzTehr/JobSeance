@@ -18,6 +18,7 @@
     "@prisma/adapter-neon": "7.10.0",
     "@prisma/client": "7.10.0",
     "bcryptjs": "3.0.3",
+    "botid": "1.5.12",
     "cookie-session": "2.1.1",
     "dotenv": "^18.0.8",
     "fastest-levenshtein": "^1.0.16",

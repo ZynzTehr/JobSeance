@@ -2,12 +2,15 @@
 
 import { useRef, useState, type CSSProperties, type SubmitEvent, type ReactNode } from "react";
 import { passwordRules } from "@/lib/auth/password-rules";
+import { HONEYPOT_FIELD } from "@/lib/form-guard";
+import HoneypotField from "./HoneypotField";
 import styles from "./AnimatedAuthForm.module.css";
 import ui from "./ui.module.css";
 
+/** `fax` is the decoy field from HoneypotField; send it as is so the server can spot bots. */
 export type AuthValues =
-  | { mode: "login"; username: string; password: string }
-  | { mode: "signup"; username: string; email: string; password: string };
+  | { mode: "login"; username: string; password: string; fax: string }
+  | { mode: "signup"; username: string; email: string; password: string; fax: string };
 
 type Props = {
   /** Connect this callback to your authentication provider or API. Throw an Error to show its message. */
@@ -209,6 +212,7 @@ export default function AnimatedAuthForm({
     const credentials = {
       username: String(data.get("username") ?? "").trim(),
       password: String(data.get("password") ?? ""),
+      fax: String(data.get(HONEYPOT_FIELD) ?? ""),
     };
     const values: AuthValues =
       formMode === "signup"
@@ -252,6 +256,7 @@ export default function AnimatedAuthForm({
           >
             <fieldset disabled={mode !== "login" || pending}>
               <legend className={styles.srOnly}>Login credentials</legend>
+              <HoneypotField />
               <h1 className={styles.animate} style={timing(0, 21)}>
                 <span className={`${ui.headingReveal} inline-block`}>Login</span>
               </h1>
@@ -303,6 +308,7 @@ export default function AnimatedAuthForm({
           >
             <fieldset disabled={mode !== "signup" || pending}>
               <legend className={styles.srOnly}>Registration details</legend>
+              <HoneypotField />
               <h1 className={styles.animate} style={timing(17, 0)}>
                 <span className={`${ui.headingReveal} inline-block`}>Register</span>
               </h1>

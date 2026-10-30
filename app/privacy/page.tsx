@@ -86,7 +86,10 @@ export default function PrivacyPage() {
               tick &ldquo;Let Claude read this message&rdquo;. For a company we don&rsquo;t list, its name and the role title may be searched
               on public job-board and hiring-system sites through Anthropic. Email headers you paste are read in memory and never sent or stored.
             </li>
-            <li>No analytics, no ads, no tracking cookies and no third-party scripts. We never sell or rent your data.</li>
+            <li>
+              No analytics, no ads and no tracking cookies. The only outside script is Vercel&rsquo;s bot check, which loads
+              when you send a form. We never sell or rent your data.
+            </li>
             <li>Your individual reports are never shown publicly. Other people see only totals.</li>
             <li>If you have an account, you can see, change and delete your data from your dashboard, including the whole account.</li>
           </ul>
@@ -121,6 +124,12 @@ export default function PrivacyPage() {
               account, other requests per IP address, login attempts also per username typed, and current-password checks
               when you change your account details per account. These counters live only in the server&rsquo;s memory, are dropped within about a minute of
               their window ending (no window is longer than an hour), and are never written to our database.
+            </li>
+            <li>
+              <strong>Bot check.</strong> When you sign up, log in, run a check or send a problem report, your browser loads
+              Vercel&rsquo;s bot-check script (BotID, served from our own address) and sends Vercel signals about your browser so
+              it can tell a person from an automated script. Our server gets back only a yes-or-no answer and stores nothing
+              from it.
             </li>
             <li>
               Our own code never logs request bodies, passwords, cookies or message text.
@@ -222,7 +231,7 @@ export default function PrivacyPage() {
           </p>
 
           <Sub>Cookies</Sub>
-          <p>We use these cookies only for signing in. None of them tracks you.</p>
+          <p>Our own cookies are only for signing in, and none of them tracks you. The bot check may add its own.</p>
           <dl className={`${ui.card} flex flex-col p-5`}>
             <div className={`${styles.row} flex flex-col gap-1 pb-4`}>
               <dt className={styles.cookie}>jobseance_session</dt>
@@ -231,12 +240,19 @@ export default function PrivacyPage() {
                 and an expiry time, and scripts on the page cannot read it.
               </dd>
             </div>
-            <div className={`${styles.row} flex flex-col gap-1 pt-4`}>
+            <div className={`${styles.row} flex flex-col gap-1 py-4`}>
               <dt className={styles.cookie}>jobseance_oauth</dt>
               <dd className={styles.definition}>
                 Set only while you sign in with Google or GitHub, for {OAUTH_COOKIE_MINUTES} minutes. It holds a one-time
                 security code that protects the sign-in. A companion cookie, <code className={ui.inlineCode}>jobseance_oauth.sig</code>,
                 holds its signature and lives just as long.
+              </dd>
+            </div>
+            <div className={`${styles.row} flex flex-col gap-1 pt-4`}>
+              <dt className={styles.cookie}>KP_…</dt>
+              <dd className={styles.definition}>
+                Vercel&rsquo;s bot check may set cookies starting with KP_ when you send one of the forms above. Vercel
+                sets them, not us; their purpose is telling a person from an automated script.
               </dd>
             </div>
           </dl>
