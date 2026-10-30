@@ -118,7 +118,8 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Rate limiting.</strong> To stop abuse, our server counts checks, report and flag submissions per
-              account, other requests per IP address, and login attempts also per username typed. These counters live only in the server&rsquo;s memory, are dropped within about a minute of
+              account, other requests per IP address, login attempts also per username typed, and current-password checks
+              when you change your account details per account. These counters live only in the server&rsquo;s memory, are dropped within about a minute of
               their window ending (no window is longer than an hour), and are never written to our database.
             </li>
             <li>
@@ -376,8 +377,11 @@ export default function PrivacyPage() {
             when signed in; scam reports are listed on the dashboard only.
           </p>
           <p>
-            You can&rsquo;t change your username or email address yourself; ask us through the contact link below. If you
-            gave an email address with a problem report and want it removed, ask us.
+            If you sign in with a username and password, you can change your username, email address and password on your
+            dashboard; each change asks for your current password. A new email address replaces the old one and is marked
+            unverified, because we can&rsquo;t send email to confirm it. If you sign in with Google or GitHub, your email
+            address comes from that sign-in; ask us through the contact link below to change it. If you gave an email
+            address with a problem report and want it removed, ask us.
           </p>
         </Section>
 
