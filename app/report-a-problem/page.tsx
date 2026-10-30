@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import ui from "../components/ui.module.css";
 import { parsePrefill } from "./options";
 import ReportProblemForm from "./ReportProblemForm";
+import { issueFormToken } from "@/lib/bot-guard";
 import { getDb } from "@/lib/db";
 import { FLAG_TARGETS } from "@/lib/schemas";
 import { currentUser } from "@/lib/session-user";
@@ -67,7 +68,7 @@ export default async function ReportProblemPage({
           <h2 id="form-heading" className={`${ui.h2} mb-5`}>
             Your report
           </h2>
-          <ReportProblemForm companies={companies} signedIn={user !== null} prefill={prefill} />
+          <ReportProblemForm companies={companies} signedIn={user !== null} prefill={prefill} formToken={issueFormToken("flag")} />
         </section>
       </div>
     </main>

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { SHARED_STATE } from "./global-setup";
+import { AUTOMATION_HEADERS, SHARED_STATE } from "./global-setup";
 
 // Runs only when the seeded admin account's password is available (ADMIN_USER_PASSWORD in .env).
 const password = process.env.ADMIN_USER_PASSWORD;
@@ -8,7 +8,7 @@ test("the admin sees the admin page; a plain user gets a 404", async ({ browser,
   test.skip(!password, "ADMIN_USER_PASSWORD is not set, so there is no admin account to sign in as.");
 
   const admin = await browser.newContext({ baseURL });
-  const login = await admin.request.post("/api/auth/login", { headers: { origin: baseURL! }, data: { username: "admin", password } });
+  const login = await admin.request.post("/api/auth/login", { headers: { origin: baseURL!, ...AUTOMATION_HEADERS }, data: { username: "admin", password } });
   expect(login.ok()).toBe(true);
   const adminPage = await admin.newPage();
   await adminPage.goto("/admin");

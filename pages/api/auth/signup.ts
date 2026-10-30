@@ -3,6 +3,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { Prisma } from "@/app/generated/prisma/client";
 import { getDb } from "@/lib/db";
 import { guardAuthPost, sendError } from "@/lib/auth/pages";
+import { guardForm } from "@/lib/bot-guard";
 import { BCRYPT_COST } from "@/lib/auth/passport";
 import { loadPublicUser, sessionCookie, signToken } from "@/lib/auth/session";
 import { checkPassword, fieldErrors, signupSchema } from "@/lib/auth/validation";
@@ -23,7 +24,10 @@ export default async function signup(req: NextApiRequest, res: NextApiResponse) 
   const limit = rateLimit(`signup:ip:${clientIp(req.headers)}`, 30, 60 * 60);
   if (!limit.ok) return sendError(res, tooManyRequests(limit.retryAfter));
 
-  const parsed = signupSchema.safeParse(req.body);
+  const guard = await guardForm(req.body, { purpose: "auth", headers: req.headers, nodeHeaders: req.headers });
+  if (!guard.ok) return sendError(res, guard.error);
+
+  const parsed = signupSchema.safeParse(guard.body);
   if (!parsed.success) {
     return sendError(res, { status: 400, code: "validation_failed", message: "Check the highlighted fields.", fields: fieldErrors(parsed.error) });
   }

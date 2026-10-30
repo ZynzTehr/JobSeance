@@ -28,8 +28,15 @@ export function zodFields(error: z.ZodError): Record<string, string> {
   return fields;
 }
 
-/** Reads a JSON body (≤ 100 KB) and validates it. Throws HttpError 413/400. */
-export async function readBody<S extends z.ZodType>(request: Request, schema: S): Promise<z.infer<S>> {
+/**
+ * Reads a JSON body (≤ 100 KB) and validates it. Throws HttpError 413/400.
+ * `before` sees the parsed JSON first and may reject it or return a trimmed copy (the form bot guard).
+ */
+export async function readBody<S extends z.ZodType>(
+  request: Request,
+  schema: S,
+  before?: (body: unknown) => Promise<unknown>,
+): Promise<z.infer<S>> {
   const tooLarge = new HttpError({ status: 413, code: "payload_too_large", message: "Keep the request under 100 KB." });
   if (Number(request.headers.get("content-length") ?? 0) > MAX_BODY_BYTES) throw tooLarge;
   const raw = await request.text();
@@ -40,6 +47,7 @@ export async function readBody<S extends z.ZodType>(request: Request, schema: S)
   } catch {
     throw new HttpError({ status: 400, code: "invalid_json", message: "The body isn't valid JSON." });
   }
+  if (before) body = await before(body);
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
     throw new HttpError({ status: 400, code: "validation_failed", message: "Check the highlighted fields.", fields: zodFields(parsed.error) });

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { SHARED_STATE } from "./global-setup";
+import { AUTOMATION_HEADERS, SHARED_STATE } from "./global-setup";
 
 test.use({ storageState: SHARED_STATE });
 
@@ -19,7 +19,7 @@ test("a user sends a problem report about the site and gets a reference", async 
   const password = process.env.ADMIN_USER_PASSWORD;
   if (password && reference) {
     const admin = await page.context().browser()!.newContext({ baseURL });
-    const login = await admin.request.post("/api/auth/login", { headers: { origin: baseURL! }, data: { username: "admin", password } });
+    const login = await admin.request.post("/api/auth/login", { headers: { origin: baseURL!, ...AUTOMATION_HEADERS }, data: { username: "admin", password } });
     if (login.ok()) {
       await admin.request.patch(`/api/v1/flags/${reference}`, {
         headers: { origin: baseURL!, "content-type": "application/json" },

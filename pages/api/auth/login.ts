@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { guardAuthPost, sendError } from "@/lib/auth/pages";
+import { guardForm } from "@/lib/bot-guard";
 import { INVALID_LOGIN, getPassport } from "@/lib/auth/passport";
 import { loadPublicUser, sessionCookie, signToken } from "@/lib/auth/session";
 import { loginSchema, normalizeUsername } from "@/lib/auth/validation";
@@ -15,6 +16,10 @@ export default async function login(req: NextApiRequest, res: NextApiResponse) {
 
   const ipLimit = rateLimit(`login:ip:${clientIp(req.headers)}`, 30, 60);
   if (!ipLimit.ok) return sendError(res, tooManyRequests(ipLimit.retryAfter));
+
+  const guard = await guardForm(req.body, { purpose: "auth", headers: req.headers, nodeHeaders: req.headers });
+  if (!guard.ok) return sendError(res, guard.error);
+  req.body = guard.body; // passport-local reads req.body
 
   const parsed = loginSchema.safeParse(req.body);
   if (!parsed.success) {
