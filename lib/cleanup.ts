@@ -13,9 +13,10 @@ export const RETENTION = {
   aiUsageDays: 90, // AiUsage / AiUserUsage daily counters (numbers only)
   shadowDays: 30, // AiShadow rows: rule ids, sentence numbers and scores only (phase 13)
   // BoardDiscovery rows carry their own expiresAt (found: 30 days, not found: 7 days).
+  // EmailToken rows go at the first run after they're used or expire (24 hours or 30 minutes).
 } as const;
 
-export type CleanupCounts = { checksDeleted: number; excerptsCleared: number; flagsDeleted: number; aiUsageDeleted: number; discoveriesDeleted: number; shadowDeleted: number };
+export type CleanupCounts = { checksDeleted: number; excerptsCleared: number; flagsDeleted: number; aiUsageDeleted: number; discoveriesDeleted: number; shadowDeleted: number; emailTokensDeleted: number };
 
 const DAY_MS = 86_400_000;
 const daysBefore = (now: Date, days: number) => new Date(now.getTime() - days * DAY_MS);
@@ -28,7 +29,7 @@ export async function runCleanup(db: Db, now: Date = new Date()): Promise<Cleanu
   const aiDayCutoff = daysBefore(now, RETENTION.aiUsageDays).toISOString().slice(0, 10);
   const shadowCutoff = daysBefore(now, RETENTION.shadowDays);
 
-  const [checks, excerpts, flags, aiDays, aiUserDays, discoveries, shadow] = await db.$transaction([
+  const [checks, excerpts, flags, aiDays, aiUserDays, discoveries, shadow, emailTokens] = await db.$transaction([
     // Saved checks are kept; everything else expires.
     db.check.deleteMany({
       where: { createdAt: { lt: checkCutoff }, OR: [{ userId: null }, { saved: false }] },
@@ -44,6 +45,7 @@ export async function runCleanup(db: Db, now: Date = new Date()): Promise<Cleanu
     db.aiUserUsage.deleteMany({ where: { day: { lt: aiDayCutoff } } }),
     db.boardDiscovery.deleteMany({ where: { expiresAt: { lt: now } } }),
     db.aiShadow.deleteMany({ where: { createdAt: { lt: shadowCutoff } } }),
+    db.emailToken.deleteMany({ where: { OR: [{ usedAt: { not: null } }, { expiresAt: { lt: now } }] } }),
   ]);
 
   return {
@@ -53,6 +55,7 @@ export async function runCleanup(db: Db, now: Date = new Date()): Promise<Cleanu
     aiUsageDeleted: aiDays.count + aiUserDays.count,
     discoveriesDeleted: discoveries.count,
     shadowDeleted: shadow.count,
+    emailTokensDeleted: emailTokens.count,
   };
 }
 

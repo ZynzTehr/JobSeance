@@ -27,6 +27,7 @@ export default defineConfig({
     reuseExistingServer: false,
     // Writes are only accepted from APP_URL; the server must accept its own test origin.
     // AUTOMATION_BYPASS_SECRET lets direct API calls in the tests skip the form token; browser flows still need it.
-    env: { USE_FIXTURES: "1", APP_URL: baseURL, CUES_PROVIDER: "", AUTOMATION_BYPASS_SECRET: AUTOMATION_KEY },
+    // EMAIL_ENABLED is blank so the tests never send email, whatever .env says.
+    env: { USE_FIXTURES: "1", APP_URL: baseURL, CUES_PROVIDER: "", AUTOMATION_BYPASS_SECRET: AUTOMATION_KEY, EMAIL_ENABLED: "" },
   },
 });

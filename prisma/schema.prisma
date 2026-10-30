@@ -108,7 +108,7 @@ model User {
   id              String          @id @default(cuid())
   username        String?         @unique // trimmed + lowercased, 3–20 of [a-z0-9_]; set on every password account, null = social-only
   email           String          @unique // trimmed + lowercased; Google and GitHub always supply one
-  emailVerifiedAt DateTime? // set only when Google verifies it (no email sending tonight)
+  emailVerifiedAt DateTime? // set when Google verifies it, or a verify/reset link sent to this exact address is used
   passwordHash    String? // null = social-only account
   name            String?
   role            Role            @default(USER)
@@ -119,6 +119,28 @@ model User {
   checks          Check[]
   outcomes        OutcomeReport[]
   scamReports     ScamReport[]
+  emailTokens     EmailToken[]
+}
+
+enum EmailTokenPurpose {
+  VERIFY_EMAIL
+  RESET_PASSWORD
+}
+
+// One-time links we email (lib/auth/email-tokens.ts). Only a SHA-256 hash of the token is
+// stored; `email` is the address the link went to. Deleted by the daily cleanup once used or expired.
+model EmailToken {
+  id        String            @id @default(cuid())
+  userId    String
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose   EmailTokenPurpose
+  tokenHash String            @unique
+  email     String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime          @default(now())
+
+  @@index([userId])
 }
 
 model Account {

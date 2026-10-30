@@ -32,6 +32,7 @@ Built with Next.js 16.4 (App Router), Prisma 7.10, Neon Postgres, Passport.js an
    | `GOOGLE_*`, `GITHUB_*` | From your OAuth apps; leave empty to hide that sign-in button |
    | `CRON_SECRET`, `USE_FIXTURES` | Optional |
    | `AUTOMATION_BYPASS_SECRET` | Optional, 32+ bytes. Postman and newman send it as `x-automation-key` to skip the form token on log-in, sign-up and problem reports |
+   | `EMAIL_ENABLED`, `POSTMARK_SERVER_TOKEN`, `EMAIL_FROM` | Optional; leave empty. Email stays off unless all three are set and `EMAIL_ENABLED` is `1`. See [Turning on email](#turning-on-email) |
    | `DEMO_USER_EMAIL`, `DEMO_USER_PASSWORD` | Optional; used by the database seed |
    | `ADMIN_USER_EMAIL`, `ADMIN_USER_PASSWORD` | Optional, seed only: the only way to get an admin account (username `admin`). `demo` is always seeded as a plain user, since its password is typed on stage |
    | `ANTHROPIC_API_KEY` | Optional; turns on AI reading, board searches and page reads. Use a dedicated key with a monthly spend limit set in the Anthropic console |
@@ -114,6 +115,27 @@ Admin accounts come only from the seed's `ADMIN_USER_*` variables; `demo` is alw
 ADMIN_USER_EMAIL=... ADMIN_USER_PASSWORD=... DEMO_USER_PASSWORD=... npx prisma db seed --config prisma7.config.ts
 ```
 
+## Email verification and password reset
+
+Email is off by default. While it is off, the app sends nothing, `/verify-email`, `/forgot-password`, `/reset-password` and their API routes answer 404, and the login form and account settings show no email links or buttons.
+
+With email on:
+
+- Signing up with a password, changing the email address, and the "Send verification email" button in account settings each email a link to `/verify-email`. The page has a button, and only its POST uses the link, so mail scanners that open every link change nothing. The address counts as verified only if the link went to the account's current address, because Google sign-in links itself to an account with a verified address.
+- "Forgot password?" on the login form opens `/forgot-password`. `POST /api/auth/forgot-password` answers 202 with the same text whether or not a password account uses the address, and never in under 1.5 seconds, so the reply doesn't reveal which addresses have accounts. Only password accounts get an email, at most 3 an hour per address. Using the reset link sets the new password, signs the account out everywhere (`tokenVersion` goes up by one) and marks the address verified.
+- A verification link lasts 24 hours and a reset link 30 minutes. Each works once. `EmailToken` stores a SHA-256 hash of the token, never the token. A new link replaces the account's unused one of the same kind, an email change deletes them all, and the daily cleanup deletes used and expired rows.
+- `lib/email.ts` calls Postmark's `/email` endpoint with `fetch`, with open and link tracking off. Logs carry the HTTP status and Postmark's numeric error code, never an address or a token. `USE_FIXTURES=1` and `npm test` never call Postmark.
+
+### Turning on email
+
+1. Create a Postmark account and a server used only for JobSeance.
+2. Add the sending domain in Postmark and publish the DKIM TXT record and the Return-Path CNAME it shows; the Return-Path makes SPF pass for your domain. Publish a DMARC record too, for example a `_dmarc` TXT record of `v=DMARC1; p=none; rua=mailto:you@example.com`, and tighten `p` once reports look clean.
+3. Until Postmark approves the account, it delivers only to addresses on your own domain. Request approval before turning email on in production.
+4. Copy the server's API token. Postmark has no send-only token: a server token can do anything on its server, which is why the server should send nothing else.
+5. In Vercel, set `POSTMARK_SERVER_TOKEN` (as a sensitive variable), `EMAIL_FROM` (for example `JobSeance <accounts@yourdomain>`) and `EMAIL_ENABLED=1` for each environment that should send, then redeploy. The privacy notice lists Postmark and the emailed links only while email is on.
+
+Postmark keeps each message, which includes the link, for 45 days by default ([Postmark support](https://postmarkapp.com/support/article/how-long-are-inbound-and-outbound-messages-stored-in-activity)). The links inside expire long before that.
+
 ## Warning-sign cues in shadow mode (phase 13)
 
 Our phrase rules catch exact wording ("training fee"); scammers reword it ("cover the onboarding cost"). Phase 13 measures whether a model can spot the reworded versions, without showing or counting anything yet.
@@ -132,7 +154,7 @@ Our phrase rules catch exact wording ("training fee"); scammers reword it ("cove
 
 ## End-to-end tests and CI
 
-`npm run test:e2e` builds the app, serves it on port 3100 with saved job-board copies and scripted AI answers (`USE_FIXTURES=1`), and runs 18 browser tests in Chromium. They cover sign-up, login, the form bot guard, signed-out redirects, the 404 page, the four kinds of check, saved checks, the dashboard, scam reports, Report a problem, username and password changes, account deletion and the admin page.
+`npm run test:e2e` builds the app, serves it on port 3100 with saved job-board copies and scripted AI answers (`USE_FIXTURES=1`), and runs 19 browser tests in Chromium. They cover sign-up, login, the form bot guard, signed-out redirects, the 404 page, the four kinds of check, saved checks, the dashboard, scam reports, Report a problem, username and password changes, account deletion, the admin page, and the email pages staying hidden while email is off. They always run with email off.
 
 - They use the dev database from `.env`; never point them at production. Each run signs up throwaway accounts and deletes them again.
 - The admin test runs only when `ADMIN_USER_PASSWORD` is set.
@@ -150,7 +172,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs typecheck, lint and unit tests 
 
 Set each variable per environment in Vercel. On previews, leave `APP_URL` unset; the app falls back to `https://$VERCEL_URL`. Same-origin checks also trust Vercel's `VERCEL_PROJECT_PRODUCTION_URL`, so production accepts its own domain even if `APP_URL` is unset. Set `CRON_SECRET` in Production so the daily cleanup and board sweep can run. Set `ANTHROPIC_API_KEY` in Preview and Production to turn AI reading on; without it the Pasted posting tab still works and shows "couldn't verify" for the AI step. Set `AUTOMATION_BYPASS_SECRET` wherever you run the Postman collection; without it, log-in from Postman gets a 400 `form_expired`.
 
-Sign-up, log-in and "Report a problem" refuse a request that fills the hidden decoy field, has no form token signed when the page rendered, or arrives within two seconds of that render. On Vercel, those forms and browser scans also go through Vercel BotID (basic mode, free). BotID only runs on Vercel deployments, so local development and the end-to-end tests skip it. The code is in `lib/bot-guard.ts`.
+Sign-up, log-in, "Report a problem" and, while email is on, "Forgot password" refuse a request that fills the hidden decoy field, has no form token signed when the page rendered, or arrives within two seconds of that render. On Vercel, those forms and browser scans also go through Vercel BotID (basic mode, free). BotID only runs on Vercel deployments, so local development and the end-to-end tests skip it. The code is in `lib/bot-guard.ts`.
 
 ## Postman
 
